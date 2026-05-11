@@ -69,7 +69,15 @@ export default function ClinicalPsychologyLesson({ clinicalFlashcards, onMarkFla
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">{L.bridgeNote}</p>
       </div>
 
-      <SectionCard title="Ορισμός">
+      <SectionCard title="Διάλεξη (PPT) — συμπεριφορά & αντιμετώπιση">
+        <p className="text-sm text-slate-800 dark:text-slate-100 font-medium leading-relaxed">{L.pptBehavior}</p>
+      </SectionCard>
+
+      <SectionCard title="Διάλεξη (PPT) — προσωπικότητα">
+        <p className="text-sm text-slate-800 dark:text-slate-100 font-medium leading-relaxed">{L.pptPersonality}</p>
+      </SectionCard>
+
+      <SectionCard title="Συμπλήρωση (κλάδος)">
         <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{L.intro}</p>
       </SectionCard>
 

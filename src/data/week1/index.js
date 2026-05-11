@@ -6,7 +6,8 @@ import { philosopherExamQuestions } from './philosophers.js'
 import { wundtLesson, wundtExamQuestions } from './wundt.js'
 import { functionalismLesson, functionalismExamQuestions } from './functionalism.js'
 import { clinicalLesson, clinicalExamQuestions } from './clinicalPsychology.js'
-import { psychoanalysisMeta } from './psychoanalysis.js'
+import { psychoanalysisLesson, psychoanalysisExamQuestions } from './psychoanalysis.js'
+import { humanisticLesson, humanisticExamQuestions } from './humanisticPsychology.js'
 import { behaviorismMeta } from './behaviorism.js'
 import { cognitiveMeta } from './cognitive.js'
 import { gestaltMeta } from './gestalt.js'
@@ -17,6 +18,8 @@ export * from './philosophers.js'
 export * from './wundt.js'
 export * from './functionalism.js'
 export * from './clinicalPsychology.js'
+export * from './psychoanalysis.js'
+export * from './humanisticPsychology.js'
 
 /** Θέματα για το hub Εβδομάδας 1 (επεκτείνεται εύκολα) */
 export const WEEK1_TOPIC_CARDS = [
@@ -47,10 +50,21 @@ export const WEEK1_TOPIC_CARDS = [
   {
     slug: 'clinical',
     title: clinicalLesson.title,
-    description: 'Γέφυρα: διαταραχές, θεραπεία, εφαρμογή — πριν τον Freud',
+    description: 'PPT: αποκλίσεις/διαταραχές συμπεριφοράς, προσωπικότητα — πριν τον Freud',
     ready: true,
   },
-  { ...psychoanalysisMeta, ready: false },
+  {
+    slug: 'psychoanalysis',
+    title: psychoanalysisLesson.title,
+    description: 'Ασυνείδητο, παιδική ηλικία, όνειρα, ψυχαναλυτική θεωρία & θεραπεία',
+    ready: true,
+  },
+  {
+    slug: 'humanistic',
+    title: humanisticLesson.title,
+    description: 'Maslow, Rogers, αυτοπραγμάτωση, clients — vs Freud & συμπεριφορισμός',
+    ready: true,
+  },
   { ...behaviorismMeta, ready: false },
   { ...cognitiveMeta, ready: false },
   { ...gestaltMeta, ready: false },
@@ -93,6 +107,18 @@ export function getWeek1ExamQuestions() {
     ...clinicalExamQuestions.map((q) => ({
       id: q.id,
       topic: 'Κλινική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...psychoanalysisExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Ψυχανάλυση (Freud)',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...humanisticExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Ανθρωπιστική Ψυχολογία',
       question: q.question,
       idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
     })),

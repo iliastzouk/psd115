@@ -7,6 +7,8 @@ import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philos
 import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
 import { functionalismFlashcards, functionalismQuizQuestions } from './week1/functionalism.js'
 import { clinicalFlashcards, clinicalQuizQuestions } from './week1/clinicalPsychology.js'
+import { psychoanalysisFlashcards, psychoanalysisQuizQuestions } from './week1/psychoanalysis.js'
+import { humanisticFlashcards, humanisticQuizQuestions } from './week1/humanisticPsychology.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
@@ -25,24 +27,6 @@ export const CATEGORIES = [
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = [
   {
-    id: 'fc-psy-1',
-    categoryId: 'psychoanalysis',
-    front: 'Ποιος συνδέεται με την ψυχαναλυτική προσέγγιση;',
-    back: 'Sigmund Freud.',
-  },
-  {
-    id: 'fc-psy-2',
-    categoryId: 'psychoanalysis',
-    front: 'Πώς εξηγεί η ψυχανάλυση τη συμπεριφορά;',
-    back: 'Από ασυνείδητες συγκρούσεις και εμπειρίες (π.χ. τραύματα παιδικής ηλικίας) που μπορεί να έχουν απωθηθεί.',
-  },
-  {
-    id: 'fc-psy-3',
-    categoryId: 'psychoanalysis',
-    front: 'Τι δίνει έμφαση η ψυχαναλυτική θεωρία;',
-    back: 'Στις ασυνείδητες ψυχικές διεργασίες στη διαμόρφωση συναισθημάτων, σκέψεων και συμπεριφορών.',
-  },
-  {
     id: 'fc-beh-1',
     categoryId: 'behaviorism',
     front: 'Τι τονίζει ο Συμπεριφορισμός;',
@@ -59,18 +43,6 @@ const LEGACY_FLASHCARDS = [
     categoryId: 'behaviorism',
     front: 'Ποιο ζεύγος εννοιών χρησιμοποιείται συχνά στη συμπεριφορική ανάλυση μάθησης;',
     back: 'Ερέθισμα — αντίδραση (Ε–Α).',
-  },
-  {
-    id: 'fc-hum-1',
-    categoryId: 'humanistic',
-    front: 'Ποιοι εκπρόσωποι συνδέονται με την Ανθρωπιστική Ψυχολογία;',
-    back: 'Abraham Maslow και Carl Rogers.',
-  },
-  {
-    id: 'fc-hum-2',
-    categoryId: 'humanistic',
-    front: 'Πώς αντιμετωπίζει το άτομο στην ανθρωπιστική προσέγγιση;',
-    back: 'Δίνεται έμφαση στο θετικό δυναμικό, στην ανάπτυξη και στην αξιοποίηση δυνατοτήτων — «πελάτες» αντί «ασθενείς».',
   },
   {
     id: 'fc-cog-1',
@@ -112,31 +84,6 @@ const LEGACY_FLASHCARDS = [
 
 const LEGACY_QUIZ_QUESTIONS = [
   {
-    id: 'q-psy-1',
-    categoryId: 'psychoanalysis',
-    type: 'mcq',
-    question: 'Η ψυχαναλυτική θεωρία δίνει ιδιαίτερη έμφαση:',
-    options: [
-      'Μόνο στην παρατηρήσιμη συμπεριφορά',
-      'Στις ασυνείδητες ψυχικές διεργασίες',
-      'Μόνο στη μνήμη ως αποθήκευση bit πληροφορίας',
-      'Μόνο στη γραμματική της γλώσσας',
-    ],
-    correctIndex: 1,
-    explanation: 'Η ψυχανάλυση τονίζει ασυνείδητες διεργασίες και πρώιμες εμπειρίες που μπορεί να απωθηθούν.',
-  },
-  {
-    id: 'q-psy-2',
-    categoryId: 'psychoanalysis',
-    type: 'tf',
-    question:
-      'Η ψυχανάλυση ως θεραπεία μπορεί να συνδέεται με ανάκληση πρώιμων εμπειριών και σύνδεσή τους με όνειρα/φαντασιώσεις.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation:
-      'Στο υλικό περιγράφεται θεραπεία μέσω ανάκλησης πρώιμων εμπειριών και σύνδεσης με όνειρα και φαντασιώσεις.',
-  },
-  {
     id: 'q-beh-1',
     categoryId: 'behaviorism',
     type: 'mcq',
@@ -167,29 +114,6 @@ const LEGACY_QUIZ_QUESTIONS = [
     options: ['Skinner', 'Pavlov', 'Maslow', 'Wundt'],
     correctIndex: 1,
     explanation: 'Ο Ivan Pavlov συνδέεται με το πείραμα πέψης σκύλων και την κλασική εξαρτημένη μάθηση.',
-  },
-  {
-    id: 'q-hum-1',
-    categoryId: 'humanistic',
-    type: 'mcq',
-    question: 'Η ανθρωπιστική προσέγγιση δίνει έμφαση:',
-    options: [
-      'Στην τιμωρία ως κύριο εργαλείο',
-      'Στο θετικό δυναμικό, την ανάπτυξη και την αξιοποίηση δυνατοτήτων',
-      'Μόνο στο ασυνείδητο',
-      'Μόνο στα αντανακλαστικά',
-    ],
-    correctIndex: 1,
-    explanation: 'Η ανθρωπιστική ψυχολογία τονίζει υψηλότερες φιλοδοξίες, ανάπτυξη και θετικό δυναμικό.',
-  },
-  {
-    id: 'q-hum-2',
-    categoryId: 'humanistic',
-    type: 'tf',
-    question: 'Στην ανθρωπιστική παράδοση συχνά προτιμάται ο όρος «πελάτης» αντί «ασθενής».',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό αναφέρεται ρητά «πελάτες αντί ασθενείς».',
   },
   {
     id: 'q-cog-1',
@@ -287,6 +211,8 @@ export const flashcards = [
   ...wundtFlashcards,
   ...functionalismFlashcards,
   ...clinicalFlashcards,
+  ...psychoanalysisFlashcards,
+  ...humanisticFlashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -296,6 +222,8 @@ export const quizQuestions = [
   ...wundtQuizQuestions,
   ...functionalismQuizQuestions,
   ...clinicalQuizQuestions,
+  ...psychoanalysisQuizQuestions,
+  ...humanisticQuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

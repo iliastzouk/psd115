@@ -8,6 +8,8 @@ import PhilosophersPage from './pages/PhilosophersPage.jsx'
 import WundtPage from './pages/WundtPage.jsx'
 import FunctionalismPage from './pages/FunctionalismPage.jsx'
 import ClinicalPsychologyPage from './pages/ClinicalPsychologyPage.jsx'
+import PsychoanalysisPage from './pages/PsychoanalysisPage.jsx'
+import HumanisticPsychologyPage from './pages/HumanisticPsychologyPage.jsx'
 import FlashcardsPage from './pages/FlashcardsPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import ExamMode from './pages/ExamMode.jsx'
@@ -25,6 +27,8 @@ export default function App() {
           <Route path="wundt" element={<WundtPage />} />
           <Route path="functionalism" element={<FunctionalismPage />} />
           <Route path="clinical" element={<ClinicalPsychologyPage />} />
+          <Route path="psychoanalysis" element={<PsychoanalysisPage />} />
+          <Route path="humanistic" element={<HumanisticPsychologyPage />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
           <Route path="exam" element={<ExamMode />} />

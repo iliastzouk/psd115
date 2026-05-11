@@ -88,6 +88,16 @@ export function useStudySession() {
     [],
   )
 
+  const psychoanalysisFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'psychoanalysis'),
+    [],
+  )
+
+  const humanisticFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'humanistic'),
+    [],
+  )
+
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
@@ -226,6 +236,8 @@ export function useStudySession() {
     wundtFlashcardsOnly,
     functionalismFlashcardsOnly,
     clinicalFlashcardsOnly,
+    psychoanalysisFlashcardsOnly,
+    humanisticFlashcardsOnly,
     cardOrder,
     cardIndex,
     currentCard,
