@@ -3,6 +3,7 @@ import Flashcard from './components/Flashcard.jsx'
 import QuizCard from './components/QuizCard.jsx'
 import Progress from './components/Progress.jsx'
 import WrongAnswersReview from './components/WrongAnswersReview.jsx'
+import DefinitionLesson from './components/DefinitionLesson.jsx'
 import { CATEGORIES, flashcards, quizQuestions, getCategoryLabel } from './data/questions.js'
 import { shuffle } from './utils/shuffle.js'
 import {
@@ -42,6 +43,7 @@ export default function App() {
   const [quizRevealed, setQuizRevealed] = useState(false)
   const [sessionCorrect, setSessionCorrect] = useState(0)
   const [quizResult, setQuizResult] = useState(null)
+  const [lessonResetKey, setLessonResetKey] = useState(0)
 
   useEffect(() => {
     setProgress(loadProgress())
@@ -66,6 +68,11 @@ export default function App() {
   const filteredQuiz = useMemo(
     () => filterByCategories(quizQuestions, selectedIds),
     [selectedIds],
+  )
+
+  const definitionFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'definition'),
+    [],
   )
 
   useEffect(() => {
@@ -174,6 +181,7 @@ export default function App() {
     resetProgress()
     setProgress(defaultProgress())
     setQuizActive(false)
+    setLessonResetKey((k) => k + 1)
   }, [])
 
   const clearWrongBook = useCallback(() => {
@@ -223,8 +231,9 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="mt-4 flex rounded-xl bg-slate-200/70 dark:bg-slate-800/80 p-1 text-sm font-medium">
+          <nav className="mt-4 grid grid-cols-2 min-[480px]:flex rounded-xl bg-slate-200/70 dark:bg-slate-800/80 p-1 text-xs min-[480px]:text-sm font-medium gap-1 min-[480px]:gap-0">
             {[
+              { id: 'lesson', label: 'Μάθημα' },
               { id: 'cards', label: 'Κάρτες' },
               { id: 'quiz', label: 'Κουίζ' },
               { id: 'review', label: 'Λάθη' },
@@ -237,7 +246,7 @@ export default function App() {
                   if (tab.id !== 'quiz') setQuizActive(false)
                 }}
                 className={[
-                  'flex-1 touch-manipulation rounded-lg py-3 min-[400px]:py-2.5 transition-all duration-200 min-h-[44px] min-[400px]:min-h-0',
+                  'min-[480px]:flex-1 touch-manipulation rounded-lg py-3 min-[400px]:py-2.5 transition-all duration-200 min-h-[44px] min-[400px]:min-h-0',
                   mode === tab.id
                     ? 'bg-white dark:bg-slate-900 shadow text-slate-900 dark:text-slate-100'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white',
@@ -293,11 +302,26 @@ export default function App() {
           </p>
         </section>
 
+        {mode === 'lesson' && (
+          <p className="text-xs text-slate-600 dark:text-slate-400 rounded-xl bg-teal-50/80 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900 px-3 py-2">
+            Στο <strong>Μάθημα</strong> βρίσκεται το πλήρες κεφάλαιο «Ορισμός της Ψυχολογίας». Οι <strong>Κατηγορίες</strong>{' '}
+            από κάτω επηρεάζουν μόνο τις καρτέλες <strong>Κάρτες</strong> και <strong>Κουίζ</strong>.
+          </p>
+        )}
+
         <Progress
           progress={progress}
           totalFlashcards={flashcards.length}
           totalQuiz={quizQuestions.length}
         />
+
+        {mode === 'lesson' && (
+          <DefinitionLesson
+            key={lessonResetKey}
+            definitionFlashcards={definitionFlashcardsOnly}
+            onMarkFlashSeen={markFlashSeen}
+          />
+        )}
 
         {mode === 'cards' && (
           <section className="space-y-3">

@@ -35,12 +35,45 @@ export function saveProgress(progress) {
   }
 }
 
+const DEF_CHECKLIST_KEY = 'psd115-w1-definition-checklist'
+
+export function loadDefinitionChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(DEF_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveDefinitionChecklist(items) {
+  try {
+    localStorage.setItem(DEF_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetDefinitionChecklist() {
+  try {
+    localStorage.removeItem(DEF_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
   } catch {
     /* ignore */
   }
+  resetDefinitionChecklist()
   return defaultProgress()
 }
 
