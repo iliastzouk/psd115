@@ -1,6 +1,6 @@
-# psd115
+# psd115 — PSD115 Exam Prep System
 
-Personal project workspace — React μελέτη PSD115 Εβδομάδα 1.
+React εφαρμογή με **React Router**, δομή ανά **εβδομάδα** (`src/data/week1/`) και σελίδες κάτω από `src/pages/`.
 
 ## Τοπική εκτέλεση
 
@@ -11,6 +11,16 @@ cd psd115
 npm.cmd install
 npm.cmd run dev
 ```
+
+### Δομή (κύρια)
+
+- `src/data/week1/` — θέματα (π.χ. `definitionPsychology.js`, `philosophers.js`) + stubs για επέκταση
+- `src/data/quizzes/week1Quiz.js` — συγκεντρωτικό κουίζ Εβδ. 1
+- `src/pages/` — Home, hub Εβδ. 1, μαθήματα, κάρτες, κουίζ, exam mode, λάθη
+- `src/layouts/AppShell.jsx` — κελύφος, πρόοδος, θέμα
+- `src/hooks/useStudySession.js` — κατάσταση μελέτης / localStorage
+
+Διαδρομές: `/` · `/week/1` · `/week/1/definition` · `/week/1/philosophers` · `flashcards` · `quiz` · `exam` · `review`.
 
 ## Deploy στο Vercel
 

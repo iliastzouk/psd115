@@ -1,0 +1,60 @@
+import { useMemo, useState } from 'react'
+import { shuffle } from '../utils/shuffle.js'
+import { getWeek1ExamQuestions } from '../data/week1/index.js'
+import ExamQuestion from '../components/ExamQuestion.jsx'
+import ProgressBar from '../components/ProgressBar.jsx'
+
+export default function ExamMode() {
+  const deck = useMemo(() => shuffle(getWeek1ExamQuestions()), [])
+  const [index, setIndex] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+
+  const total = deck.length
+  const current = deck[index]
+
+  function next() {
+    setRevealed(false)
+    setIndex((i) => (i + 1 >= total ? 0 : i + 1))
+  }
+
+  function prev() {
+    setRevealed(false)
+    setIndex((i) => (i - 1 < 0 ? total - 1 : i - 1))
+  }
+
+  if (!current) {
+    return <p className="text-sm text-slate-600">Δεν υπάρχουν ερωτήσεις εξέτασης ακόμη.</p>
+  }
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Λειτουργία εξέτασης: ερώτηση ανάπτυξης — δοκίμασε να απαντήσεις προφορικά ή γραπτά πριν δεις το πρότυπο.
+      </p>
+      <ProgressBar label={`Θέμα ${index + 1} / ${total}`} value={index + 1} max={total} colorClass="bg-indigo-500" />
+      <p className="text-[11px] uppercase text-slate-500">{current.topic}</p>
+      <ExamQuestion
+        question={current.question}
+        idealAnswer={current.idealAnswer}
+        revealed={revealed}
+        onToggle={() => setRevealed((r) => !r)}
+      />
+      <div className="flex gap-3 justify-between">
+        <button
+          type="button"
+          onClick={prev}
+          className="touch-manipulation rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-sm min-h-[48px]"
+        >
+          Προηγούμενο
+        </button>
+        <button
+          type="button"
+          onClick={next}
+          className="touch-manipulation rounded-xl bg-indigo-600 text-white px-4 py-3 text-sm font-medium min-h-[48px]"
+        >
+          Επόμενο
+        </button>
+      </div>
+    </div>
+  )
+}

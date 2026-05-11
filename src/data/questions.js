@@ -1,7 +1,9 @@
 /**
- * Υλικό βασισμένο στο PSD115 / 1η Εβδομάδα: «Ψυχολογία: Η εξέλιξη μιας επιστήμης»
- * (συνοπτική απόδοση από διδακτικό υλικό / οδηγό μελέτης).
+ * PSD115 Exam Prep — καθολικό dataset
+ * Εβδομάδα 1: data/week1/* · Λοιπά θέματα: legacy παρακάτω (μέχρι να μεταφερθούν σε week1)
  */
+import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
+import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
@@ -16,49 +18,8 @@ export const CATEGORIES = [
   { id: 'evolutionary', label: 'Εξελικτική Ψυχολογία' },
 ]
 
-export const flashcards = [
-  {
-    id: 'fc-def-1',
-    categoryId: 'definition',
-    front: 'Τι είναι η ψυχολογία;',
-    back: 'Η επιστήμη που μελετά τη συμπεριφορά και τις νοητικές διεργασίες (κυρίως του ανθρώπου και άλλων έμβιων όντων).',
-  },
-  {
-    id: 'fc-def-2',
-    categoryId: 'definition',
-    front: 'Τι είναι συμπεριφορά;',
-    back: 'Κάθε δραστηριότητα που παρατηρείται εξωτερικά.',
-  },
-  {
-    id: 'fc-def-3',
-    categoryId: 'definition',
-    front: 'Τι είναι νοητικές διεργασίες;',
-    back: 'Εσωτερικές λειτουργίες όπως σκέψεις, αναμνήσεις και συναισθήματα.',
-  },
-  {
-    id: 'fc-hist-1',
-    categoryId: 'history',
-    front: 'Ποιος συνδέεται με τον εμφυτισμό (νατιβισμό);',
-    back: 'Ο Πλάτωνας (427–347 π.Χ.) — τάση να θεωρούνται κάποιες ικανότητες έμφυτες.',
-  },
-  {
-    id: 'fc-hist-2',
-    categoryId: 'history',
-    front: 'Ποιος συνδέεται με την ιδέα του «άγραφου πίνακα» (tabula rasa);',
-    back: 'Ο Αριστοτέλης (384–322 π.Χ.).',
-  },
-  {
-    id: 'fc-hist-3',
-    categoryId: 'history',
-    front: 'Ποια είναι η θέση του René Descartes για σώμα και νου;',
-    back: 'Δυϊσμός: το σώμα και ο νους είναι διαφορετικά πράγματα (1596–1650).',
-  },
-  {
-    id: 'fc-hist-4',
-    categoryId: 'history',
-    front: 'Πώς περιέγραψε ο Thomas Hobbes τη σχέση νου–εγκεφάλου;',
-    back: '«Ο νους είναι αυτό που κάνει ο εγκέφαλος» (1588–1679).',
-  },
+/** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
+const LEGACY_FLASHCARDS = [
   {
     id: 'fc-str-1',
     categoryId: 'structuralism',
@@ -187,114 +148,7 @@ export const flashcards = [
   },
 ]
 
-export const quizQuestions = [
-  {
-    id: 'q-def-1',
-    categoryId: 'definition',
-    type: 'mcq',
-    question: 'Η Ψυχολογία ως επιστήμη περιγράφει και εξηγεί κυρίως:',
-    options: [
-      'Μόνο τη συμπεριφορά ανθρώπων και ζώων',
-      'Τη συμπεριφορά και τις νοητικές διεργασίες κυρίως του ανθρώπου και άλλων έμβιων όντων',
-      'Μόνο τις ασθένειες του εγκεφάλου',
-      'Μόνο τις κοινωνικές σχέσεις',
-    ],
-    correctIndex: 1,
-    explanation:
-      'Στο διδακτικό υλικό ορίζεται ως επιστήμη που περιγράφει και εξηγεί τη συμπεριφορά και τις νοητικές διεργασίες κυρίως του ανθρώπου αλλά και άλλων έμβιων όντων.',
-  },
-  {
-    id: 'q-def-2',
-    categoryId: 'definition',
-    type: 'tf',
-    question: 'Η «συμπεριφορά» περιλαμβάνει δραστηριότητα που μπορεί να παρατηρηθεί από άλλους ή από όργανα μέτρησης.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Ο ορισμός τονίζει την παρατηρήσιμη δραστηριότητα από άλλους οργανισμούς ή πειραματικά μέσα.',
-  },
-  {
-    id: 'q-def-3',
-    categoryId: 'definition',
-    type: 'tf',
-    question: 'Η ψυχολογία μελετά μόνο τη συμπεριφορά.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 1,
-    explanation: 'Μελετά και τις νοητικές διεργασίες.',
-  },
-  {
-    id: 'q-def-4',
-    categoryId: 'definition',
-    type: 'tf',
-    question: 'Οι σκέψεις αποτελούν νοητικές διεργασίες.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Οι σκέψεις είναι εσωτερικές διεργασίες.',
-  },
-  {
-    id: 'q-def-5',
-    categoryId: 'definition',
-    type: 'tf',
-    question: 'Το γέλιο αποτελεί συμπεριφορά.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Είναι παρατηρήσιμη δραστηριότητα.',
-  },
-  {
-    id: 'q-def-6',
-    categoryId: 'definition',
-    type: 'mcq',
-    question: 'Ποιο από τα παρακάτω αποτελεί νοητική διεργασία;',
-    options: ['Τρέξιμο', 'Γέλιο', 'Μνήμη', 'Ομιλία'],
-    correctIndex: 2,
-    explanation: 'Η μνήμη είναι εσωτερική νοητική διεργασία· τα υπόλοιπα είναι παρατηρήσιμες ενέργειες.',
-  },
-  {
-    id: 'q-def-7',
-    categoryId: 'definition',
-    type: 'mcq',
-    question: 'Γιατί η ψυχολογία θεωρείται επιστήμη;',
-    options: [
-      'Επειδή βασίζεται σε απόψεις',
-      'Επειδή χρησιμοποιεί έρευνα',
-      'Επειδή είναι φιλοσοφία',
-      'Επειδή βασίζεται μόνο στην εμπειρία',
-    ],
-    correctIndex: 1,
-    explanation:
-      'Ως επιστήμη βασίζεται σε συστηματική έρευνα, παρατήρηση, δεδομένα και συχνά στατιστική ανάλυση.',
-  },
-  {
-    id: 'q-hist-1',
-    categoryId: 'history',
-    type: 'mcq',
-    question: 'Ποιος συνδέεται με την ιδέα του «άγραφου πίνακα» (tabula rasa);',
-    options: ['Πλάτωνας', 'Αριστοτέλης', 'Descartes', 'Freud'],
-    correctIndex: 1,
-    explanation: 'Ο Αριστοτέλης συνδέεται με το tabula rasa στο υλικό της 1ης εβδομάδας.',
-  },
-  {
-    id: 'q-hist-2',
-    categoryId: 'history',
-    type: 'tf',
-    question: 'Ο Descartes υποστήριξε τον δυϊσμό: σώμα και νους είναι διακριτά.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Η θεωρία του Descartes περιγράφεται ως δυϊσμός μεταξύ σώματος και νου.',
-  },
-  {
-    id: 'q-hist-3',
-    categoryId: 'history',
-    type: 'mcq',
-    question: 'Ο Thomas Hobbes περιέγραψε τον νου ως:',
-    options: [
-      'Αθάνατη ψυχή ανεξάρτητη από το σώμα',
-      'Αυτό που κάνει ο εγκέφαλος',
-      'Μόνο συναίσθημα',
-      'Καθαρά κοινωνικό κατασκεύασμα',
-    ],
-    correctIndex: 1,
-    explanation: 'Στο υλικό αναφέρεται ρητά ότι «ο νους είναι αυτό που κάνει ο εγκέφαλος».',
-  },
+const LEGACY_QUIZ_QUESTIONS = [
   {
     id: 'q-str-1',
     categoryId: 'structuralism',
@@ -354,10 +208,12 @@ export const quizQuestions = [
     id: 'q-psy-2',
     categoryId: 'psychoanalysis',
     type: 'tf',
-    question: 'Η ψυχανάλυση ως θεραπεία μπορεί να συνδέεται με ανάκληση πρώιμων εμπειριών και σύνδεσή τους με όνειρα/φαντασιώσεις.',
+    question:
+      'Η ψυχανάλυση ως θεραπεία μπορεί να συνδέεται με ανάκληση πρώιμων εμπειριών και σύνδεσή τους με όνειρα/φαντασιώσεις.',
     options: ['Σωστό', 'Λάθος'],
     correctIndex: 0,
-    explanation: 'Στο υλικό περιγράφεται θεραπεία μέσω ανάκλησης πρώιμων εμπειριών και σύνδεσης με όνειρα και φαντασιώσεις.',
+    explanation:
+      'Στο υλικό περιγράφεται θεραπεία μέσω ανάκλησης πρώιμων εμπειριών και σύνδεσης με όνειρα και φαντασιώσεις.',
   },
   {
     id: 'q-beh-1',
@@ -496,11 +352,20 @@ export const quizQuestions = [
     id: 'q-mix-2',
     categoryId: 'history',
     type: 'tf',
-    question: 'Στην Ελλάδα, η ψυχολογία διδάχθηκε για πρώτη φορά ως μάθημα το 1926 στο Πανεπιστήμιο Αθηνών.',
+    question:
+      'Στην Ελλάδα, η ψυχολογία διδάχθηκε για πρώτη φορά ως μάθημα το 1926 στο Πανεπιστήμιο Αθηνών.',
     options: ['Σωστό', 'Λάθος'],
     correctIndex: 0,
     explanation: 'Στο υλικό αναφέρεται το 1926 (Αθήνα) και ίδρυση πρώτου ψυχολογικού εργαστηρίου την ίδια χρονιά.',
   },
+]
+
+export const flashcards = [...definitionFlashcards, ...philosopherFlashcards, ...LEGACY_FLASHCARDS]
+
+export const quizQuestions = [
+  ...definitionQuizQuestions,
+  ...philosophersQuizQuestions,
+  ...LEGACY_QUIZ_QUESTIONS,
 ]
 
 export function getCategoryLabel(categoryId) {
