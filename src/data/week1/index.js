@@ -8,7 +8,10 @@ import { functionalismLesson, functionalismExamQuestions } from './functionalism
 import { clinicalLesson, clinicalExamQuestions } from './clinicalPsychology.js'
 import { psychoanalysisLesson, psychoanalysisExamQuestions } from './psychoanalysis.js'
 import { humanisticLesson, humanisticExamQuestions } from './humanisticPsychology.js'
-import { behaviorismMeta } from './behaviorism.js'
+import { behaviorismLesson, behaviorismExamQuestions, behaviorismMeta } from './behaviorism.js'
+import { pavlovLesson, pavlovExamQuestions, pavlovMeta } from './pavlov.js'
+import { littleAlbertLesson, littleAlbertExamQuestions, littleAlbertMeta } from './littleAlbert.js'
+import { thorndikeLesson, thorndikeExamQuestions, thorndikeMeta } from './thorndike.js'
 import { cognitiveMeta } from './cognitive.js'
 import { gestaltMeta } from './gestalt.js'
 import { evolutionaryMeta } from './evolutionary.js'
@@ -20,6 +23,10 @@ export * from './functionalism.js'
 export * from './clinicalPsychology.js'
 export * from './psychoanalysis.js'
 export * from './humanisticPsychology.js'
+export * from './behaviorism.js'
+export * from './pavlov.js'
+export * from './littleAlbert.js'
+export * from './thorndike.js'
 
 /** Θέματα για το hub Εβδομάδας 1 (επεκτείνεται εύκολα) */
 export const WEEK1_TOPIC_CARDS = [
@@ -65,7 +72,30 @@ export const WEEK1_TOPIC_CARDS = [
     description: 'Maslow, Rogers, αυτοπραγμάτωση, clients — vs Freud & συμπεριφορισμός',
     ready: true,
   },
-  { ...behaviorismMeta, ready: false },
+  {
+    slug: 'behaviorism',
+    title: behaviorismLesson.title,
+    description: behaviorismMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'pavlov',
+    title: pavlovLesson.title,
+    description: pavlovMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'little-albert',
+    title: littleAlbertLesson.title,
+    description: littleAlbertMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'thorndike',
+    title: thorndikeLesson.title,
+    description: thorndikeMeta.short,
+    ready: true,
+  },
   { ...cognitiveMeta, ready: false },
   { ...gestaltMeta, ready: false },
   { ...evolutionaryMeta, ready: false },
@@ -119,6 +149,30 @@ export function getWeek1ExamQuestions() {
     ...humanisticExamQuestions.map((q) => ({
       id: q.id,
       topic: 'Ανθρωπιστική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...behaviorismExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Συμπεριφορισμός',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...pavlovExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Pavlov — Κλασική μάθηση',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...littleAlbertExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Little Albert (1920)',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...thorndikeExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Thorndike — Νόμος αποτελέσματος',
       question: q.question,
       idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
     })),

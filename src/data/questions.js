@@ -9,6 +9,10 @@ import { functionalismFlashcards, functionalismQuizQuestions } from './week1/fun
 import { clinicalFlashcards, clinicalQuizQuestions } from './week1/clinicalPsychology.js'
 import { psychoanalysisFlashcards, psychoanalysisQuizQuestions } from './week1/psychoanalysis.js'
 import { humanisticFlashcards, humanisticQuizQuestions } from './week1/humanisticPsychology.js'
+import { behaviorismFlashcards, behaviorismQuizQuestions } from './week1/behaviorism.js'
+import { pavlovFlashcards, pavlovQuizQuestions } from './week1/pavlov.js'
+import { littleAlbertFlashcards, littleAlbertQuizQuestions } from './week1/littleAlbert.js'
+import { thorndikeFlashcards, thorndikeQuizQuestions } from './week1/thorndike.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
@@ -17,8 +21,11 @@ export const CATEGORIES = [
   { id: 'functionalism', label: 'Λειτουργισμός (Functionalism)' },
   { id: 'clinical', label: 'Κλινική Ψυχολογία' },
   { id: 'psychoanalysis', label: 'Ψυχανάλυση' },
-  { id: 'behaviorism', label: 'Συμπεριφορισμός' },
   { id: 'humanistic', label: 'Ανθρωπιστική Ψυχολογία' },
+  { id: 'behaviorism', label: 'Συμπεριφορισμός' },
+  { id: 'pavlov', label: 'Pavlov — Κλασική μάθηση' },
+  { id: 'littleAlbert', label: 'Little Albert (1920)' },
+  { id: 'thorndike', label: 'Thorndike — Νόμος αποτελέσματος' },
   { id: 'cognitive', label: 'Γνωστική Ψυχολογία' },
   { id: 'gestalt', label: 'Ψυχολογία Gestalt' },
   { id: 'evolutionary', label: 'Εξελικτική Ψυχολογία' },
@@ -26,24 +33,6 @@ export const CATEGORIES = [
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = [
-  {
-    id: 'fc-beh-1',
-    categoryId: 'behaviorism',
-    front: 'Τι τονίζει ο Συμπεριφορισμός;',
-    back: 'Τη συστηματική μελέτη της παρατηρήσιμης συμπεριφοράς — η άμεση παρατήρηση του «νου» θεωρείται δύσκολη.',
-  },
-  {
-    id: 'fc-beh-2',
-    categoryId: 'behaviorism',
-    front: 'Δύο γνωστοί εκπρόσωποι του συμπεριφορισμού / σχετικών πειραμάτων;',
-    back: 'John Watson (π.χ. Little Albert) και Ivan Pavlov (κλασική εξαρτημένη μάθηση με σκύλους).',
-  },
-  {
-    id: 'fc-beh-3',
-    categoryId: 'behaviorism',
-    front: 'Ποιο ζεύγος εννοιών χρησιμοποιείται συχνά στη συμπεριφορική ανάλυση μάθησης;',
-    back: 'Ερέθισμα — αντίδραση (Ε–Α).',
-  },
   {
     id: 'fc-cog-1',
     categoryId: 'cognitive',
@@ -83,38 +72,6 @@ const LEGACY_FLASHCARDS = [
 ]
 
 const LEGACY_QUIZ_QUESTIONS = [
-  {
-    id: 'q-beh-1',
-    categoryId: 'behaviorism',
-    type: 'mcq',
-    question: 'Ο συμπεριφορισμός δίνει έμφαση:',
-    options: [
-      'Στην ενδοσκόπηση της συνείδησης',
-      'Στη συστηματική μελέτη της παρατηρήσιμης συμπεριφοράς',
-      'Μόνο στο ασυνείδητο',
-      'Μόνο στην αυτοπραγμάτωση',
-    ],
-    correctIndex: 1,
-    explanation: 'Ο συμπεριφορισμός εστιάζει στην παρατηρήσιμη συμπεριφορά και θεωρεί δύσκολη την άμεση παρατήρηση του νου.',
-  },
-  {
-    id: 'q-beh-2',
-    categoryId: 'behaviorism',
-    type: 'tf',
-    question: 'Το πείραμα «Little Albert» συνδέεται με τον Watson.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό αναφέρεται το Little Albert (Watson & Rayner, 1920).',
-  },
-  {
-    id: 'q-beh-3',
-    categoryId: 'behaviorism',
-    type: 'mcq',
-    question: 'Ποιος είναι γνωστός για την κλασική εξαρτημένη μάθηση με πειράματα σε σκύλους;',
-    options: ['Skinner', 'Pavlov', 'Maslow', 'Wundt'],
-    correctIndex: 1,
-    explanation: 'Ο Ivan Pavlov συνδέεται με το πείραμα πέψης σκύλων και την κλασική εξαρτημένη μάθηση.',
-  },
   {
     id: 'q-cog-1',
     categoryId: 'cognitive',
@@ -213,6 +170,10 @@ export const flashcards = [
   ...clinicalFlashcards,
   ...psychoanalysisFlashcards,
   ...humanisticFlashcards,
+  ...behaviorismFlashcards,
+  ...pavlovFlashcards,
+  ...littleAlbertFlashcards,
+  ...thorndikeFlashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -224,6 +185,10 @@ export const quizQuestions = [
   ...clinicalQuizQuestions,
   ...psychoanalysisQuizQuestions,
   ...humanisticQuizQuestions,
+  ...behaviorismQuizQuestions,
+  ...pavlovQuizQuestions,
+  ...littleAlbertQuizQuestions,
+  ...thorndikeQuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

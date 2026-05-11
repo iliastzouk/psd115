@@ -10,6 +10,10 @@ import FunctionalismPage from './pages/FunctionalismPage.jsx'
 import ClinicalPsychologyPage from './pages/ClinicalPsychologyPage.jsx'
 import PsychoanalysisPage from './pages/PsychoanalysisPage.jsx'
 import HumanisticPsychologyPage from './pages/HumanisticPsychologyPage.jsx'
+import BehaviorismPage from './pages/BehaviorismPage.jsx'
+import PavlovPage from './pages/PavlovPage.jsx'
+import LittleAlbertPage from './pages/LittleAlbertPage.jsx'
+import ThorndikePage from './pages/ThorndikePage.jsx'
 import FlashcardsPage from './pages/FlashcardsPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import ExamMode from './pages/ExamMode.jsx'
@@ -29,6 +33,10 @@ export default function App() {
           <Route path="clinical" element={<ClinicalPsychologyPage />} />
           <Route path="psychoanalysis" element={<PsychoanalysisPage />} />
           <Route path="humanistic" element={<HumanisticPsychologyPage />} />
+          <Route path="behaviorism" element={<BehaviorismPage />} />
+          <Route path="pavlov" element={<PavlovPage />} />
+          <Route path="little-albert" element={<LittleAlbertPage />} />
+          <Route path="thorndike" element={<ThorndikePage />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
           <Route path="exam" element={<ExamMode />} />

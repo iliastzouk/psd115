@@ -15,6 +15,7 @@ export default function AppShell() {
               <Link to="/" className="text-xs text-teal-700 dark:text-teal-300 font-medium hover:underline">
                 PSD115 Exam Prep
               </Link>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">by Ilias Tzoukas</p>
               <h1 className="text-lg min-[400px]:text-xl font-bold leading-snug text-balance">
                 Ψυχολογία: Η εξέλιξη μιας επιστήμης
               </h1>
@@ -56,6 +57,13 @@ export default function AppShell() {
       <main className={`${shell} px-4 sm:px-5 pt-5 space-y-5`}>
         <Outlet context={study} />
       </main>
+
+      <footer className={`${shell} px-4 sm:px-5 mt-10 pb-8 border-t border-slate-200/80 dark:border-slate-800 pt-6`}>
+        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">PSD115 Exam Prep by Ilias Tzoukas</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-prose">
+          Αποποίηση: Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· πρόκειται για προσωπική προσπάθεια μελέτης και οργάνωσης σημειώσεων, χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις.
+        </p>
+      </footer>
     </div>
   )
 }

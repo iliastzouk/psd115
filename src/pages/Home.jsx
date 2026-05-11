@@ -11,6 +11,9 @@ export default function Home() {
         <p className="text-slate-600 dark:text-slate-300 mt-3 max-w-lg mx-auto text-sm sm:text-base">
           Θεωρία, κάρτες, κουίζ, λειτουργία εξέτασης και πρόοδος — δομημένο ανά εβδομάδα για εύκολη επέκταση.
         </p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 max-w-lg mx-auto">
+          PSD115 Exam Prep by Ilias Tzoukas · όχι επίσημο υλικό ιδρύματος, προσωπική μελέτη.
+        </p>
       </div>
 
       <section>

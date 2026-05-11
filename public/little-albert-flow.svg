@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 200" role="img" aria-labelledby="title desc">
+  <title id="title">Little Albert experiment flow</title>
+  <desc id="desc">Baseline with rat, pairing rat plus loud noise, learned fear and generalization.</desc>
+  <rect width="420" height="200" fill="#fff1f2" rx="12" />
+  <text x="210" y="26" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="13" font-weight="700" fill="#9f1239">
+    Little Albert - flow (Watson &amp; Rayner)
+  </text>
+  <rect x="20" y="48" width="110" height="72" rx="8" fill="#fff" stroke="#f43f5e" stroke-width="1.5" />
+  <text x="75" y="78" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#881337">1. Baseline</text>
+  <text x="75" y="98" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">White rat</text>
+  <text x="75" y="112" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">no fear</text>
+  <path d="M135 84 H165" stroke="#be123c" stroke-width="2" fill="none" marker-end="url(#littleAlbertArrow)" />
+  <rect x="170" y="48" width="110" height="72" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.5" />
+  <text x="225" y="78" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#881337">2. Pairing</text>
+  <text x="225" y="98" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">Rat +</text>
+  <text x="225" y="112" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">loud noise</text>
+  <path d="M285 84 H315" stroke="#be123c" stroke-width="2" fill="none" marker-end="url(#littleAlbertArrow)" />
+  <rect x="320" y="48" width="80" height="72" rx="8" fill="#fff" stroke="#f43f5e" stroke-width="1.5" />
+  <text x="360" y="78" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#881337">3. Outcome</text>
+  <text x="360" y="98" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">Fear /</text>
+  <text x="360" y="112" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="10" fill="#4c0519">generalize</text>
+  <defs>
+    <marker id="littleAlbertArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="#be123c" />
+    </marker>
+  </defs>
+</svg>

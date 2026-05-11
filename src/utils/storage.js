@@ -195,6 +195,134 @@ function resetHumanisticChecklist() {
   }
 }
 
+const BEHAVIORISM_CHECKLIST_KEY = 'psd115-w1-behaviorism-checklist'
+
+export function loadBehaviorismChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(BEHAVIORISM_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveBehaviorismChecklist(items) {
+  try {
+    localStorage.setItem(BEHAVIORISM_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetBehaviorismChecklist() {
+  try {
+    localStorage.removeItem(BEHAVIORISM_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const PAVLOV_CHECKLIST_KEY = 'psd115-w1-pavlov-checklist'
+
+export function loadPavlovChecklist(length) {
+  const n = typeof length === 'number' ? length : 9
+  try {
+    const raw = localStorage.getItem(PAVLOV_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function savePavlovChecklist(items) {
+  try {
+    localStorage.setItem(PAVLOV_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetPavlovChecklist() {
+  try {
+    localStorage.removeItem(PAVLOV_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const LITTLE_ALBERT_CHECKLIST_KEY = 'psd115-w1-little-albert-checklist'
+
+export function loadLittleAlbertChecklist(length) {
+  const n = typeof length === 'number' ? length : 4
+  try {
+    const raw = localStorage.getItem(LITTLE_ALBERT_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveLittleAlbertChecklist(items) {
+  try {
+    localStorage.setItem(LITTLE_ALBERT_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetLittleAlbertChecklist() {
+  try {
+    localStorage.removeItem(LITTLE_ALBERT_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const THORNDIKE_CHECKLIST_KEY = 'psd115-w1-thorndike-checklist'
+
+export function loadThorndikeChecklist(length) {
+  const n = typeof length === 'number' ? length : 4
+  try {
+    const raw = localStorage.getItem(THORNDIKE_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveThorndikeChecklist(items) {
+  try {
+    localStorage.setItem(THORNDIKE_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetThorndikeChecklist() {
+  try {
+    localStorage.removeItem(THORNDIKE_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -206,6 +334,10 @@ export function resetProgress() {
   resetFunctionalismChecklist()
   resetPsychoanalysisChecklist()
   resetHumanisticChecklist()
+  resetBehaviorismChecklist()
+  resetPavlovChecklist()
+  resetLittleAlbertChecklist()
+  resetThorndikeChecklist()
   return defaultProgress()
 }
 

@@ -98,6 +98,26 @@ export function useStudySession() {
     [],
   )
 
+  const behaviorismFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'behaviorism'),
+    [],
+  )
+
+  const pavlovFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'pavlov'),
+    [],
+  )
+
+  const littleAlbertFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'littleAlbert'),
+    [],
+  )
+
+  const thorndikeFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'thorndike'),
+    [],
+  )
+
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
@@ -238,6 +258,10 @@ export function useStudySession() {
     clinicalFlashcardsOnly,
     psychoanalysisFlashcardsOnly,
     humanisticFlashcardsOnly,
+    behaviorismFlashcardsOnly,
+    pavlovFlashcardsOnly,
+    littleAlbertFlashcardsOnly,
+    thorndikeFlashcardsOnly,
     cardOrder,
     cardIndex,
     currentCard,
