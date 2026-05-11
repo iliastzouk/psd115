@@ -5,6 +5,8 @@ const links = [
   { to: '/week/1/definition', label: 'Ορισμός' },
   { to: '/week/1/philosophers', label: 'Φιλόσοφοι' },
   { to: '/week/1/wundt', label: 'Wundt' },
+  { to: '/week/1/functionalism', label: 'James' },
+  { to: '/week/1/clinical', label: 'Κλινική' },
   { to: '/week/1/flashcards', label: 'Κάρτες' },
   { to: '/week/1/quiz', label: 'Κουίζ' },
   { to: '/week/1/exam', label: 'Εξέταση' },

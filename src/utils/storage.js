@@ -99,6 +99,38 @@ function resetWundtChecklist() {
   }
 }
 
+const FUNCTIONALISM_CHECKLIST_KEY = 'psd115-w1-functionalism-checklist'
+
+export function loadFunctionalismChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(FUNCTIONALISM_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveFunctionalismChecklist(items) {
+  try {
+    localStorage.setItem(FUNCTIONALISM_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetFunctionalismChecklist() {
+  try {
+    localStorage.removeItem(FUNCTIONALISM_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -107,6 +139,7 @@ export function resetProgress() {
   }
   resetDefinitionChecklist()
   resetWundtChecklist()
+  resetFunctionalismChecklist()
   return defaultProgress()
 }
 

@@ -5,12 +5,15 @@
 import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
 import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
 import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
+import { functionalismFlashcards, functionalismQuizQuestions } from './week1/functionalism.js'
+import { clinicalFlashcards, clinicalQuizQuestions } from './week1/clinicalPsychology.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
   { id: 'history', label: 'Ιστορία της Ψυχολογίας' },
   { id: 'structuralism', label: 'Δομισμός (Structuralism)' },
   { id: 'functionalism', label: 'Λειτουργισμός (Functionalism)' },
+  { id: 'clinical', label: 'Κλινική Ψυχολογία' },
   { id: 'psychoanalysis', label: 'Ψυχανάλυση' },
   { id: 'behaviorism', label: 'Συμπεριφορισμός' },
   { id: 'humanistic', label: 'Ανθρωπιστική Ψυχολογία' },
@@ -21,24 +24,6 @@ export const CATEGORIES = [
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = [
-  {
-    id: 'fc-fun-1',
-    categoryId: 'functionalism',
-    front: 'Ποιος θεωρείται πατέρας της αμερικανικής ψυχολογίας;',
-    back: 'William James (1842–1910) — πρώτος καθηγητής ψυχολογίας στο Harvard.',
-  },
-  {
-    id: 'fc-fun-2',
-    categoryId: 'functionalism',
-    front: 'Τι τονίζει ο Λειτουργισμός;',
-    back: 'Τη λειτουργικότητα των νοητικών διεργασιών: «σε τι χρησιμεύει» μια νοητική κατάσταση.',
-  },
-  {
-    id: 'fc-fun-3',
-    categoryId: 'functionalism',
-    front: 'Ποια επιστημονική θεωρία επηρέασε τον Λειτουργισμό;',
-    back: 'Θεωρίες του Δαρβίνου — αρχή της φυσικής επιλογής.',
-  },
   {
     id: 'fc-psy-1',
     categoryId: 'psychoanalysis',
@@ -126,29 +111,6 @@ const LEGACY_FLASHCARDS = [
 ]
 
 const LEGACY_QUIZ_QUESTIONS = [
-  {
-    id: 'q-fun-1',
-    categoryId: 'functionalism',
-    type: 'mcq',
-    question: 'Ο William James τόνισε κυρίως:',
-    options: [
-      'Τα στοιχεία της συνείδησης ως «δομικά τούβλα»',
-      'Τη λειτουργικότητα των νοητικών διεργασιών και το «σε τι χρησιμεύουν»',
-      'Μόνο το ασυνείδητο',
-      'Μόνο τα αντανακλαστικά',
-    ],
-    correctIndex: 1,
-    explanation: 'Ο Λειτουργισμός δίνει έμφαση στη λειτουργία/χρησιμότητα των νοητικών καταστάσεων.',
-  },
-  {
-    id: 'q-fun-2',
-    categoryId: 'functionalism',
-    type: 'tf',
-    question: 'Ο Λειτουργισμός επηρεάστηκε από ιδέες φυσικής επιλογής του Δαρβίνου.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό αναφέρεται επιρροή από τις θεωρίες του Δαρβίνου.',
-  },
   {
     id: 'q-psy-1',
     categoryId: 'psychoanalysis',
@@ -323,6 +285,8 @@ export const flashcards = [
   ...definitionFlashcards,
   ...philosopherFlashcards,
   ...wundtFlashcards,
+  ...functionalismFlashcards,
+  ...clinicalFlashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -330,6 +294,8 @@ export const quizQuestions = [
   ...definitionQuizQuestions,
   ...philosophersQuizQuestions,
   ...wundtQuizQuestions,
+  ...functionalismQuizQuestions,
+  ...clinicalQuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

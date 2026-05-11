@@ -6,6 +6,8 @@ import Week1Home from './pages/Week1Home.jsx'
 import DefinitionPage from './pages/DefinitionPage.jsx'
 import PhilosophersPage from './pages/PhilosophersPage.jsx'
 import WundtPage from './pages/WundtPage.jsx'
+import FunctionalismPage from './pages/FunctionalismPage.jsx'
+import ClinicalPsychologyPage from './pages/ClinicalPsychologyPage.jsx'
 import FlashcardsPage from './pages/FlashcardsPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import ExamMode from './pages/ExamMode.jsx'
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="definition" element={<DefinitionPage />} />
           <Route path="philosophers" element={<PhilosophersPage />} />
           <Route path="wundt" element={<WundtPage />} />
+          <Route path="functionalism" element={<FunctionalismPage />} />
+          <Route path="clinical" element={<ClinicalPsychologyPage />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
           <Route path="exam" element={<ExamMode />} />

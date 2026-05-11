@@ -78,6 +78,16 @@ export function useStudySession() {
     [],
   )
 
+  const functionalismFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'functionalism'),
+    [],
+  )
+
+  const clinicalFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'clinical'),
+    [],
+  )
+
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
@@ -214,6 +224,8 @@ export function useStudySession() {
     definitionFlashcardsOnly,
     philosopherFlashcardsOnly,
     wundtFlashcardsOnly,
+    functionalismFlashcardsOnly,
+    clinicalFlashcardsOnly,
     cardOrder,
     cardIndex,
     currentCard,
