@@ -73,6 +73,11 @@ export function useStudySession() {
     [],
   )
 
+  const wundtFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'structuralism'),
+    [],
+  )
+
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
@@ -208,6 +213,7 @@ export function useStudySession() {
     filteredQuiz,
     definitionFlashcardsOnly,
     philosopherFlashcardsOnly,
+    wundtFlashcardsOnly,
     cardOrder,
     cardIndex,
     currentCard,

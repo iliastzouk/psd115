@@ -4,6 +4,7 @@
  */
 import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
 import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
+import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
@@ -20,30 +21,6 @@ export const CATEGORIES = [
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = [
-  {
-    id: 'fc-str-1',
-    categoryId: 'structuralism',
-    front: 'Ποιος θεωρείται βασικός εκπρόσωπος του Δομισμού;',
-    back: 'Wilhelm Wundt (1832–1920).',
-  },
-  {
-    id: 'fc-str-2',
-    categoryId: 'structuralism',
-    front: 'Πού ίδρυσε ο Wundt το πρώτο ψυχολογικό εργαστήριο;',
-    back: 'Στο Πανεπιστήμιο της Λειψίας, Γερμανία.',
-  },
-  {
-    id: 'fc-str-3',
-    categoryId: 'structuralism',
-    front: 'Ποια μέθοδο συνδέουμε με τον Δομισμό;',
-    back: 'Πειραματική ενδοσκόπηση — ανάλυση της υποκειμενικής εμπειρίας της συνείδησης.',
-  },
-  {
-    id: 'fc-str-4',
-    categoryId: 'structuralism',
-    front: 'Ποιος είναι ο στόχος του Δομισμού;',
-    back: 'Η ανάλυση των βασικών στοιχείων που αποτελούν τον νου / τη συνείδηση.',
-  },
   {
     id: 'fc-fun-1',
     categoryId: 'functionalism',
@@ -149,24 +126,6 @@ const LEGACY_FLASHCARDS = [
 ]
 
 const LEGACY_QUIZ_QUESTIONS = [
-  {
-    id: 'q-str-1',
-    categoryId: 'structuralism',
-    type: 'mcq',
-    question: 'Ποιος ίδρυσε το πρώτο ψυχολογικό εργαστήριο στη Λειψία;',
-    options: ['William James', 'Wilhelm Wundt', 'John Watson', 'B.F. Skinner'],
-    correctIndex: 1,
-    explanation: 'Ο Wilhelm Wundt ίδρυσε το πρώτο ψυχολογικό εργαστήριο στο Πανεπιστήμιο της Λειψίας.',
-  },
-  {
-    id: 'q-str-2',
-    categoryId: 'structuralism',
-    type: 'tf',
-    question: 'Ο Δομισμός εστιάζει στην ανάλυση της συνείδησης μέσω πειραματικής ενδοσκόπησης.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Ο Δομισμός συνδέεται με ανάλυση συνειδητότητας και πειραματική ενδοσκόπηση.',
-  },
   {
     id: 'q-fun-1',
     categoryId: 'functionalism',
@@ -360,11 +319,17 @@ const LEGACY_QUIZ_QUESTIONS = [
   },
 ]
 
-export const flashcards = [...definitionFlashcards, ...philosopherFlashcards, ...LEGACY_FLASHCARDS]
+export const flashcards = [
+  ...definitionFlashcards,
+  ...philosopherFlashcards,
+  ...wundtFlashcards,
+  ...LEGACY_FLASHCARDS,
+]
 
 export const quizQuestions = [
   ...definitionQuizQuestions,
   ...philosophersQuizQuestions,
+  ...wundtQuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

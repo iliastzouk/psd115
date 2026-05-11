@@ -67,6 +67,38 @@ function resetDefinitionChecklist() {
   }
 }
 
+const WUNDT_CHECKLIST_KEY = 'psd115-w1-wundt-checklist'
+
+export function loadWundtChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(WUNDT_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveWundtChecklist(items) {
+  try {
+    localStorage.setItem(WUNDT_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetWundtChecklist() {
+  try {
+    localStorage.removeItem(WUNDT_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -74,6 +106,7 @@ export function resetProgress() {
     /* ignore */
   }
   resetDefinitionChecklist()
+  resetWundtChecklist()
   return defaultProgress()
 }
 
