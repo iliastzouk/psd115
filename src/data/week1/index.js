@@ -12,9 +12,23 @@ import { behaviorismLesson, behaviorismExamQuestions, behaviorismMeta } from './
 import { pavlovLesson, pavlovExamQuestions, pavlovMeta } from './pavlov.js'
 import { littleAlbertLesson, littleAlbertExamQuestions, littleAlbertMeta } from './littleAlbert.js'
 import { thorndikeLesson, thorndikeExamQuestions, thorndikeMeta } from './thorndike.js'
-import { cognitiveMeta } from './cognitive.js'
-import { gestaltMeta } from './gestalt.js'
-import { evolutionaryMeta } from './evolutionary.js'
+import { skinnerLesson, skinnerExamQuestions, skinnerMeta } from './skinner.js'
+import { cognitiveLesson, cognitiveExamQuestions, cognitiveMeta } from './cognitive.js'
+import { chomskyLesson, chomskyExamQuestions, chomskyMeta } from './chomsky.js'
+import { neuroscienceExamQuestions, neuroscienceMeta } from './neuroscience.js'
+import { gestaltLesson, gestaltExamQuestions, gestaltMeta } from './gestalt.js'
+import { evolutionaryLesson, evolutionaryExamQuestions, evolutionaryMeta } from './evolutionary.js'
+import {
+  socialPsychologyLesson,
+  socialPsychologyExamQuestions,
+  socialPsychologyMeta,
+} from './socialPsychology.js'
+import {
+  educationalPsychologyLesson,
+  educationalPsychologyExamQuestions,
+  educationalPsychologyMeta,
+} from './educationalPsychology.js'
+import { otherBranchesLesson, otherBranchesExamQuestions, otherBranchesMeta } from './otherBranches.js'
 
 export * from './definitionPsychology.js'
 export * from './philosophers.js'
@@ -27,6 +41,15 @@ export * from './behaviorism.js'
 export * from './pavlov.js'
 export * from './littleAlbert.js'
 export * from './thorndike.js'
+export * from './skinner.js'
+export * from './cognitive.js'
+export * from './chomsky.js'
+export * from './neuroscience.js'
+export * from './gestalt.js'
+export * from './evolutionary.js'
+export * from './socialPsychology.js'
+export * from './educationalPsychology.js'
+export * from './otherBranches.js'
 
 /** Θέματα για το hub Εβδομάδας 1 (επεκτείνεται εύκολα) */
 export const WEEK1_TOPIC_CARDS = [
@@ -96,9 +119,60 @@ export const WEEK1_TOPIC_CARDS = [
     description: thorndikeMeta.short,
     ready: true,
   },
-  { ...cognitiveMeta, ready: false },
-  { ...gestaltMeta, ready: false },
-  { ...evolutionaryMeta, ready: false },
+  {
+    slug: 'skinner',
+    title: skinnerLesson.title,
+    description: skinnerMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'cognitive',
+    title: cognitiveLesson.title,
+    description: cognitiveMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'chomsky',
+    title: chomskyLesson.title,
+    description: chomskyMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'neuroscience',
+    title: neuroscienceMeta.title,
+    description: neuroscienceMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'gestalt',
+    title: gestaltLesson.title,
+    description: gestaltMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'evolutionary',
+    title: evolutionaryLesson.title,
+    description: evolutionaryMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'social-psychology',
+    title: socialPsychologyLesson.title,
+    description: socialPsychologyMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'educational-psychology',
+    title: educationalPsychologyLesson.title,
+    description: educationalPsychologyMeta.short,
+    ready: true,
+  },
+  {
+    slug: 'other-branches',
+    title: otherBranchesLesson.title,
+    description: otherBranchesMeta.short,
+    ready: true,
+  },
 ]
 
 export function getWeek1ExamQuestions() {
@@ -173,6 +247,60 @@ export function getWeek1ExamQuestions() {
     ...thorndikeExamQuestions.map((q) => ({
       id: q.id,
       topic: 'Thorndike — Νόμος αποτελέσματος',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...skinnerExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Skinner — Συντελεστική μάθηση',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...cognitiveExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Γνωστική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...chomskyExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Chomsky — Γλώσσα & γνωστική επανάσταση',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...neuroscienceExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Γνωστική νευροεπιστήμη',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...gestaltExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Ψυχολογία Gestalt',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...evolutionaryExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Εξελικτική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...socialPsychologyExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Κοινωνική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...educationalPsychologyExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Εκπαιδευτική Ψυχολογία',
+      question: q.question,
+      idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
+    })),
+    ...otherBranchesExamQuestions.map((q) => ({
+      id: q.id,
+      topic: 'Υπόλοιποι κλάδοι Ψυχολογίας',
       question: q.question,
       idealAnswer: q.idealAnswer.trim().replace(/\n\n+/g, '\n\n'),
     })),

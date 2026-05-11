@@ -323,6 +323,294 @@ function resetThorndikeChecklist() {
   }
 }
 
+const SKINNER_CHECKLIST_KEY = 'psd115-w1-skinner-checklist'
+
+export function loadSkinnerChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(SKINNER_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveSkinnerChecklist(items) {
+  try {
+    localStorage.setItem(SKINNER_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetSkinnerChecklist() {
+  try {
+    localStorage.removeItem(SKINNER_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const COGNITIVE_CHECKLIST_KEY = 'psd115-w1-cognitive-checklist'
+
+export function loadCognitiveChecklist(length) {
+  const n = typeof length === 'number' ? length : 4
+  try {
+    const raw = localStorage.getItem(COGNITIVE_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveCognitiveChecklist(items) {
+  try {
+    localStorage.setItem(COGNITIVE_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetCognitiveChecklist() {
+  try {
+    localStorage.removeItem(COGNITIVE_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const CHOMSKY_CHECKLIST_KEY = 'psd115-w1-chomsky-checklist'
+
+export function loadChomskyChecklist(length) {
+  const n = typeof length === 'number' ? length : 4
+  try {
+    const raw = localStorage.getItem(CHOMSKY_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveChomskyChecklist(items) {
+  try {
+    localStorage.setItem(CHOMSKY_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetChomskyChecklist() {
+  try {
+    localStorage.removeItem(CHOMSKY_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const NEUROSCIENCE_CHECKLIST_KEY = 'psd115-w1-neuroscience-checklist'
+
+export function loadNeuroscienceChecklist(length) {
+  const n = typeof length === 'number' ? length : 6
+  try {
+    const raw = localStorage.getItem(NEUROSCIENCE_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveNeuroscienceChecklist(items) {
+  try {
+    localStorage.setItem(NEUROSCIENCE_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetNeuroscienceChecklist() {
+  try {
+    localStorage.removeItem(NEUROSCIENCE_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const GESTALT_CHECKLIST_KEY = 'psd115-w1-gestalt-checklist'
+
+export function loadGestaltChecklist(length) {
+  const n = typeof length === 'number' ? length : 4
+  try {
+    const raw = localStorage.getItem(GESTALT_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveGestaltChecklist(items) {
+  try {
+    localStorage.setItem(GESTALT_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetGestaltChecklist() {
+  try {
+    localStorage.removeItem(GESTALT_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const EVOLUTIONARY_CHECKLIST_KEY = 'psd115-w1-evolutionary-checklist'
+
+export function loadEvolutionaryChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(EVOLUTIONARY_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveEvolutionaryChecklist(items) {
+  try {
+    localStorage.setItem(EVOLUTIONARY_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetEvolutionaryChecklist() {
+  try {
+    localStorage.removeItem(EVOLUTIONARY_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const SOCIAL_PSYCHOLOGY_CHECKLIST_KEY = 'psd115-w1-social-psychology-checklist'
+
+export function loadSocialPsychologyChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(SOCIAL_PSYCHOLOGY_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveSocialPsychologyChecklist(items) {
+  try {
+    localStorage.setItem(SOCIAL_PSYCHOLOGY_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetSocialPsychologyChecklist() {
+  try {
+    localStorage.removeItem(SOCIAL_PSYCHOLOGY_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const EDUCATIONAL_PSYCHOLOGY_CHECKLIST_KEY = 'psd115-w1-educational-psychology-checklist'
+
+export function loadEducationalPsychologyChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(EDUCATIONAL_PSYCHOLOGY_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveEducationalPsychologyChecklist(items) {
+  try {
+    localStorage.setItem(EDUCATIONAL_PSYCHOLOGY_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetEducationalPsychologyChecklist() {
+  try {
+    localStorage.removeItem(EDUCATIONAL_PSYCHOLOGY_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const OTHER_BRANCHES_CHECKLIST_KEY = 'psd115-w1-other-branches-checklist'
+
+export function loadOtherBranchesChecklist(length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(OTHER_BRANCHES_CHECKLIST_KEY)
+    if (!raw) return Array(n).fill(false)
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    while (arr.length < n) arr.push(false)
+    return arr.slice(0, n).map((x) => Boolean(x))
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+export function saveOtherBranchesChecklist(items) {
+  try {
+    localStorage.setItem(OTHER_BRANCHES_CHECKLIST_KEY, JSON.stringify(items))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetOtherBranchesChecklist() {
+  try {
+    localStorage.removeItem(OTHER_BRANCHES_CHECKLIST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -338,6 +626,15 @@ export function resetProgress() {
   resetPavlovChecklist()
   resetLittleAlbertChecklist()
   resetThorndikeChecklist()
+  resetSkinnerChecklist()
+  resetCognitiveChecklist()
+  resetChomskyChecklist()
+  resetNeuroscienceChecklist()
+  resetGestaltChecklist()
+  resetEvolutionaryChecklist()
+  resetSocialPsychologyChecklist()
+  resetEducationalPsychologyChecklist()
+  resetOtherBranchesChecklist()
   return defaultProgress()
 }
 

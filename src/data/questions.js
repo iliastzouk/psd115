@@ -13,6 +13,18 @@ import { behaviorismFlashcards, behaviorismQuizQuestions } from './week1/behavio
 import { pavlovFlashcards, pavlovQuizQuestions } from './week1/pavlov.js'
 import { littleAlbertFlashcards, littleAlbertQuizQuestions } from './week1/littleAlbert.js'
 import { thorndikeFlashcards, thorndikeQuizQuestions } from './week1/thorndike.js'
+import { skinnerFlashcards, skinnerQuizQuestions } from './week1/skinner.js'
+import { cognitiveFlashcards, cognitiveQuizQuestions } from './week1/cognitive.js'
+import { chomskyFlashcards, chomskyQuizQuestions } from './week1/chomsky.js'
+import { neuroscienceFlashcards, neuroscienceQuizQuestions } from './week1/neuroscience.js'
+import { gestaltFlashcards, gestaltQuizQuestions } from './week1/gestalt.js'
+import { evolutionaryFlashcards, evolutionaryQuizQuestions } from './week1/evolutionary.js'
+import { socialPsychologyFlashcards, socialPsychologyQuizQuestions } from './week1/socialPsychology.js'
+import {
+  educationalPsychologyFlashcards,
+  educationalPsychologyQuizQuestions,
+} from './week1/educationalPsychology.js'
+import { otherBranchesFlashcards, otherBranchesQuizQuestions } from './week1/otherBranches.js'
 
 export const CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
@@ -26,121 +38,21 @@ export const CATEGORIES = [
   { id: 'pavlov', label: 'Pavlov — Κλασική μάθηση' },
   { id: 'littleAlbert', label: 'Little Albert (1920)' },
   { id: 'thorndike', label: 'Thorndike — Νόμος αποτελέσματος' },
+  { id: 'skinner', label: 'Skinner — Συντελεστική μάθηση' },
   { id: 'cognitive', label: 'Γνωστική Ψυχολογία' },
+  { id: 'chomsky', label: 'Chomsky — Γλώσσα' },
+  { id: 'neuroscience', label: 'Γνωστική νευροεπιστήμη' },
   { id: 'gestalt', label: 'Ψυχολογία Gestalt' },
   { id: 'evolutionary', label: 'Εξελικτική Ψυχολογία' },
+  { id: 'socialPsychology', label: 'Κοινωνική Ψυχολογία' },
+  { id: 'educationalPsychology', label: 'Εκπαιδευτική Ψυχολογία' },
+  { id: 'otherBranches', label: 'Υπόλοιποι κλάδοι Ψυχολογίας' },
 ]
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
-const LEGACY_FLASHCARDS = [
-  {
-    id: 'fc-cog-1',
-    categoryId: 'cognitive',
-    front: 'Τι μελετά η Γνωστική Ψυχολογία;',
-    back: 'Νοητικές διεργασίες όπως αντίληψη, προσοχή, μνήμη, σκέψη, γλώσσα και μάθηση — συχνά με πειραματικές μεθόδους.',
-  },
-  {
-    id: 'fc-cog-2',
-    categoryId: 'cognitive',
-    front: 'Ποιος γλωσσολόγος αναφέρεται ως παράδειγμα γνωστικής προσέγγισης στη γλώσσα;',
-    back: 'Noam Chomsky — η γλώσσα βασίζεται σε νοητικούς κανόνες (παραλληλισμός με κανόνες βήμα-βήμα).',
-  },
-  {
-    id: 'fc-ges-1',
-    categoryId: 'gestalt',
-    front: 'Τρεις βασικοί εκπρόσωποι της σχολής Gestalt;',
-    back: 'Max Wertheimer, Kurt Koffka και Wolfgang Köhler.',
-  },
-  {
-    id: 'fc-ges-2',
-    categoryId: 'gestalt',
-    front: 'Ποια είναι η κεντρική ιδέα της Gestalt για τη συνειδητή εμπειρία;',
-    back: 'Κατανοείται καλύτερα ως σύνολο και όχι ως απλό άθροισμα επιμέρους στοιχείων.',
-  },
-  {
-    id: 'fc-evo-1',
-    categoryId: 'evolutionary',
-    front: 'Τι τονίζει η Εξελικτική Ψυχολογία;',
-    back: 'Τη βιολογία και τη θεωρία εξέλιξης του Δαρβίνου — η συμπεριφορά ως αποτέλεσμα μακράς φυσικής επιλογής.',
-  },
-  {
-    id: 'fc-evo-2',
-    categoryId: 'evolutionary',
-    front: 'Τι μελετά σε επίπεδο είδους;',
-    back: 'Την αλλαγή της συμπεριφοράς στα έμβια όντα κατά τη διάρκεια της εξέλιξης του είδους.',
-  },
-]
+const LEGACY_FLASHCARDS = []
 
 const LEGACY_QUIZ_QUESTIONS = [
-  {
-    id: 'q-cog-1',
-    categoryId: 'cognitive',
-    type: 'mcq',
-    question: 'Η γνωστική ψυχολογία περιλαμβάνει πειραματική διερεύνηση:',
-    options: [
-      'Μόνο κοινωνικών κανόνων',
-      'Νοητικών διεργασιών όπως αντίληψη, προσοχή, μνήμη, σκέψη, γλώσσα, μάθηση',
-      'Μόνο ορμονών',
-      'Μόνο κληρονομικότητας χωρίς συμπεριφορά',
-    ],
-    correctIndex: 1,
-    explanation: 'Η γνωστική ψυχολογία διερευνά νοητικές διεργασίες με πειραματικές μεθόδους.',
-  },
-  {
-    id: 'q-cog-2',
-    categoryId: 'cognitive',
-    type: 'tf',
-    question: 'Ο Chomsky χρησιμοποιείται ως παράδειγμα σύνδεσης γλώσσας με νοητικούς κανόνες.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό ο Chomsky συνδέεται με νοητικούς κανόνες γλώσσας (παραλληλισμός με υπολογιστικούς κανόνες).',
-  },
-  {
-    id: 'q-ges-1',
-    categoryId: 'gestalt',
-    type: 'mcq',
-    question: 'Η σχολή Gestalt υποστηρίζει ότι η συνειδητή εμπειρία:',
-    options: [
-      'Είναι απλώς άθροισμα ανεξάρτητων αισθήσεων χωρίς οργάνωση',
-      'Κατανοείται καλύτερα ως σύνολο, όχι μόνο ως επιμέρους στοιχεία',
-      'Δεν σχετίζεται με αντίληψη',
-      'Βασίζεται μόνο στο ασυνείδητο',
-    ],
-    correctIndex: 1,
-    explanation: 'Wertheimer, Koffka, Köhler: η εμπειρία ως σύνολο, όχι μόνο άθροισμα μερών.',
-  },
-  {
-    id: 'q-ges-2',
-    categoryId: 'gestalt',
-    type: 'tf',
-    question: 'Η Gestalt αποκαλείται και «μορφολογική σχολή» στο υλικό.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό εμφανίζεται ως «Μορφολογική σχολή / Σχολή Gestalt».',
-  },
-  {
-    id: 'q-evo-1',
-    categoryId: 'evolutionary',
-    type: 'mcq',
-    question: 'Η εξελικτική ψυχολογία συνδέει τη συμπεριφορά με:',
-    options: [
-      'Μόνο με τη μόδα της δεκαετίας',
-      'Μακρά εξέλιξη μέσω φυσικής επιλογής και βιολογικές βάσεις',
-      'Μόνο με τυχαία όνειρα',
-      'Μόνο με το IQ ως μοναδικό κριτήριο',
-    ],
-    correctIndex: 1,
-    explanation: 'Τονίζεται η βιολογία και η δαρβινική εξέλιξη μέσω φυσικής επιλογής.',
-  },
-  {
-    id: 'q-evo-2',
-    categoryId: 'evolutionary',
-    type: 'tf',
-    question: 'Η εξελικτική ψυχολογία μελετά αλλαγές συμπεριφοράς σε επίπεδο είδους κατά την εξέλιξη.',
-    options: ['Σωστό', 'Λάθος'],
-    correctIndex: 0,
-    explanation: 'Στο υλικό αναφέρεται μελέτη αλλαγής συμπεριφοράς κατά την εξέλιξη του είδους.',
-  },
   {
     id: 'q-mix-1',
     categoryId: 'history',
@@ -174,6 +86,15 @@ export const flashcards = [
   ...pavlovFlashcards,
   ...littleAlbertFlashcards,
   ...thorndikeFlashcards,
+  ...skinnerFlashcards,
+  ...cognitiveFlashcards,
+  ...chomskyFlashcards,
+  ...neuroscienceFlashcards,
+  ...gestaltFlashcards,
+  ...evolutionaryFlashcards,
+  ...socialPsychologyFlashcards,
+  ...educationalPsychologyFlashcards,
+  ...otherBranchesFlashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -189,6 +110,15 @@ export const quizQuestions = [
   ...pavlovQuizQuestions,
   ...littleAlbertQuizQuestions,
   ...thorndikeQuizQuestions,
+  ...skinnerQuizQuestions,
+  ...cognitiveQuizQuestions,
+  ...chomskyQuizQuestions,
+  ...neuroscienceQuizQuestions,
+  ...gestaltQuizQuestions,
+  ...evolutionaryQuizQuestions,
+  ...socialPsychologyQuizQuestions,
+  ...educationalPsychologyQuizQuestions,
+  ...otherBranchesQuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

@@ -14,6 +14,15 @@ import BehaviorismPage from './pages/BehaviorismPage.jsx'
 import PavlovPage from './pages/PavlovPage.jsx'
 import LittleAlbertPage from './pages/LittleAlbertPage.jsx'
 import ThorndikePage from './pages/ThorndikePage.jsx'
+import SkinnerPage from './pages/SkinnerPage.jsx'
+import CognitivePage from './pages/CognitivePage.jsx'
+import ChomskyPage from './pages/ChomskyPage.jsx'
+import NeurosciencePage from './pages/NeurosciencePage.jsx'
+import GestaltPage from './pages/GestaltPage.jsx'
+import EvolutionaryPage from './pages/EvolutionaryPage.jsx'
+import SocialPsychologyPage from './pages/SocialPsychologyPage.jsx'
+import EducationalPsychologyPage from './pages/EducationalPsychologyPage.jsx'
+import OtherBranchesPage from './pages/OtherBranchesPage.jsx'
 import FlashcardsPage from './pages/FlashcardsPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import ExamMode from './pages/ExamMode.jsx'
@@ -37,6 +46,15 @@ export default function App() {
           <Route path="pavlov" element={<PavlovPage />} />
           <Route path="little-albert" element={<LittleAlbertPage />} />
           <Route path="thorndike" element={<ThorndikePage />} />
+          <Route path="skinner" element={<SkinnerPage />} />
+          <Route path="cognitive" element={<CognitivePage />} />
+          <Route path="chomsky" element={<ChomskyPage />} />
+          <Route path="neuroscience" element={<NeurosciencePage />} />
+          <Route path="gestalt" element={<GestaltPage />} />
+          <Route path="evolutionary" element={<EvolutionaryPage />} />
+          <Route path="social-psychology" element={<SocialPsychologyPage />} />
+          <Route path="educational-psychology" element={<EducationalPsychologyPage />} />
+          <Route path="other-branches" element={<OtherBranchesPage />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
           <Route path="exam" element={<ExamMode />} />

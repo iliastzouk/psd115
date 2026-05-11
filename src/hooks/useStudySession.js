@@ -118,6 +118,51 @@ export function useStudySession() {
     [],
   )
 
+  const skinnerFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'skinner'),
+    [],
+  )
+
+  const cognitiveFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'cognitive'),
+    [],
+  )
+
+  const chomskyFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'chomsky'),
+    [],
+  )
+
+  const neuroscienceFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'neuroscience'),
+    [],
+  )
+
+  const gestaltFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'gestalt'),
+    [],
+  )
+
+  const evolutionaryFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'evolutionary'),
+    [],
+  )
+
+  const socialPsychologyFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'socialPsychology'),
+    [],
+  )
+
+  const educationalPsychologyFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'educationalPsychology'),
+    [],
+  )
+
+  const otherBranchesFlashcardsOnly = useMemo(
+    () => flashcards.filter((c) => c.categoryId === 'otherBranches'),
+    [],
+  )
+
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
@@ -262,6 +307,15 @@ export function useStudySession() {
     pavlovFlashcardsOnly,
     littleAlbertFlashcardsOnly,
     thorndikeFlashcardsOnly,
+    skinnerFlashcardsOnly,
+    cognitiveFlashcardsOnly,
+    chomskyFlashcardsOnly,
+    neuroscienceFlashcardsOnly,
+    gestaltFlashcardsOnly,
+    evolutionaryFlashcardsOnly,
+    socialPsychologyFlashcardsOnly,
+    educationalPsychologyFlashcardsOnly,
+    otherBranchesFlashcardsOnly,
     cardOrder,
     cardIndex,
     currentCard,
