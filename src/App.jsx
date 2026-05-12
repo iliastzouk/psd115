@@ -6,6 +6,9 @@ import Week1Home from './pages/Week1Home.jsx'
 import Week2Layout from './pages/Week2Layout.jsx'
 import Week2Home from './pages/Week2Home.jsx'
 import Week2TopicPage from './pages/Week2TopicPage.jsx'
+import Week3Layout from './pages/Week3Layout.jsx'
+import Week3Home from './pages/Week3Home.jsx'
+import Week3TopicPage from './pages/Week3TopicPage.jsx'
 import DefinitionPage from './pages/DefinitionPage.jsx'
 import PhilosophersPage from './pages/PhilosophersPage.jsx'
 import WundtPage from './pages/WundtPage.jsx'
@@ -70,6 +73,14 @@ export default function App() {
           <Route path="exam" element={<ExamMode />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path=":slug" element={<Week2TopicPage />} />
+        </Route>
+        <Route path="/week/3" element={<Week3Layout />}>
+          <Route index element={<Week3Home />} />
+          <Route path="flashcards" element={<FlashcardsPage />} />
+          <Route path="quiz" element={<QuizPage />} />
+          <Route path="exam" element={<ExamMode />} />
+          <Route path="review" element={<ReviewPage />} />
+          <Route path=":slug" element={<Week3TopicPage />} />
         </Route>
       </Route>
     </Routes>

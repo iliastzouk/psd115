@@ -2,8 +2,10 @@ import { K1_PPT_SLIDE_BODIES, K1_PPT_TOTAL_SLIDES } from './week1/k1PptSlideBodi
 import { k1DeckSlideToPdfPageNum } from './week1/k1DeckSlideToPdfPage.js'
 import { K2_PPT_SLIDE_BODIES, K2_PPT_TOTAL_SLIDES } from './week2/k2PptSlideBodies.generated.js'
 import { k2DeckSlideToPdfPageNum } from './week2/k2DeckSlideToPdfPage.js'
+import { K3_PPT_SLIDE_BODIES, K3_PPT_TOTAL_SLIDES } from './week3/k3PptSlideBodies.generated.js'
+import { k3DeckSlideToPdfPageNum } from './week3/k3DeckSlideToPdfPage.js'
 
-/** @typedef {'week1' | 'week2'} PptDeckId */
+/** @typedef {'week1' | 'week2' | 'week3'} PptDeckId */
 
 /** @type {Record<PptDeckId, { bodies: Record<number, string>, totalSlides: number, deckToPdfPage: (n: number) => number, pdfPath: string, slidesDir: string, headerTitle: string, ariaLabel: string, codeLabel: string, buildImagesHint: string }>} */
 export const PPT_DECK_REGISTRY = {
@@ -28,5 +30,16 @@ export const PPT_DECK_REGISTRY = {
     ariaLabel: 'Διαφάνειες διαλέξεων K2',
     codeLabel: 'K2 PSD115',
     buildImagesHint: 'npm run build:k2-images',
+  },
+  week3: {
+    bodies: K3_PPT_SLIDE_BODIES,
+    totalSlides: K3_PPT_TOTAL_SLIDES,
+    deckToPdfPage: k3DeckSlideToPdfPageNum,
+    pdfPath: 'week3/k3-psd115.pdf',
+    slidesDir: 'week3/slides',
+    headerTitle: 'Διαφάνεια στο PDF εβδομάδας 3 (K3)',
+    ariaLabel: 'Διαφάνειες διαλέξεων K3',
+    codeLabel: 'K3 PSD115',
+    buildImagesHint: 'npm run build:k3-images',
   },
 }

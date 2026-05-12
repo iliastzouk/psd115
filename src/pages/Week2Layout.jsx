@@ -4,6 +4,7 @@ import Week2SubNav from '../components/Week2SubNav.jsx'
 import Progress from '../components/Progress.jsx'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
+import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
 import { WEEK2_CATEGORIES, flashcards, quizQuestions } from '../data/questions.js'
 import { K2_PPT_SLIDES_BY_ROUTE } from '../data/week2/k2PptRefsByRoute.js'
 
@@ -44,6 +45,7 @@ export default function Week2Layout() {
       {k2Slides && <PptSlideDeck slideNumbers={k2Slides} routeKey={pathname} deckId="week2" />}
       <Outlet context={ctx} />
       <LessonPrevNextNav />
+      <WeekNextPrevNav weekNum={2} />
     </div>
   )
 }

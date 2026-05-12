@@ -1,6 +1,6 @@
 # psd115 — PSD115 Exam Prep System
 
-React εφαρμογή με **React Router**, δομή ανά **εβδομάδα** (`src/data/week1/`) και σελίδες κάτω από `src/pages/`.
+React εφαρμογή με **React Router**, δομή ανά **εβδομάδα** (`src/data/week1/`, `src/data/week2/`) και σελίδες κάτω από `src/pages/`.
 
 ## Τοπική εκτέλεση
 
@@ -14,13 +14,14 @@ npm.cmd run dev
 
 ### Δομή (κύρια)
 
-- `src/data/week1/` — θέματα (π.χ. `definitionPsychology.js`, `philosophers.js`) + stubs για επέκταση
+- `src/data/week1/` — θέματα Εβδ. 1 (π.χ. ορισμός, ιστορία, σχολές)
+- `src/data/week2/` — ερευνητικές μέθοδοι (K2 · διαφάνειες / κάρτες / κουίζ)
 - `src/data/quizzes/week1Quiz.js` — συγκεντρωτικό κουίζ Εβδ. 1
-- `src/pages/` — Home, hub Εβδ. 1, μαθήματα, κάρτες, κουίζ, exam mode, λάθη
+- `src/pages/` — Home, hub ανά εβδομάδα, μαθήματα, κάρτες, κουίζ, exam mode, λάθη
 - `src/layouts/AppShell.jsx` — κελύφος, πρόοδος, θέμα
 - `src/hooks/useStudySession.js` — κατάσταση μελέτης / localStorage
 
-Διαδρομές: `/` · `/week/1` · `/week/1/definition` · `/week/1/philosophers` · `flashcards` · `quiz` · `exam` · `review`.
+Διαδρομές: `/` · `/week/1` … · `/week/2` … (`flashcards` · `quiz` · `exam` · `review` ανά εβδομάδα).
 
 ## Deploy στο Vercel
 

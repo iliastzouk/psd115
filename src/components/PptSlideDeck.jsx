@@ -6,7 +6,7 @@ function withBaseUrl(relPath) {
   return `${base.replace(/\/?$/, '/')}${relPath.replace(/^\//, '')}`
 }
 
-/** @param {'week1' | 'week2'} deckId */
+/** @param {'week1' | 'week2' | 'week3'} deckId */
 export default function PptSlideDeck({ slideNumbers, routeKey, deckId = 'week1' }) {
   const cfg = PPT_DECK_REGISTRY[deckId] ?? PPT_DECK_REGISTRY.week1
 

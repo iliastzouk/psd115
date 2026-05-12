@@ -652,6 +652,47 @@ function resetWeek2Checklists() {
   }
 }
 
+const W3_CHECKLISTS_KEY = 'psd115-w3-checklists'
+
+/** @param {string} slug */
+export function loadWeek3TopicChecklist(slug, length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(W3_CHECKLISTS_KEY)
+    if (!raw) return Array(n).fill(false)
+    const obj = JSON.parse(raw)
+    if (!obj || typeof obj !== 'object') return Array(n).fill(false)
+    const arr = obj[slug]
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    const out = arr.map((x) => Boolean(x))
+    while (out.length < n) out.push(false)
+    return out.slice(0, n)
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+/** @param {string} slug */
+export function saveWeek3TopicChecklist(slug, items) {
+  try {
+    const raw = localStorage.getItem(W3_CHECKLISTS_KEY)
+    const obj = raw ? JSON.parse(raw) : {}
+    const base = obj && typeof obj === 'object' ? obj : {}
+    base[slug] = items
+    localStorage.setItem(W3_CHECKLISTS_KEY, JSON.stringify(base))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetWeek3Checklists() {
+  try {
+    localStorage.removeItem(W3_CHECKLISTS_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -677,6 +718,7 @@ export function resetProgress() {
   resetEducationalPsychologyChecklist()
   resetOtherBranchesChecklist()
   resetWeek2Checklists()
+  resetWeek3Checklists()
   return defaultProgress()
 }
 

@@ -1,8 +1,9 @@
 /**
  * PSD115 Exam Prep — καθολικό dataset
- * Εβδομάδα 1: data/week1/* · Εβδομάδα 2: data/week2/*
+ * Εβδομάδα 1: data/week1/* · Εβδομάδα 2–3: data/week2|week3/*
  */
 import { week2Flashcards, week2QuizQuestions } from './week2/index.js'
+import { week3Flashcards, week3QuizQuestions } from './week3/index.js'
 import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
 import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
 import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
@@ -61,8 +62,21 @@ export const WEEK2_CATEGORIES = [
   { id: 'w2-ethics', label: 'Εβδ.2 — Δεοντολογία' },
 ]
 
+export const WEEK3_CATEGORIES = [
+  { id: 'w3-overview', label: 'Εβδ.3 — Επισκόπηση / στόχοι' },
+  { id: 'w3-neuron', label: 'Εβδ.3 — Νευρώνας' },
+  { id: 'w3-signaling', label: 'Εβδ.3 — Σήμανση' },
+  { id: 'w3-synapse', label: 'Εβδ.3 — Σύναψη & νευροδιαβιβαστές' },
+  { id: 'w3-development', label: 'Εβδ.3 — Ανάπτυξη ΚΝΣ' },
+  { id: 'w3-nervous-system', label: 'Εβδ.3 — Οργάνωση νευρικού' },
+  { id: 'w3-brain-structure', label: 'Εβδ.3 — Δομή εγκεφάλου' },
+  { id: 'w3-cortex', label: 'Εβδ.3 — Φλοιός & ευπλαστότητα' },
+  { id: 'w3-lesions-eeg', label: 'Εβδ.3 — Βλάβες & ΗΕΓ' },
+  { id: 'w3-imaging', label: 'Εβδ.3 — Απεικόνιση εγκεφάλου' },
+]
+
 /** Όλες οι κατηγορίες (φίλτρα / αναφορές) */
-export const CATEGORIES = [...WEEK1_CATEGORIES, ...WEEK2_CATEGORIES]
+export const CATEGORIES = [...WEEK1_CATEGORIES, ...WEEK2_CATEGORIES, ...WEEK3_CATEGORIES]
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = []
@@ -111,6 +125,7 @@ export const flashcards = [
   ...educationalPsychologyFlashcards,
   ...otherBranchesFlashcards,
   ...week2Flashcards,
+  ...week3Flashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -136,6 +151,7 @@ export const quizQuestions = [
   ...educationalPsychologyQuizQuestions,
   ...otherBranchesQuizQuestions,
   ...week2QuizQuestions,
+  ...week3QuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 
