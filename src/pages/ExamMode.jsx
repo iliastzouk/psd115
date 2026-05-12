@@ -1,13 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { shuffle } from '../utils/shuffle.js'
 import { getWeek1ExamQuestions } from '../data/week1/index.js'
+import { getWeek2ExamQuestions } from '../data/week2/index.js'
 import ExamQuestion from '../components/ExamQuestion.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 export default function ExamMode() {
-  const deck = useMemo(() => shuffle(getWeek1ExamQuestions()), [])
+  const { pathname } = useLocation()
+  const deck = useMemo(
+    () =>
+      shuffle(pathname.startsWith('/week/2') ? getWeek2ExamQuestions() : getWeek1ExamQuestions()),
+    [pathname],
+  )
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
+
+  useEffect(() => {
+    setIndex(0)
+    setRevealed(false)
+  }, [pathname])
 
   const total = deck.length
   const current = deck[index]

@@ -18,18 +18,32 @@ export default function Home() {
 
       <section>
         <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">Εβδομάδες</h2>
-        <Link
-          to="/week/1"
-          className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-teal-400 dark:hover:border-teal-600 transition group"
-        >
-          <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Διαθέσιμο</p>
-          <p className="text-lg font-bold text-slate-900 dark:text-white mt-1 group-hover:text-teal-700 dark:group-hover:text-teal-300">
-            Εβδομάδα 1 — Η εξέλιξη μιας επιστήμης
-          </p>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
-            Ορισμός, φιλόσοφοι, σχολές, κλάδοι (υπό ανάπτυξη ανά θέμα).
-          </p>
-        </Link>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            to="/week/1"
+            className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-teal-400 dark:hover:border-teal-600 transition group"
+          >
+            <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Διαθέσιμο</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-white mt-1 group-hover:text-teal-700 dark:group-hover:text-teal-300">
+              Εβδομάδα 1 — Η εξέλιξη μιας επιστήμης
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+              Ορισμός, φιλόσοφοι, σχολές, κλάδοι.
+            </p>
+          </Link>
+          <Link
+            to="/week/2"
+            className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-sky-400 dark:hover:border-sky-600 transition group"
+          >
+            <p className="text-xs font-medium text-sky-600 dark:text-sky-400">Διαθέσιμο</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-white mt-1 group-hover:text-sky-700 dark:group-hover:text-sky-300">
+              Εβδομάδα 2 — Ερευνητικές μέθοδοι
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+              Εμπειρισμός, παρατήρηση, πείραμα, δειγματοληψία, δεοντολογία.
+            </p>
+          </Link>
+        </div>
       </section>
     </div>
   )

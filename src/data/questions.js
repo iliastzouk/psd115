@@ -1,7 +1,8 @@
 /**
  * PSD115 Exam Prep — καθολικό dataset
- * Εβδομάδα 1: data/week1/* · Λοιπά θέματα: legacy παρακάτω (μέχρι να μεταφερθούν σε week1)
+ * Εβδομάδα 1: data/week1/* · Εβδομάδα 2: data/week2/*
  */
+import { week2Flashcards, week2QuizQuestions } from './week2/index.js'
 import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
 import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
 import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
@@ -26,7 +27,7 @@ import {
 } from './week1/educationalPsychology.js'
 import { otherBranchesFlashcards, otherBranchesQuizQuestions } from './week1/otherBranches.js'
 
-export const CATEGORIES = [
+export const WEEK1_CATEGORIES = [
   { id: 'definition', label: 'Ορισμός της Ψυχολογίας' },
   { id: 'history', label: 'Ιστορία της Ψυχολογίας' },
   { id: 'structuralism', label: 'Δομισμός (Structuralism)' },
@@ -48,6 +49,20 @@ export const CATEGORIES = [
   { id: 'educationalPsychology', label: 'Εκπαιδευτική Ψυχολογία' },
   { id: 'otherBranches', label: 'Υπόλοιποι κλάδοι Ψυχολογίας' },
 ]
+
+export const WEEK2_CATEGORIES = [
+  { id: 'w2-overview', label: 'Εβδ.2 — Επισκόπηση μεθόδου' },
+  { id: 'w2-empiricism', label: 'Εβδ.2 — Εμπειρισμός' },
+  { id: 'w2-observation', label: 'Εβδ.2 — Παρατήρηση & μέτρηση' },
+  { id: 'w2-observer-bias', label: 'Εβδ.2 — Μεροληψία παρατηρητή' },
+  { id: 'w2-variables', label: 'Εβδ.2 — Μεταβλητές & συσχέτιση' },
+  { id: 'w2-experiment', label: 'Εβδ.2 — Πειραματική μέθοδος' },
+  { id: 'w2-sampling-stats', label: 'Εβδ.2 — Δειγματοληψία & στατιστική' },
+  { id: 'w2-ethics', label: 'Εβδ.2 — Δεοντολογία' },
+]
+
+/** Όλες οι κατηγορίες (φίλτρα / αναφορές) */
+export const CATEGORIES = [...WEEK1_CATEGORIES, ...WEEK2_CATEGORIES]
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = []
@@ -95,6 +110,7 @@ export const flashcards = [
   ...socialPsychologyFlashcards,
   ...educationalPsychologyFlashcards,
   ...otherBranchesFlashcards,
+  ...week2Flashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -119,6 +135,7 @@ export const quizQuestions = [
   ...socialPsychologyQuizQuestions,
   ...educationalPsychologyQuizQuestions,
   ...otherBranchesQuizQuestions,
+  ...week2QuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

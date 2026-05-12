@@ -1,24 +1,38 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { K1_PPT_SLIDE_BODIES, K1_PPT_TOTAL_SLIDES } from '../data/week1/k1PptSlideBodies.generated.js'
-import { k1DeckSlideToPdfPageNum } from '../data/week1/k1DeckSlideToPdfPage.js'
+import { PPT_DECK_REGISTRY } from '../data/pptDeckRegistry.js'
 
 function withBaseUrl(relPath) {
   const base = import.meta.env.BASE_URL || '/'
   return `${base.replace(/\/?$/, '/')}${relPath.replace(/^\//, '')}`
 }
 
-function pdfPageUrlForDeckSlide(deckSlide) {
-  const pdfPage = k1DeckSlideToPdfPageNum(deckSlide)
-  return withBaseUrl(`week1/k1-psd115.pdf#page=${pdfPage}`)
-}
+/** @param {'week1' | 'week2'} deckId */
+export default function PptSlideDeck({ slideNumbers, routeKey, deckId = 'week1' }) {
+  const cfg = PPT_DECK_REGISTRY[deckId] ?? PPT_DECK_REGISTRY.week1
 
-function slidePngUrlForDeckSlide(deckSlide) {
-  const fileIndex = k1DeckSlideToPdfPageNum(deckSlide)
-  return withBaseUrl(`week1/slides/slide-${String(fileIndex).padStart(2, '0')}.png`)
-}
+  const pdfUrlForDeckSlide = useCallback(
+    (deckSlide) => {
+      const pdfPage = cfg.deckToPdfPage(deckSlide)
+      return withBaseUrl(`${cfg.pdfPath}#page=${pdfPage}`)
+    },
+    [cfg],
+  )
 
-export default function PptSlideDeck({ slideNumbers, routeKey }) {
-  const nums = useMemo(() => (Array.isArray(slideNumbers) ? slideNumbers.filter((n) => n >= 1 && n <= K1_PPT_TOTAL_SLIDES) : []), [slideNumbers])
+  const pngUrlForDeckSlide = useCallback(
+    (deckSlide) => {
+      const fileIndex = cfg.deckToPdfPage(deckSlide)
+      return withBaseUrl(`${cfg.slidesDir}/slide-${String(fileIndex).padStart(2, '0')}.png`)
+    },
+    [cfg],
+  )
+
+  const nums = useMemo(
+    () =>
+      Array.isArray(slideNumbers)
+        ? slideNumbers.filter((n) => n >= 1 && n <= cfg.totalSlides)
+        : [],
+    [slideNumbers, cfg.totalSlides],
+  )
   const [idx, setIdx] = useState(0)
   const [imgFailed, setImgFailed] = useState(false)
 
@@ -27,7 +41,7 @@ export default function PptSlideDeck({ slideNumbers, routeKey }) {
   }, [routeKey, nums.join(',')])
 
   const at = nums[idx] ?? nums[0]
-  const body = at != null ? K1_PPT_SLIDE_BODIES[at] : ''
+  const body = at != null ? cfg.bodies[at] : ''
   const hasMany = nums.length > 1
 
   useEffect(() => {
@@ -48,19 +62,16 @@ export default function PptSlideDeck({ slideNumbers, routeKey }) {
 
   if (!nums.length || at == null) return null
 
-  const pdfPage = k1DeckSlideToPdfPageNum(at)
-  const alt = `Διαφάνεια ${at} από ${K1_PPT_TOTAL_SLIDES} (K1 PSD115)`
+  const pdfPage = cfg.deckToPdfPage(at)
+  const alt = `Διαφάνεια ${at} από ${cfg.totalSlides} (${cfg.codeLabel})`
 
   return (
-    <section
-      aria-label="Διαφάνειες διαλέξεων K1"
-      className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden"
-    >
+    <section aria-label={cfg.ariaLabel} className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/80">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Διαφάνεια στο PDF εβδομάδας 1 (K1)</h2>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{cfg.headerTitle}</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-            Διαφάνεια {at} / {K1_PPT_TOTAL_SLIDES}
+            Διαφάνεια deck {at} / {cfg.totalSlides} · PDF σελ. {pdfPage}
             {hasMany ? ` · ${idx + 1} / ${nums.length} για αυτή την ενότητα` : null}
           </p>
         </div>
@@ -86,7 +97,7 @@ export default function PptSlideDeck({ slideNumbers, routeKey }) {
             </>
           )}
           <a
-            href={pdfPageUrlForDeckSlide(at)}
+            href={pdfUrlForDeckSlide(at)}
             target="_blank"
             rel="noopener noreferrer"
             className="touch-manipulation rounded-lg bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-600 text-white px-3 py-2 text-xs font-medium min-h-[44px] sm:min-h-0 inline-flex items-center"
@@ -99,7 +110,7 @@ export default function PptSlideDeck({ slideNumbers, routeKey }) {
         {!imgFailed ? (
           <figure className="m-0 rounded-lg overflow-hidden border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-inner">
             <img
-              src={slidePngUrlForDeckSlide(at)}
+              src={pngUrlForDeckSlide(at)}
               alt={alt}
               width={1280}
               height={720}
@@ -111,7 +122,9 @@ export default function PptSlideDeck({ slideNumbers, routeKey }) {
           </figure>
         ) : (
           <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/20 px-4 py-3">
-            <p className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-2">Δεν φορτώθηκε η εικόνα διαφάνειας. Εκτελέστε `npm run build:k1-images` ή ανοίξτε το PDF.</p>
+            <p className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-2">
+              Δεν φορτώθηκε η εικόνα διαφάνειας. Εκτελέστε `{cfg.buildImagesHint}` ή ανοίξτε το PDF.
+            </p>
             {body ? (
               <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">{body}</p>
             ) : null}

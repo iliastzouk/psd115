@@ -50,6 +50,12 @@ export default function AppShell() {
             >
               Εβδομάδα 1
             </Link>
+            <Link
+              to="/week/2"
+              className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 hover:bg-white dark:hover:bg-slate-900 transition"
+            >
+              Εβδομάδα 2
+            </Link>
           </nav>
         </div>
       </header>

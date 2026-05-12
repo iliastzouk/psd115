@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "build:k1-slides": "node scripts/build-k1-slides.mjs",
-    "build:k1-images": "node scripts/render-k1-slides.mjs"
+    "build:k1-images": "node scripts/render-k1-slides.mjs",
+    "build:k2-slides": "node scripts/build-k2-slides.mjs",
+    "build:k2-images": "node scripts/render-k2-slides.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

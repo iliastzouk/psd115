@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { CATEGORIES, flashcards, quizQuestions, getCategoryLabel } from '../data/questions.js'
+import { useLocation } from 'react-router-dom'
+import {
+  WEEK1_CATEGORIES,
+  WEEK2_CATEGORIES,
+  flashcards,
+  quizQuestions,
+  getCategoryLabel,
+} from '../data/questions.js'
 import { shuffle } from '../utils/shuffle.js'
 import {
   defaultProgress,
@@ -23,6 +30,24 @@ function newUid() {
 }
 
 export function useStudySession() {
+  const { pathname } = useLocation()
+  const onWeek2 = pathname.startsWith('/week/2')
+
+  const week1CategoryIds = useMemo(() => new Set(WEEK1_CATEGORIES.map((c) => c.id)), [])
+  const week2CategoryIds = useMemo(() => new Set(WEEK2_CATEGORIES.map((c) => c.id)), [])
+
+  const scopedFlashcards = useMemo(
+    () => flashcards.filter((c) => (onWeek2 ? week2CategoryIds : week1CategoryIds).has(c.categoryId)),
+    [onWeek2, week1CategoryIds, week2CategoryIds],
+  )
+
+  const scopedQuizQuestions = useMemo(
+    () => quizQuestions.filter((q) => (onWeek2 ? week2CategoryIds : week1CategoryIds).has(q.categoryId)),
+    [onWeek2, week1CategoryIds, week2CategoryIds],
+  )
+
+  const scopeCategories = onWeek2 ? WEEK2_CATEGORIES : WEEK1_CATEGORIES
+
   const [dark, setDark] = useState(false)
   const [progress, setProgress] = useState(defaultProgress)
   const [selectedIds, setSelectedIds] = useState([])
@@ -54,13 +79,13 @@ export function useStudySession() {
   }, [progress])
 
   const filteredCards = useMemo(
-    () => filterByCategories(flashcards, selectedIds),
-    [selectedIds],
+    () => filterByCategories(scopedFlashcards, selectedIds),
+    [selectedIds, scopedFlashcards],
   )
 
   const filteredQuiz = useMemo(
-    () => filterByCategories(quizQuestions, selectedIds),
-    [selectedIds],
+    () => filterByCategories(scopedQuizQuestions, selectedIds),
+    [selectedIds, scopedQuizQuestions],
   )
 
   const filteredQuizSig = useMemo(() => filteredQuiz.map((q) => q.id).join('|'), [filteredQuiz])
@@ -309,7 +334,7 @@ export function useStudySession() {
     quizResult && quizResult.total ? Math.round((quizResult.correct / quizResult.total) * 100) : 0
 
   return {
-    CATEGORIES,
+    CATEGORIES: scopeCategories,
     dark,
     setDark,
     progress,

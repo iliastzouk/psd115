@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CATEGORIES } from '../data/questions.js'
+import { CATEGORIES as ALL_CATEGORIES } from '../data/questions.js'
 
 function pct(part, total) {
   if (!total) return 0
@@ -12,8 +12,10 @@ function pct(part, total) {
  * @param {number} props.totalFlashcards
  * @param {number} props.totalQuiz
  * @param {boolean} [props.defaultExpanded] — false σελίδες ενότητας: συμπαγής μπάρα, ανοιχτό σε hub & εργαλεία
+ * @param {{ id: string, label: string }[]} [props.categories] — ανά εβδομάδα (προεπιλογή: όλες)
  */
-export default function Progress({ progress, totalFlashcards, totalQuiz, defaultExpanded = true }) {
+export default function Progress({ progress, totalFlashcards, totalQuiz, defaultExpanded = true, categories }) {
+  const categoryList = categories?.length ? categories : ALL_CATEGORIES
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [catOpen, setCatOpen] = useState(false)
 
@@ -93,7 +95,7 @@ export default function Progress({ progress, totalFlashcards, totalQuiz, default
             </button>
             {catOpen && (
               <ul className="space-y-2 max-h-[min(40vh,16rem)] overflow-y-auto pr-1 overscroll-contain mt-2 animate-[fadeIn_0.2s_ease-out]">
-                {CATEGORIES.map((c) => {
+                {categoryList.map((c) => {
                   const s = progress.byCategory[c.id] || { correct: 0, wrong: 0 }
                   const att = s.correct + s.wrong
                   const p = pct(s.correct, att)
