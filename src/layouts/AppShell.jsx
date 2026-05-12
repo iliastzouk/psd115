@@ -61,6 +61,9 @@ export default function AppShell() {
             <NavLink to="/week/3" className={({ isActive }) => headerNavClass(isActive)}>
               Εβδομάδα 3
             </NavLink>
+            <NavLink to="/week/4" className={({ isActive }) => headerNavClass(isActive)}>
+              Εβδομάδα 4
+            </NavLink>
           </nav>
         </div>
       </header>

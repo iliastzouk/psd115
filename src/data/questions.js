@@ -1,9 +1,10 @@
 /**
  * PSD115 Exam Prep — καθολικό dataset
- * Εβδομάδα 1: data/week1/* · Εβδομάδα 2–3: data/week2|week3/*
+ * Εβδομάδα 1: data/week1/* · Εβδομάδα 2–4: data/week2|week3|week4/*
  */
 import { week2Flashcards, week2QuizQuestions } from './week2/index.js'
 import { week3Flashcards, week3QuizQuestions } from './week3/index.js'
+import { week4Flashcards, week4QuizQuestions } from './week4/index.js'
 import { definitionFlashcards, definitionQuizQuestions } from './week1/definitionPsychology.js'
 import { philosopherFlashcards, philosophersQuizQuestions } from './week1/philosophers.js'
 import { wundtFlashcards, wundtQuizQuestions } from './week1/wundt.js'
@@ -75,8 +76,21 @@ export const WEEK3_CATEGORIES = [
   { id: 'w3-imaging', label: 'Εβδ.3 — Απεικόνιση εγκεφάλου' },
 ]
 
+export const WEEK4_CATEGORIES = [
+  { id: 'w4-overview', label: 'Εβδ.4 — Επισκόπηση (K4)' },
+  { id: 'w4-foundations', label: 'Εβδ.4 — Ουδοί & αισθητήρια' },
+  { id: 'w4-vision-anatomy', label: 'Εβδ.4 — Όραση: φως & μάτι' },
+  { id: 'w4-vision-pathways', label: 'Εβδ.4 — Μάτι → εγκέφαλος' },
+  { id: 'w4-object-recognition', label: 'Εβδ.4 — Αναγνώριση αντικειμένου' },
+  { id: 'w4-depth-motion', label: 'Εβδ.4 — Βάθος, κίνηση, προσοχή' },
+  { id: 'w4-hearing', label: 'Εβδ.4 — Ακοή' },
+  { id: 'w4-touch-pain', label: 'Εβδ.4 — Αφή & πόνος' },
+  { id: 'w4-smell-taste', label: 'Εβδ.4 — Όσφρηση & γεύση' },
+  { id: 'w4-summary', label: 'Εβδ.4 — Σύνοψη' },
+]
+
 /** Όλες οι κατηγορίες (φίλτρα / αναφορές) */
-export const CATEGORIES = [...WEEK1_CATEGORIES, ...WEEK2_CATEGORIES, ...WEEK3_CATEGORIES]
+export const CATEGORIES = [...WEEK1_CATEGORIES, ...WEEK2_CATEGORIES, ...WEEK3_CATEGORIES, ...WEEK4_CATEGORIES]
 
 /** Υπόλοιπες κάρτες Εβδ. 1 (μέχρι migration σε week1/*.js) */
 const LEGACY_FLASHCARDS = []
@@ -126,6 +140,7 @@ export const flashcards = [
   ...otherBranchesFlashcards,
   ...week2Flashcards,
   ...week3Flashcards,
+  ...week4Flashcards,
   ...LEGACY_FLASHCARDS,
 ]
 
@@ -152,6 +167,7 @@ export const quizQuestions = [
   ...otherBranchesQuizQuestions,
   ...week2QuizQuestions,
   ...week3QuizQuestions,
+  ...week4QuizQuestions,
   ...LEGACY_QUIZ_QUESTIONS,
 ]
 

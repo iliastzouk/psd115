@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { WEEK1_LESSON_NAV } from '../data/week1/lessonNav.js'
 import { WEEK2_LESSON_NAV } from '../data/week2/lessonNav.js'
 import { WEEK3_LESSON_NAV } from '../data/week3/lessonNav.js'
+import { WEEK4_LESSON_NAV } from '../data/week4/lessonNav.js'
 
 const linkClass =
   'touch-manipulation block rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/80 px-4 py-3 min-h-[52px] hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition text-left sm:max-w-md'
@@ -9,11 +10,13 @@ const linkClass =
 export default function LessonPrevNextNav() {
   const { pathname } = useLocation()
   const p = pathname.replace(/\/$/, '') || '/week/1'
-  const nav = p.startsWith('/week/3')
-    ? WEEK3_LESSON_NAV
-    : p.startsWith('/week/2')
-      ? WEEK2_LESSON_NAV
-      : WEEK1_LESSON_NAV
+  const nav = p.startsWith('/week/4')
+    ? WEEK4_LESSON_NAV
+    : p.startsWith('/week/3')
+      ? WEEK3_LESSON_NAV
+      : p.startsWith('/week/2')
+        ? WEEK2_LESSON_NAV
+        : WEEK1_LESSON_NAV
   const i = nav.findIndex((x) => x.to === p)
   if (i < 0) return null
 

@@ -4,17 +4,20 @@ import { shuffle } from '../utils/shuffle.js'
 import { getWeek1ExamQuestions } from '../data/week1/index.js'
 import { getWeek2ExamQuestions } from '../data/week2/index.js'
 import { getWeek3ExamQuestions } from '../data/week3/index.js'
+import { getWeek4ExamQuestions } from '../data/week4/index.js'
 import ExamQuestion from '../components/ExamQuestion.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 export default function ExamMode() {
   const { pathname } = useLocation()
   const deck = useMemo(() => {
-    const pool = pathname.startsWith('/week/3')
-      ? getWeek3ExamQuestions()
-      : pathname.startsWith('/week/2')
-        ? getWeek2ExamQuestions()
-        : getWeek1ExamQuestions()
+    const pool = pathname.startsWith('/week/4')
+      ? getWeek4ExamQuestions()
+      : pathname.startsWith('/week/3')
+        ? getWeek3ExamQuestions()
+        : pathname.startsWith('/week/2')
+          ? getWeek2ExamQuestions()
+          : getWeek1ExamQuestions()
     return shuffle(pool)
   }, [pathname])
   const [index, setIndex] = useState(0)

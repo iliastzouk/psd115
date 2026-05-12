@@ -5,7 +5,7 @@ const btn =
 
 /**
  * Footer navigation between weeks (after lesson prev/next within the same week).
- * @param {{ weekNum: 1 | 2 | 3 }} props
+ * @param {{ weekNum: 1 | 2 | 3 | 4 }} props
  */
 export default function WeekNextPrevNav({ weekNum }) {
   const prev =
@@ -20,7 +20,7 @@ export default function WeekNextPrevNav({ weekNum }) {
     )
 
   const next =
-    weekNum >= 3 ? (
+    weekNum >= 4 ? (
       <Link to="/" className={`${btn} sm:text-right sm:ml-auto`}>
         Αρχική →
       </Link>

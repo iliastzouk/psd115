@@ -693,6 +693,47 @@ function resetWeek3Checklists() {
   }
 }
 
+const W4_CHECKLISTS_KEY = 'psd115-w4-checklists'
+
+/** @param {string} slug */
+export function loadWeek4TopicChecklist(slug, length) {
+  const n = typeof length === 'number' ? length : 5
+  try {
+    const raw = localStorage.getItem(W4_CHECKLISTS_KEY)
+    if (!raw) return Array(n).fill(false)
+    const obj = JSON.parse(raw)
+    if (!obj || typeof obj !== 'object') return Array(n).fill(false)
+    const arr = obj[slug]
+    if (!Array.isArray(arr)) return Array(n).fill(false)
+    const out = arr.map((x) => Boolean(x))
+    while (out.length < n) out.push(false)
+    return out.slice(0, n)
+  } catch {
+    return Array(n).fill(false)
+  }
+}
+
+/** @param {string} slug */
+export function saveWeek4TopicChecklist(slug, items) {
+  try {
+    const raw = localStorage.getItem(W4_CHECKLISTS_KEY)
+    const obj = raw ? JSON.parse(raw) : {}
+    const base = obj && typeof obj === 'object' ? obj : {}
+    base[slug] = items
+    localStorage.setItem(W4_CHECKLISTS_KEY, JSON.stringify(base))
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetWeek4Checklists() {
+  try {
+    localStorage.removeItem(W4_CHECKLISTS_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetProgress() {
   try {
     localStorage.removeItem(STORAGE_KEY)
@@ -719,6 +760,7 @@ export function resetProgress() {
   resetOtherBranchesChecklist()
   resetWeek2Checklists()
   resetWeek3Checklists()
+  resetWeek4Checklists()
   return defaultProgress()
 }
 

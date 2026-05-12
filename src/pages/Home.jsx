@@ -18,7 +18,7 @@ export default function Home() {
 
       <section>
         <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">Εβδομάδες</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             to="/week/1"
             className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-teal-400 dark:hover:border-teal-600 transition group"
@@ -45,7 +45,7 @@ export default function Home() {
           </Link>
           <Link
             to="/week/3"
-            className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-emerald-400 dark:hover:border-emerald-600 transition group sm:col-span-2 lg:col-span-1"
+            className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-emerald-400 dark:hover:border-emerald-600 transition group"
           >
             <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Διαθέσιμο</p>
             <p className="text-lg font-bold text-slate-900 dark:text-white mt-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
@@ -53,6 +53,18 @@ export default function Home() {
             </p>
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
               Νευρώνες, σύναψη, εγκέφαλος, ΗΕΓ, απεικόνιση (K3).
+            </p>
+          </Link>
+          <Link
+            to="/week/4"
+            className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-violet-400 dark:hover:border-violet-600 transition group"
+          >
+            <p className="text-xs font-medium text-violet-600 dark:text-violet-400">Διαθέσιμο</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-white mt-1 group-hover:text-violet-700 dark:group-hover:text-violet-300">
+              Εβδομάδα 4 — Αίσθηση & αντίληψη
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+              Ουδοί, όραση, ακοή, αφή, όσφρηση, γεύση (K4).
             </p>
           </Link>
         </div>
