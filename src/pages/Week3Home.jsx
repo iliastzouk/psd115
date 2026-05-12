@@ -5,8 +5,9 @@ export default function Week3Home() {
   return (
     <div className="space-y-4 animate-[fadeIn_0.35s_ease-out]">
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        <strong>Εβδομάδα 3:</strong> νευρώνες, σύναψη, νευροδιαβιβαστές, οργάνωση νευρικού συστήματος και εγκεφάλου, ευπλαστότητα,
-        μελέτη βλάβης και σύγχρονες μεθόδους απεικόνισης (K3). Χρησιμοποίησε <strong>Κάρτες</strong>, <strong>Κουίζ</strong> και{' '}
+        <strong>Εβδομάδα 3:</strong> νευρώνες, ηλεκτρική σήμανση, συναπτική μετάδοση (χημική σήμανση), νευροδιαβιβαστές, οργάνωση νευρικού συστήματος,
+        δομή εγκεφάλου (μέχρι λοβούς φλοιού), ευπλαστότητα, μελέτη βλάβης και απεικόνισης (K3). Χρησιμοποίησε <strong>Κάρτες</strong>,{' '}
+        <strong>Κουίζ</strong> και{' '}
         <strong>Εξέταση</strong> από το μενού πάνω.
       </p>
       <ul className="grid gap-3 sm:grid-cols-2">

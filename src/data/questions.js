@@ -66,12 +66,13 @@ export const WEEK2_CATEGORIES = [
 export const WEEK3_CATEGORIES = [
   { id: 'w3-overview', label: 'Εβδ.3 — Επισκόπηση / στόχοι' },
   { id: 'w3-neuron', label: 'Εβδ.3 — Νευρώνας' },
-  { id: 'w3-signaling', label: 'Εβδ.3 — Σήμανση' },
-  { id: 'w3-synapse', label: 'Εβδ.3 — Σύναψη & νευροδιαβιβαστές' },
+  { id: 'w3-signaling', label: 'Εβδ.3 — Ηλεκτρική σήμανση' },
+  { id: 'w3-synaptic-transmission', label: 'Εβδ.3 — Συναπτική μετάδοση' },
+  { id: 'w3-synapse', label: 'Εβδ.3 — Νευροδιαβιβαστές & φάρμακα' },
   { id: 'w3-development', label: 'Εβδ.3 — Ανάπτυξη ΚΝΣ' },
   { id: 'w3-nervous-system', label: 'Εβδ.3 — Οργάνωση νευρικού' },
   { id: 'w3-brain-structure', label: 'Εβδ.3 — Δομή εγκεφάλου' },
-  { id: 'w3-cortex', label: 'Εβδ.3 — Φλοιός & ευπλαστότητα' },
+  { id: 'w3-cortex', label: 'Εβδ.3 — Ευπλαστότητα (K3)' },
   { id: 'w3-lesions-eeg', label: 'Εβδ.3 — Βλάβες & ΗΕΓ' },
   { id: 'w3-imaging', label: 'Εβδ.3 — Απεικόνιση εγκεφάλου' },
 ]
