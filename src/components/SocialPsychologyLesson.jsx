@@ -10,7 +10,7 @@ import {
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadSocialPsychologyChecklist, saveSocialPsychologyChecklist } from '../utils/storage.js'
 
-const FC_ORDER = ['fc-social-psychology-1', 'fc-social-psychology-2', 'fc-social-psychology-3', 'fc-social-psychology-4']
+const FC_ORDER = ['fc-social-psychology-1', 'fc-social-psychology-2', 'fc-social-psychology-3', 'fc-social-psychology-4', 'fc-social-psychology-5']
 
 const cardCompact = '!p-3 sm:!p-4'
 
@@ -92,7 +92,7 @@ export default function SocialPsychologyLesson({ socialPsychologyFlashcards, onM
   return (
     <div className="space-y-3 animate-[fadeIn_0.35s_ease-out]">
       <div className="text-center py-4 px-3 rounded-xl bg-gradient-to-b from-violet-50 to-stone-50 dark:from-violet-950/25 dark:to-slate-900 border border-violet-100 dark:border-violet-900/80">
-        <p className="text-[10px] font-semibold text-violet-900 dark:text-violet-300 uppercase tracking-widest">Μάθημα · συμπαγές</p>
+        <p className="text-[10px] font-semibold text-violet-900 dark:text-violet-300 uppercase tracking-widest">Ενότητα · συμπαγές</p>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 
@@ -102,6 +102,10 @@ export default function SocialPsychologyLesson({ socialPsychologyFlashcards, onM
 
       <SectionCard title="Θεωρία" className={cardCompact}>
         <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.theory}</p>
+      </SectionCard>
+
+      <SectionCard title={L.exampleQuestionsTitle} className={cardCompact}>
+        <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">{L.exampleQuestions}</p>
       </SectionCard>
 
       <SectionCard title={L.racismTitle} className={cardCompact}>

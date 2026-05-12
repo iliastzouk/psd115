@@ -88,7 +88,7 @@ export default function GestaltLesson({ gestaltFlashcards, onMarkFlashSeen }) {
   return (
     <div className="space-y-3 animate-[fadeIn_0.35s_ease-out]">
       <div className="text-center py-4 px-3 rounded-xl bg-gradient-to-b from-teal-50 to-stone-50 dark:from-teal-950/25 dark:to-slate-900 border border-teal-100 dark:border-teal-900/80">
-        <p className="text-[10px] font-semibold text-teal-900 dark:text-teal-300 uppercase tracking-widest">Μάθημα · συμπαγές</p>
+        <p className="text-[10px] font-semibold text-teal-900 dark:text-teal-300 uppercase tracking-widest">Ενότητα · συμπαγές</p>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 

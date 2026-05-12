@@ -6,7 +6,7 @@ import { evolutionaryLesson, evolutionaryExamQuestions, evolutionaryLessonQuizId
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadEvolutionaryChecklist, saveEvolutionaryChecklist } from '../utils/storage.js'
 
-const FC_ORDER = ['fc-evolutionary-1', 'fc-evolutionary-2', 'fc-evolutionary-3', 'fc-evolutionary-4']
+const FC_ORDER = ['fc-evolutionary-1', 'fc-evolutionary-2', 'fc-evolutionary-3', 'fc-evolutionary-4', 'fc-evolutionary-5']
 
 const cardCompact = '!p-3 sm:!p-4'
 
@@ -88,7 +88,7 @@ export default function EvolutionaryLesson({ evolutionaryFlashcards, onMarkFlash
   return (
     <div className="space-y-3 animate-[fadeIn_0.35s_ease-out]">
       <div className="text-center py-4 px-3 rounded-xl bg-gradient-to-b from-orange-50 to-stone-50 dark:from-orange-950/25 dark:to-slate-900 border border-orange-100 dark:border-orange-900/80">
-        <p className="text-[10px] font-semibold text-orange-900 dark:text-orange-300 uppercase tracking-widest">Μάθημα · συμπαγές</p>
+        <p className="text-[10px] font-semibold text-orange-900 dark:text-orange-300 uppercase tracking-widest">Ενότητα · συμπαγές</p>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 
@@ -105,7 +105,11 @@ export default function EvolutionaryLesson({ evolutionaryFlashcards, onMarkFlash
       </SectionCard>
 
       <SectionCard title={L.naturalSelectionTitle} className={cardCompact}>
-        <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.naturalSelection}</p>
+        <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">{L.naturalSelection}</p>
+      </SectionCard>
+
+      <SectionCard title={L.speciesLevelTitle} className={cardCompact}>
+        <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.speciesLevel}</p>
       </SectionCard>
 
       <SectionCard title={L.adaptationTitle} className={cardCompact}>

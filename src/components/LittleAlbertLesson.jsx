@@ -86,7 +86,7 @@ export default function LittleAlbertLesson({ littleAlbertFlashcards, onMarkFlash
   return (
     <div className="space-y-5 animate-[fadeIn_0.4s_ease-out]">
       <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-rose-50 to-stone-50 dark:from-rose-950/30 dark:to-slate-900 border border-rose-100 dark:border-rose-900">
-        <p className="text-xs font-semibold text-rose-800 dark:text-rose-300 uppercase tracking-widest">Μάθημα · SOS</p>
+        <p className="text-xs font-semibold text-rose-800 dark:text-rose-300 uppercase tracking-widest">Ενότητα · SOS</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
       </div>
 

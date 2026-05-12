@@ -106,7 +106,7 @@ export default function DefinitionLesson({ definitionFlashcards, onMarkFlashSeen
     <div className="space-y-5 animate-[fadeIn_0.4s_ease-out]">
       {/* Title screen */}
       <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-teal-50 to-stone-50 dark:from-teal-950/40 dark:to-slate-900 border border-teal-100 dark:border-teal-900">
-        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-widest">Μάθημα</p>
+        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-widest">Ενότητα</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
         <p className="text-slate-600 dark:text-slate-300 mt-2 text-sm sm:text-base">{L.subtitle}</p>
       </div>
@@ -278,7 +278,27 @@ export default function DefinitionLesson({ definitionFlashcards, onMarkFlashSeen
         </div>
       </SectionCard>
 
-      {/* Checklist */}
+      {/* Exam-level answer (ερώτηση πάντα ορατή· το checklist μένει τελευταίο) */}
+      <SectionCard title={L.examLevelAnswer.title}>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-800/50 px-4 py-3 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300 mb-1">Ερώτηση εξέτασης</p>
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug">{L.examLevelAnswer.prompt}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowExamAnswer((v) => !v)}
+          className="touch-manipulation w-full rounded-xl border border-teal-300 dark:border-teal-700 text-teal-800 dark:text-teal-200 py-3 text-sm font-medium min-h-[48px] mb-3"
+        >
+          {showExamAnswer ? 'Απόκρυψη κειμένου' : 'Εμφάνιση έτοιμης απάντησης (ανάπτυξη)'}
+        </button>
+        {showExamAnswer && (
+          <p className="text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-100 text-pretty animate-[fadeIn_0.3s_ease-out]">
+            {L.examLevelAnswer.text}
+          </p>
+        )}
+      </SectionCard>
+
+      {/* Checklist — τελευταίο τμήμα ενότητας */}
       <SectionCard title="Έλεγχος προόδου">
         <ul className="space-y-3">
           {L.progressChecklist.map((label, i) => (
@@ -297,22 +317,6 @@ export default function DefinitionLesson({ definitionFlashcards, onMarkFlashSeen
             </li>
           ))}
         </ul>
-      </SectionCard>
-
-      {/* Exam-level answer */}
-      <SectionCard title={L.examLevelAnswer.title}>
-        <button
-          type="button"
-          onClick={() => setShowExamAnswer((v) => !v)}
-          className="touch-manipulation w-full rounded-xl border border-teal-300 dark:border-teal-700 text-teal-800 dark:text-teal-200 py-3 text-sm font-medium min-h-[48px] mb-3"
-        >
-          {showExamAnswer ? 'Απόκρυψη κειμένου' : 'Εμφάνιση έτοιμης απάντησης (ανάπτυξη)'}
-        </button>
-        {showExamAnswer && (
-          <p className="text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-100 text-pretty animate-[fadeIn_0.3s_ease-out]">
-            {L.examLevelAnswer.text}
-          </p>
-        )}
       </SectionCard>
     </div>
   )

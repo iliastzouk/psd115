@@ -2,7 +2,7 @@
  * PSD115 — Εβδομάδα 1: registry θεμάτων + exam pool
  */
 import { definitionLesson } from './definitionPsychology.js'
-import { philosopherExamQuestions } from './philosophers.js'
+import { philosophers, philosopherExamQuestions } from './philosophers.js'
 import { wundtLesson, wundtExamQuestions } from './wundt.js'
 import { functionalismLesson, functionalismExamQuestions } from './functionalism.js'
 import { clinicalLesson, clinicalExamQuestions } from './clinicalPsychology.js'
@@ -50,6 +50,7 @@ export * from './evolutionary.js'
 export * from './socialPsychology.js'
 export * from './educationalPsychology.js'
 export * from './otherBranches.js'
+export { WEEK1_LESSON_NAV } from './lessonNav.js'
 
 /** Θέματα για το hub Εβδομάδας 1 (επεκτείνεται εύκολα) */
 export const WEEK1_TOPIC_CARDS = [
@@ -61,7 +62,7 @@ export const WEEK1_TOPIC_CARDS = [
   },
   {
     slug: 'philosophers',
-    title: 'Φιλόσοφοι & Ιστορία',
+    title: philosophers.title,
     description: 'Εμφυτισμός, Tabula Rasa, δυϊσμός, νους–εγκέφαλος (Hobbes)',
     ready: true,
   },
@@ -186,8 +187,7 @@ export function getWeek1ExamQuestions() {
     {
       id: 'exam-def-full',
       topic: 'Ορισμός',
-      question:
-        'Ανάπτυξε τον επιστημονικό ορισμό της Ψυχολογίας και εξήγησε τη διαφορά μεταξύ συμπεριφοράς και νοητικών διεργασιών.',
+      question: definitionLesson.examLevelAnswer.prompt.trim(),
       idealAnswer: definitionLesson.examLevelAnswer.text.trim(),
     },
     ...philosopherExamQuestions.map((q) => ({

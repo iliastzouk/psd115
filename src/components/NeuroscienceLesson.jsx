@@ -109,7 +109,7 @@ export default function NeuroscienceLesson({ neuroscienceFlashcards, onMarkFlash
   return (
     <div className="space-y-3 animate-[fadeIn_0.35s_ease-out]">
       <div className="text-center py-4 px-3 rounded-xl bg-gradient-to-b from-indigo-50 to-stone-50 dark:from-indigo-950/25 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/80">
-        <p className="text-[10px] font-semibold text-indigo-900 dark:text-indigo-300 uppercase tracking-widest">Μάθημα · ενότητα</p>
+        <p className="text-[10px] font-semibold text-indigo-900 dark:text-indigo-300 uppercase tracking-widest">Ενότητα · ενιαία</p>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{neuroscienceIntro.title}</h1>
       </div>
 

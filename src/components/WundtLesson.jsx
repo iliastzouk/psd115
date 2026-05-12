@@ -84,7 +84,7 @@ export default function WundtLesson({ wundtFlashcards, onMarkFlashSeen }) {
   return (
     <div className="space-y-5 animate-[fadeIn_0.4s_ease-out]">
       <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-violet-50 to-stone-50 dark:from-violet-950/40 dark:to-slate-900 border border-violet-100 dark:border-violet-900">
-        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-widest">Μάθημα · SOS</p>
+        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-widest">Ενότητα · SOS</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
       </div>
 

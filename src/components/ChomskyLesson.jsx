@@ -88,7 +88,7 @@ export default function ChomskyLesson({ chomskyFlashcards, onMarkFlashSeen }) {
   return (
     <div className="space-y-3 animate-[fadeIn_0.35s_ease-out]">
       <div className="text-center py-4 px-3 rounded-xl bg-gradient-to-b from-violet-50 to-stone-50 dark:from-violet-950/25 dark:to-slate-900 border border-violet-100 dark:border-violet-900/80">
-        <p className="text-[10px] font-semibold text-violet-900 dark:text-violet-300 uppercase tracking-widest">Μάθημα · mini</p>
+        <p className="text-[10px] font-semibold text-violet-900 dark:text-violet-300 uppercase tracking-widest">Ενότητα · mini</p>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 

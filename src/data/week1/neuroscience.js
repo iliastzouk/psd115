@@ -1,6 +1,6 @@
 /**
  * Εβδομάδα 1 — Γνωστική νευροεπιστήμη, Paul Broca, Karl Lashley
- * Ενιαίο μάθημα · κοινό checklist (όπως στο PDF block).
+ * Ενιαία ενότητα · κοινό checklist (όπως στο PDF block).
  */
 
 export const neuroscienceIntro = {

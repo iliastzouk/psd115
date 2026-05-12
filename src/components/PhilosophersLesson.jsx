@@ -72,7 +72,7 @@ export default function PhilosophersLesson({ philosopherFlashcards, onMarkFlashS
   return (
     <div className="space-y-5 animate-[fadeIn_0.4s_ease-out]">
       <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-indigo-50 to-stone-50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900">
-        <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Μάθημα</p>
+        <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Ενότητα</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{P.title}</h1>
       </div>
 

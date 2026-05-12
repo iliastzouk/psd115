@@ -5,7 +5,7 @@ export default function Week1Home() {
   return (
     <div className="space-y-4 animate-[fadeIn_0.35s_ease-out]">
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        Διάλεξε θέμα για πλήρες μάθημα ή χρησιμοποίησε <strong>Κάρτες</strong>, <strong>Κουίζ</strong> και{' '}
+        Διάλεξε ενότητα για πλήρη μελέτη ή χρησιμοποίησε <strong>Κάρτες</strong>, <strong>Κουίζ</strong> και{' '}
         <strong>Εξέταση</strong> από το μενού πάνω.
       </p>
       <ul className="grid gap-3 sm:grid-cols-2">
@@ -16,7 +16,7 @@ export default function Week1Home() {
                 to={`/week/1/${t.slug}`}
                 className="block h-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-teal-400 transition"
               >
-                <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Μάθημα</p>
+                <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Ενότητα</p>
                 <p className="font-semibold text-slate-900 dark:text-white mt-1">{t.title}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t.description || t.short || ''}</p>
               </Link>

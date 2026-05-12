@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { CATEGORIES, flashcards, quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { shuffle } from '../utils/shuffle.js'
 import {
@@ -62,6 +62,8 @@ export function useStudySession() {
     () => filterByCategories(quizQuestions, selectedIds),
     [selectedIds],
   )
+
+  const filteredQuizSig = useMemo(() => filteredQuiz.map((q) => q.id).join('|'), [filteredQuiz])
 
   const definitionFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'definition'),
@@ -166,7 +168,7 @@ export function useStudySession() {
   useEffect(() => {
     setCardOrder(shuffle(filteredCards.map((c) => c.id)))
     setCardIndex(0)
-  }, [filteredCards])
+  }, [selectedIds, filteredCards])
 
   const currentCard = useMemo(() => {
     const id = cardOrder[cardIndex]
@@ -209,6 +211,26 @@ export function useStudySession() {
     setQuizResult(null)
     setQuizActive(true)
   }, [filteredQuiz])
+
+  /** Ενεργό κουίζ + αλλαγή φίλτρου (filteredQuiz): νέο deck ώστε η κάρτα να ταιριάζει με την επιλογή. */
+  useLayoutEffect(() => {
+    if (!quizActive) return
+    const deck = shuffle(filteredQuiz)
+    if (!deck.length) {
+      setQuizActive(false)
+      setQuizDeck([])
+      setQuizIndex(0)
+      setQuizSelected(null)
+      setQuizRevealed(false)
+      setQuizResult(null)
+      return
+    }
+    setQuizDeck(deck)
+    setQuizIndex(0)
+    setQuizSelected(null)
+    setQuizRevealed(false)
+    setSessionCorrect(0)
+  }, [filteredQuizSig, quizActive, filteredQuiz])
 
   const currentQuestion = quizDeck[quizIndex]
 

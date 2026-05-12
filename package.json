@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:k1-slides": "node scripts/build-k1-slides.mjs",
+    "build:k1-images": "node scripts/render-k1-slides.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -18,6 +20,8 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.7",
     "@vitejs/plugin-react": "^4.4.1",
+    "pdf-parse": "^2.4.5",
+    "pdf-to-img": "^6.0.0",
     "tailwindcss": "^4.1.7",
     "vite": "^6.3.5"
   }
