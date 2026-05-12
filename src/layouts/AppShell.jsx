@@ -1,12 +1,13 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
+import { HEADER_WEEK_NAV } from './weekNavConfig.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
 function headerNavClass(isActive) {
   return [
-    'touch-manipulation rounded-lg px-3 py-2 text-xs font-medium border transition min-h-[40px] inline-flex items-center justify-center',
+    'shrink-0 snap-start touch-manipulation rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium border transition min-h-[36px] sm:min-h-[40px] inline-flex items-center justify-center whitespace-nowrap',
     isActive
       ? 'border-teal-600 bg-teal-600 text-white shadow-sm'
       : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-teal-400 hover:bg-white dark:hover:bg-slate-900',
@@ -27,7 +28,7 @@ export default function AppShell() {
                 PSD115 Exam Prep
               </Link>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">by Ilias Tzoukas</p>
-              <h1 className="text-lg min-[400px]:text-xl font-bold leading-snug text-balance">
+              <h1 className="text-base min-[400px]:text-lg sm:text-xl font-bold leading-snug text-balance">
                 Ψυχολογία: Η εξέλιξη μιας επιστήμης
               </h1>
             </div>
@@ -48,22 +49,22 @@ export default function AppShell() {
               </button>
             </div>
           </div>
-          <nav className="mt-3 flex flex-wrap gap-2 text-xs" aria-label="Κύρια πλοήγηση">
-            <NavLink to="/" end className={({ isActive }) => headerNavClass(isActive)}>
-              Αρχική
-            </NavLink>
-            <NavLink to="/week/1" className={({ isActive }) => headerNavClass(isActive)}>
-              Εβδομάδα 1
-            </NavLink>
-            <NavLink to="/week/2" className={({ isActive }) => headerNavClass(isActive)}>
-              Εβδομάδα 2
-            </NavLink>
-            <NavLink to="/week/3" className={({ isActive }) => headerNavClass(isActive)}>
-              Εβδομάδα 3
-            </NavLink>
-            <NavLink to="/week/4" className={({ isActive }) => headerNavClass(isActive)}>
-              Εβδομάδα 4
-            </NavLink>
+          <nav
+            className="mt-2 -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-nowrap gap-1.5 sm:gap-2 overflow-x-auto overscroll-x-contain pb-1 sm:pb-0 scroll-smooth snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600"
+            aria-label="Κύρια πλοήγηση"
+          >
+            {HEADER_WEEK_NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                title={item.long}
+                className={({ isActive }) => headerNavClass(isActive)}
+              >
+                <span className="sm:hidden">{item.short}</span>
+                <span className="hidden sm:inline">{item.long}</span>
+              </NavLink>
+            ))}
           </nav>
         </div>
       </header>
