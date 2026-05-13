@@ -109,6 +109,12 @@ export default function FunctionalismLesson({ functionalismFlashcards, onMarkFla
         <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{L.adaptation}</p>
       </SectionCard>
 
+      {L.appliedInLecture ? (
+        <SectionCard title="Εφαρμοσμένη ψυχολογία & legacy (διάλεξη K1)">
+          <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{L.appliedInLecture}</p>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Κύρια σημεία (διάλεξη)">
         <ul className="list-disc list-inside text-sm text-slate-800 dark:text-slate-100 space-y-1">
           {L.keyPoints.map((k) => (

@@ -112,6 +112,12 @@ export default function GestaltLesson({ gestaltFlashcards, onMarkFlashSeen }) {
         <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.whole}</p>
       </SectionCard>
 
+      {L.kohlerInsightLecture ? (
+        <SectionCard title="Πείραμα Köhler & ενόραση (διάλεξη K1)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.kohlerInsightLecture}</p>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Κύρια σημεία" className={cardCompact}>
         <ul className="list-disc list-inside text-sm text-slate-800 dark:text-slate-100 space-y-1">
           {L.keyPoints.map((k) => (

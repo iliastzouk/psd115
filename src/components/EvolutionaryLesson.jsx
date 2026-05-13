@@ -120,6 +120,12 @@ export default function EvolutionaryLesson({ evolutionaryFlashcards, onMarkFlash
         <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.survival}</p>
       </SectionCard>
 
+      {L.lectureVsTabulaRasa ? (
+        <SectionCard title="Έναντι «λευκού πίνακα» (διάλεξη K1)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.lectureVsTabulaRasa}</p>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Κύρια σημεία" className={cardCompact}>
         <ul className="list-disc list-inside text-sm text-slate-800 dark:text-slate-100 space-y-1">
           {L.keyPoints.map((k) => (

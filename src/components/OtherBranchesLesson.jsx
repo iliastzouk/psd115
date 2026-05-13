@@ -113,6 +113,30 @@ export default function OtherBranchesLesson({ otherBranchesFlashcards, onMarkFla
         <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.developmentalPsychology}</p>
       </SectionCard>
 
+      {L.integrativeSynthesisLecture ? (
+        <SectionCard title="Σύνθεση — πολλές σκοπιές (διάλεξη K1)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.integrativeSynthesisLecture}</p>
+        </SectionCard>
+      ) : null}
+
+      {L.professionLecture ? (
+        <SectionCard title="Επάγγελμα ψυχολόγου (διάλεξη K1)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">{L.professionLecture}</p>
+        </SectionCard>
+      ) : null}
+
+      {L.cyprusRegulationLecture ? (
+        <SectionCard title="Κύπρος — ειδικότητες & νομοθεσία (διάλεξη)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.cyprusRegulationLecture}</p>
+        </SectionCard>
+      ) : null}
+
+      {L.efpaLecture ? (
+        <SectionCard title="EFPA (διάλεξη K1)" className={cardCompact}>
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.efpaLecture}</p>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="SOS — γρήγορος πίνακας (PPT)" className={cardCompact}>
         <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Κλάδος και εστίαση όπως στη διαφάνεια.</p>
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
