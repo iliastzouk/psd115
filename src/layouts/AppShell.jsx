@@ -12,7 +12,7 @@ const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
 function headerNavClass(isActive) {
   return [
-    'shrink-0 snap-start touch-manipulation rounded-md px-2 py-1 sm:rounded-lg sm:px-2.5 sm:py-1.5 md:px-3 md:py-2 text-[10px] sm:text-[11px] md:text-xs font-medium border transition min-h-[30px] sm:min-h-[34px] md:min-h-[40px] inline-flex items-center justify-center whitespace-nowrap',
+    'shrink-0 snap-start touch-manipulation rounded-md px-1.5 py-0.5 sm:rounded-md sm:px-2 sm:py-1 md:px-2.5 md:py-1 text-[9px] sm:text-[10px] md:text-[11px] font-medium border transition min-h-[22px] sm:min-h-[24px] md:min-h-[26px] inline-flex items-center justify-center whitespace-nowrap leading-tight',
     isActive
       ? 'border-teal-600 bg-teal-600 text-white shadow-sm'
       : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-teal-400 hover:bg-white dark:hover:bg-slate-900',
@@ -21,7 +21,7 @@ function headerNavClass(isActive) {
 
 function drawerNavClass(isActive) {
   return [
-    'block w-full rounded-lg px-4 py-3 text-sm font-medium border transition text-left touch-manipulation',
+    'block w-full rounded-lg px-3 py-2 text-xs font-medium border transition text-left touch-manipulation leading-snug',
     isActive
       ? 'border-teal-600 bg-teal-600 text-white shadow-sm'
       : 'border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 hover:border-teal-400 hover:bg-white dark:hover:bg-slate-900',
@@ -97,7 +97,7 @@ export default function AppShell() {
       <ScrollToTop />
       <header className="sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-800 bg-stone-50/95 dark:bg-slate-950/95 backdrop-blur-md landscape:max-lg:shadow-sm">
         <div
-          className={`${shell} px-3 sm:px-5 pt-[max(0.35rem,env(safe-area-inset-top))] pb-1.5 sm:pb-2 sm:pt-[max(0.65rem,env(safe-area-inset-top))] md:pb-3 landscape:max-lg:pt-[max(0.25rem,env(safe-area-inset-top))] landscape:max-lg:pb-1`}
+          className={`${shell} px-3 sm:px-5 pt-[max(0.35rem,env(safe-area-inset-top))] pb-1 sm:pb-1.5 sm:pt-[max(0.65rem,env(safe-area-inset-top))] md:pb-2 landscape:max-lg:pt-[max(0.25rem,env(safe-area-inset-top))] landscape:max-lg:pb-1`}
         >
           <div className="flex flex-row items-center justify-between gap-2 min-[400px]:gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-2 min-[400px]:gap-2.5">
@@ -128,15 +128,15 @@ export default function AppShell() {
                   </span>
                 </h1>
                 <p
-                  className="mt-1.5 flex items-start gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] sm:text-[11px] font-semibold leading-snug text-rose-800 text-balance dark:border-rose-800/80 dark:bg-rose-950/40 dark:text-rose-200"
+                  className="mt-1 flex items-center gap-1 rounded-md border border-rose-100/80 bg-rose-50/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-normal leading-tight text-slate-600 text-balance dark:border-rose-900/20 dark:bg-rose-950/15 dark:text-slate-400"
                   title="Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· προσωπική μελέτη χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις."
                 >
-                  <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
-                    <WarningTriangleIcon className="size-3.5 sm:size-4" />
+                  <span className="shrink-0 text-amber-600/55 dark:text-amber-500/45" aria-hidden>
+                    <WarningTriangleIcon className="size-3 sm:size-3" />
                   </span>
                   <span>
-                    <span className="text-rose-900 dark:text-rose-100">ΠΡΟΣΟΧΗ:</span> Μη επίσημο υλικό · προσωπική
-                    μελέτη
+                    <span className="font-normal text-rose-600/90 dark:text-rose-300/85">ΠΡΟΣΟΧΗ:</span>{' '}
+                    Μη επίσημο υλικό · προσωπική μελέτη
                   </span>
                 </p>
               </div>
@@ -152,7 +152,7 @@ export default function AppShell() {
             </button>
           </div>
           <nav
-            className="mt-0.5 sm:mt-1 -mx-3 px-3 sm:mx-0 sm:px-0 hidden lg:flex flex-nowrap gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto overscroll-x-contain pb-0.5 sm:pb-0 scroll-smooth snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-0.5 sm:[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 landscape:max-lg:mt-0"
+            className="mt-0.5 -mx-3 px-3 sm:mx-0 sm:px-0 hidden lg:flex flex-nowrap gap-0.5 sm:gap-1 md:gap-1 overflow-x-auto overscroll-x-contain pb-0.5 scroll-smooth snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-0.5 sm:[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600"
             aria-label="Κύρια πλοήγηση"
           >
             {HEADER_WEEK_NAV.map((item) => (
@@ -186,7 +186,7 @@ export default function AppShell() {
             aria-label="Πλοήγηση εβδομάδων"
             className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] max-w-full flex-col border-r border-slate-200/90 bg-stone-50 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:hidden"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-4 py-3 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-slate-800">
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Πλοήγηση</span>
               <button
                 type="button"
@@ -196,8 +196,8 @@ export default function AppShell() {
                 Κλείσιμο
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-4" aria-label="Κύρια πλοήγηση">
-              <ul className="space-y-1.5">
+            <nav className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-3" aria-label="Κύρια πλοήγηση">
+              <ul className="space-y-1">
                 {HEADER_WEEK_NAV.map((item) => (
                   <li key={item.to}>
                     <NavLink
@@ -212,12 +212,12 @@ export default function AppShell() {
                 ))}
               </ul>
             </nav>
-            <p className="shrink-0 flex items-start gap-2 border-t border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[10px] font-semibold leading-snug text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-200">
-              <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
-                <WarningTriangleIcon className="size-4" />
+            <p className="shrink-0 flex items-center gap-1.5 border-t border-rose-100/90 bg-rose-50/20 px-3 py-2 text-[9px] font-normal leading-tight text-slate-600 dark:border-rose-900/20 dark:bg-rose-950/15 dark:text-slate-400">
+              <span className="shrink-0 text-amber-600/55 dark:text-amber-500/45" aria-hidden>
+                <WarningTriangleIcon className="size-3" />
               </span>
               <span>
-                <span className="text-rose-900 dark:text-rose-100">ΠΡΟΣΟΧΗ:</span> Μη επίσημο υλικό · προσωπική μελέτη
+                <span className="font-normal text-rose-600/90 dark:text-rose-300/85">ΠΡΟΣΟΧΗ:</span> Μη επίσημο υλικό · προσωπική μελέτη
               </span>
             </p>
           </div>
@@ -235,18 +235,18 @@ export default function AppShell() {
       <footer className={`${shell} px-3 sm:px-5 mt-10 pb-8 border-t border-slate-200/80 dark:border-slate-800 pt-6`}>
         <p className="text-sm font-medium text-slate-700 dark:text-slate-200">PSD115 Exam Prep by Ilias Tzoukas</p>
         <aside
-          className="mt-4 rounded-xl border border-rose-200/95 bg-rose-50 px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-sm dark:border-rose-800/70 dark:bg-rose-950/40 dark:shadow-none"
+          className="mt-4 rounded-xl border border-rose-100/90 bg-rose-50/35 px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-sm dark:border-rose-900/30 dark:bg-rose-950/20 dark:shadow-none"
           aria-label="Προσοχή — αποποίηση ευθύνης"
         >
           <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
+            <span className="mt-0.5 shrink-0 text-amber-600/50 dark:text-amber-500/40" aria-hidden>
               <WarningTriangleIcon className="size-5 sm:size-6" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-rose-900 dark:text-rose-200">
+              <p className="text-xs font-normal uppercase tracking-wide text-rose-700/90 dark:text-rose-300/80">
                 ΠΡΟΣΟΧΗ · Αποποίηση
               </p>
-              <p className="mt-1.5 text-xs sm:text-sm font-medium leading-relaxed text-rose-950 dark:text-rose-100/95">
+              <p className="mt-1.5 text-xs sm:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
                 Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· πρόκειται για προσωπική προσπάθεια μελέτης
                 και οργάνωσης σημειώσεων, χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις.
               </p>

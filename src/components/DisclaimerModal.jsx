@@ -39,13 +39,13 @@ export default function DisclaimerModal({ open, onAccept }) {
       >
         <h2
           id={titleId}
-          className="flex items-center gap-2.5 text-base font-bold text-slate-900 dark:text-slate-50"
+          className="flex items-center gap-2 text-base font-normal text-slate-800 dark:text-slate-100"
         >
-          <span className="shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
-            <WarningTriangleIcon className="size-7" />
+          <span className="shrink-0 text-amber-600/50 dark:text-amber-500/40" aria-hidden>
+            <WarningTriangleIcon className="size-6" />
           </span>
           <span className="leading-tight">
-            <span className="text-amber-700 dark:text-amber-300">ΠΡΟΣΟΧΗ:</span> Αποποίηση ευθύνης
+            <span className="font-normal text-rose-600/85 dark:text-rose-300/75">ΠΡΟΣΟΧΗ:</span> Αποποίηση ευθύνης
           </span>
         </h2>
         <div
