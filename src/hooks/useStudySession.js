@@ -342,8 +342,7 @@ export function useStudySession() {
     setQuizRevealed(false)
   }, [quizDeck.length, quizIndex, sessionCorrect])
 
-  const handleResetAll = useCallback(() => {
-    if (!window.confirm('Να διαγραφεί όλη η αποθηκευμένη πρόοδος;')) return
+  const resetAllStudyProgress = useCallback(() => {
     resetProgress()
     setProgress(defaultProgress())
     setQuizActive(false)
@@ -413,7 +412,7 @@ export function useStudySession() {
     startQuiz,
     handleSelectOption,
     handleQuizContinue,
-    handleResetAll,
+    resetAllStudyProgress,
     clearWrongBook,
     removeWrongOne,
     lessonResetKey,
