@@ -81,7 +81,7 @@ export const WEEK1_TOPIC_CARDS = [
   {
     slug: 'clinical',
     title: clinicalLesson.title,
-    description: 'PPT: αποκλίσεις/διαταραχές συμπεριφοράς, προσωπικότητα — πριν τον Freud',
+    description: 'Αποκλίσεις/διαταραχές συμπεριφοράς, προσωπικότητα — πριν τον Freud',
     ready: true,
   },
   {

@@ -17,9 +17,9 @@ export const PPT_DECK_REGISTRY = {
     deckToPdfPage: k1DeckSlideToPdfPageNum,
     pdfPath: 'week1/k1-psd115.pdf',
     slidesDir: 'week1/slides',
-    headerTitle: 'Διαφάνεια στο PDF εβδομάδας 1 (K1)',
-    ariaLabel: 'Διαφάνειες διαλέξεων K1',
-    codeLabel: 'K1 PSD115',
+    headerTitle: 'Διαφάνειες εβδομάδας 1',
+    ariaLabel: 'Διαφάνειες διάλεξης εβδομάδας 1',
+    codeLabel: 'Εβδομάδα 1',
     buildImagesHint: 'npm run build:k1-images',
   },
   week2: {

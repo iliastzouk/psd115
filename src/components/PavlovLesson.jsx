@@ -91,10 +91,10 @@ export default function PavlovLesson({ pavlovFlashcards, onMarkFlashSeen }) {
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
       </div>
 
-      <SectionCard title="Διάλεξη (PPT)">
+      <SectionCard title="Διάλεξη & διαφάνειες">
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">{L.pptSlide}</p>
         <figure className="mt-4 space-y-2">
-          <img src={L.pptDiagramSrc} alt="Pavlov PPT" className="w-full rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-900/50" loading="lazy" />
+          <img src={L.pptDiagramSrc} alt="Σχηματικό Pavlov — κλασική εξάρτηση (πριν, κατά, μετά τη μάθηση)" className="w-full rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-900/50" loading="lazy" />
           <figcaption className="text-xs text-slate-500 dark:text-slate-400">{L.pptDiagramCaption}</figcaption>
         </figure>
       </SectionCard>

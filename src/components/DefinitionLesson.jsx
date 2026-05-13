@@ -118,7 +118,7 @@ export default function DefinitionLesson({ definitionFlashcards, onMarkFlashSeen
         </p>
         {L.lectureDefinitionNote ? (
           <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-200/80 dark:border-slate-700 pt-4">
-            <span className="font-medium text-slate-700 dark:text-slate-300">Διάλεξη K1: </span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Από τη διάλεξη: </span>
             {L.lectureDefinitionNote}
           </p>
         ) : null}

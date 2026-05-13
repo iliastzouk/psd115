@@ -71,7 +71,7 @@ export default function PptSlideDeck({ slideNumbers, routeKey, deckId = 'week1' 
         <div>
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{cfg.headerTitle}</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-            Διαφάνεια deck {at} / {cfg.totalSlides} · PDF σελ. {pdfPage}
+            Διαφάνεια {at} / {cfg.totalSlides} · PDF σελ. {pdfPage}
             {hasMany ? ` · ${idx + 1} / ${nums.length} για αυτή την ενότητα` : null}
           </p>
         </div>

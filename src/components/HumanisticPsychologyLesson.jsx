@@ -97,7 +97,7 @@ export default function HumanisticPsychologyLesson({ humanisticFlashcards, onMar
         <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{L.intro}</p>
       </SectionCard>
 
-      <SectionCard title="Διάλεξη (K1 · PPT)">
+      <SectionCard title="Διάλεξη & διαφάνειες">
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">{L.pptSlide}</p>
       </SectionCard>
 

@@ -764,6 +764,24 @@ export function resetProgress() {
   return defaultProgress()
 }
 
+const DISCLAIMER_KEY = 'psd115-disclaimer-v1'
+
+export function hasAcceptedDisclaimer() {
+  try {
+    return localStorage.getItem(DISCLAIMER_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function acceptDisclaimer() {
+  try {
+    localStorage.setItem(DISCLAIMER_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
 const THEME_KEY = 'psd115-w1-theme'
 
 export function loadTheme() {

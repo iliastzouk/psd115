@@ -97,7 +97,7 @@ export default function OtherBranchesLesson({ otherBranchesFlashcards, onMarkFla
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 
-      <SectionCard title="Διάλεξη (PPT)" className={cardCompact}>
+      <SectionCard title="Διάλεξη & διαφάνειες" className={cardCompact}>
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">{L.pptSlide}</p>
       </SectionCard>
 
@@ -114,13 +114,13 @@ export default function OtherBranchesLesson({ otherBranchesFlashcards, onMarkFla
       </SectionCard>
 
       {L.integrativeSynthesisLecture ? (
-        <SectionCard title="Σύνθεση — πολλές σκοπιές (διάλεξη K1)" className={cardCompact}>
+        <SectionCard title="Σύνθεση — πολλές σκοπιές" className={cardCompact}>
           <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.integrativeSynthesisLecture}</p>
         </SectionCard>
       ) : null}
 
       {L.professionLecture ? (
-        <SectionCard title="Επάγγελμα ψυχολόγου (διάλεξη K1)" className={cardCompact}>
+        <SectionCard title="Επάγγελμα ψυχολόγου" className={cardCompact}>
           <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">{L.professionLecture}</p>
         </SectionCard>
       ) : null}
@@ -132,12 +132,12 @@ export default function OtherBranchesLesson({ otherBranchesFlashcards, onMarkFla
       ) : null}
 
       {L.efpaLecture ? (
-        <SectionCard title="EFPA (διάλεξη K1)" className={cardCompact}>
+        <SectionCard title="EFPA" className={cardCompact}>
           <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{L.efpaLecture}</p>
         </SectionCard>
       ) : null}
 
-      <SectionCard title="SOS — γρήγορος πίνακας (PPT)" className={cardCompact}>
+      <SectionCard title="SOS — γρήγορος πίνακας" className={cardCompact}>
         <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Κλάδος και εστίαση όπως στη διαφάνεια.</p>
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
           <table className="w-full text-sm text-left">

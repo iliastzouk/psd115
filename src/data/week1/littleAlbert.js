@@ -1,6 +1,6 @@
 /**
  * Εβδομάδα 1 — Little Albert · Watson & Rayner (1920)
- * Συμπαγές · PPT-first · οπτική ροή (όπως Pavlov).
+ * Συμπαγές · οπτική ροή (όπως Pavlov).
  */
 
 export const littleAlbertLesson = {

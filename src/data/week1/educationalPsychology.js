@@ -51,7 +51,7 @@ export const educationalPsychologyExamQuestions = [
   },
   {
     id: 'exam-educational-psychology-2',
-    question: 'Ποιος αναφέρεται στο PPT για πείραμα στην εκπαίδευση (1966);',
+    question: 'Ποιος αναφέρεται στο υλικό για πείραμα στην εκπαίδευση (1966);',
     idealAnswer: `Ο Robert Rosenthal πραγματοποίησε πείραμα στον χώρο της εκπαίδευσης (1966).`,
   },
 ]
@@ -91,7 +91,7 @@ const educationalTfQuestions = [
     question: 'Η Εκπαιδευτική Ψυχολογία σχετίζεται με μάθηση και διδασκαλία.',
     options: ['Σωστό', 'Λάθος'],
     correctIndex: 0,
-    explanation: 'Αυτό ορίζεται ρητά στο PPT.',
+    explanation: 'Αυτό ορίζεται ρητά στο υλικό.',
   },
   {
     id: 'q-educational-psychology-tf-2',
@@ -109,7 +109,7 @@ const educationalTfQuestions = [
     question: 'Ο Rosenthal (1966) αναφέρεται για πείραμα εκτός εκπαίδευσης.',
     options: ['Σωστό', 'Λάθος'],
     correctIndex: 1,
-    explanation: 'Στο PPT: πείραμα στον χώρο της εκπαίδευσης.',
+    explanation: 'Πείραμα στον χώρο της εκπαίδευσης.',
   },
 ]
 
@@ -121,7 +121,7 @@ const rawEducationalMcq = [
     explanation: 'Robert Rosenthal — εκπαιδευτικό πλαίσιο.',
   },
   {
-    question: 'Τι περιλαμβάνουν οι εφαρμογές στην εκπαίδευση κατά το PPT;',
+    question: 'Τι περιλαμβάνουν οι εφαρμογές στην εκπαίδευση στο υλικό;',
     options: [
       'Μόνο αθλητισμό',
       'Αναλυτικά προγράμματα και διδακτικές μεθόδους',

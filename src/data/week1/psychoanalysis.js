@@ -1,5 +1,5 @@
 /**
- * Εβδομάδα 1 — Ψυχανάλυση / Sigmund Freud (PSD115 · ευθυγράμμιση K1 σελ. 7–8)
+ * Εβδομάδα 1 — Ψυχανάλυση / Sigmund Freud (PSD115)
  */
 
 export const psychoanalysisLesson = {

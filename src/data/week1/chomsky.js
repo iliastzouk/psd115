@@ -1,6 +1,6 @@
 /**
  * Εβδομάδα 1 — Noam Chomsky · γλώσσα & γνωστική επανάσταση
- * Mini-section · μικρή PPT · μετά τη Γνωστική Ψυχολογία στο υλικό.
+ * Mini-section · μετά τη Γνωστική Ψυχολογία στο υλικό.
  */
 
 export const chomskyLesson = {

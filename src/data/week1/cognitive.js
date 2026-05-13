@@ -1,6 +1,6 @@
 /**
  * Εβδομάδα 1 — Γνωστική Ψυχολογία
- * Συμπαγές · PPT-style · ευθυγράμμιση με διδακτικό υλικό (βλ. study-materials).
+ * Συμπαγές · ευθυγράμμιση με διδακτικό υλικό (βλ. study-materials).
  */
 
 export const cognitiveLesson = {

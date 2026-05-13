@@ -110,7 +110,7 @@ export default function FunctionalismLesson({ functionalismFlashcards, onMarkFla
       </SectionCard>
 
       {L.appliedInLecture ? (
-        <SectionCard title="Εφαρμοσμένη ψυχολογία & legacy (διάλεξη K1)">
+        <SectionCard title="Εφαρμοσμένη ψυχολογία & legacy">
           <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{L.appliedInLecture}</p>
         </SectionCard>
       ) : null}

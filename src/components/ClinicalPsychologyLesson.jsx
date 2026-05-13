@@ -64,16 +64,16 @@ export default function ClinicalPsychologyLesson({ clinicalFlashcards, onMarkFla
   return (
     <div className="space-y-5 animate-[fadeIn_0.4s_ease-out]">
       <div className="text-center py-5 px-4 rounded-2xl bg-gradient-to-b from-teal-50 to-stone-50 dark:from-teal-950/35 dark:to-slate-900 border border-teal-100 dark:border-teal-900">
-        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-widest">Γέφυρα · PPT</p>
+        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-widest">Γέφυρα · διάλεξη</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">{L.bridgeNote}</p>
       </div>
 
-      <SectionCard title="Διάλεξη (PPT) — συμπεριφορά & αντιμετώπιση">
+      <SectionCard title="Διάλεξη & διαφάνειες — συμπεριφορά & αντιμετώπιση">
         <p className="text-sm text-slate-800 dark:text-slate-100 font-medium leading-relaxed">{L.pptBehavior}</p>
       </SectionCard>
 
-      <SectionCard title="Διάλεξη (PPT) — προσωπικότητα">
+      <SectionCard title="Διάλεξη & διαφάνειες — προσωπικότητα">
         <p className="text-sm text-slate-800 dark:text-slate-100 font-medium leading-relaxed">{L.pptPersonality}</p>
       </SectionCard>
 

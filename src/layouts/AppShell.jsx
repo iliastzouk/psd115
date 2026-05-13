@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import DisclaimerModal from '../components/DisclaimerModal.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
+import WarningTriangleIcon from '../components/WarningTriangleIcon.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
 import { HEADER_WEEK_NAV } from './weekNavConfig.js'
+import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -44,6 +47,9 @@ export default function AppShell() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [disclaimerOpen, setDisclaimerOpen] = useState(() =>
+    typeof window !== 'undefined' ? !hasAcceptedDisclaimer() : false,
+  )
 
   useEffect(() => {
     setMenuOpen(false)
@@ -77,7 +83,17 @@ export default function AppShell() {
   }, [])
 
   return (
-    <div className="min-h-dvh bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-[max(2.5rem,env(safe-area-inset-bottom))] transition-colors duration-300">
+    <div
+      className="min-h-dvh bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-[max(2.5rem,env(safe-area-inset-bottom))] transition-colors duration-300"
+      inert={disclaimerOpen ? true : undefined}
+    >
+      <DisclaimerModal
+        open={disclaimerOpen}
+        onAccept={() => {
+          acceptDisclaimer()
+          setDisclaimerOpen(false)
+        }}
+      />
       <ScrollToTop />
       <header className="sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-800 bg-stone-50/95 dark:bg-slate-950/95 backdrop-blur-md landscape:max-lg:shadow-sm">
         <div
@@ -96,16 +112,33 @@ export default function AppShell() {
                 <MenuIcon />
               </button>
               <div className="min-w-0 flex-1 pr-1">
-                <Link
-                  to="/"
-                  title="PSD115 Exam Prep by Ilias Tzoukas"
-                  className="inline-block text-[10px] sm:text-xs text-teal-700 dark:text-teal-300 font-semibold hover:underline leading-snug text-balance"
-                >
-                  PSD115 Exam Prep by Ilias Tzoukas
-                </Link>
-                <h1 className="text-sm sm:text-base md:text-lg font-bold leading-tight text-balance mt-0 sm:mt-0.5 landscape:max-lg:text-[13px] landscape:max-lg:leading-snug">
-                  Ψυχολογία: Η εξέλιξη μιας επιστήμης
+                <h1 className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-balance leading-snug">
+                  <Link
+                    to="/"
+                    title="PSD115 Exam Prep by Ilias Tzoukas — Ψυχολογία 2"
+                    className="text-[10px] sm:text-xs text-teal-700 dark:text-teal-300 font-semibold hover:underline shrink min-w-0"
+                  >
+                    PSD115 Exam Prep by Ilias Tzoukas
+                  </Link>
+                  <span aria-hidden className="shrink-0 text-slate-400 dark:text-slate-500 select-none text-[10px] sm:text-xs">
+                    ·
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-50 shrink-0">
+                    Ψυχολογία 2
+                  </span>
                 </h1>
+                <p
+                  className="mt-1.5 flex items-start gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] sm:text-[11px] font-semibold leading-snug text-rose-800 text-balance dark:border-rose-800/80 dark:bg-rose-950/40 dark:text-rose-200"
+                  title="Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· προσωπική μελέτη χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις."
+                >
+                  <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
+                    <WarningTriangleIcon className="size-3.5 sm:size-4" />
+                  </span>
+                  <span>
+                    <span className="text-rose-900 dark:text-rose-100">ΠΡΟΣΟΧΗ:</span> Μη επίσημο υλικό · προσωπική
+                    μελέτη
+                  </span>
+                </p>
               </div>
             </div>
             <button
@@ -179,6 +212,14 @@ export default function AppShell() {
                 ))}
               </ul>
             </nav>
+            <p className="shrink-0 flex items-start gap-2 border-t border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[10px] font-semibold leading-snug text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-200">
+              <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
+                <WarningTriangleIcon className="size-4" />
+              </span>
+              <span>
+                <span className="text-rose-900 dark:text-rose-100">ΠΡΟΣΟΧΗ:</span> Μη επίσημο υλικό · προσωπική μελέτη
+              </span>
+            </p>
           </div>
         </>
       ) : null}
@@ -192,17 +233,33 @@ export default function AppShell() {
       </main>
 
       <footer className={`${shell} px-3 sm:px-5 mt-10 pb-8 border-t border-slate-200/80 dark:border-slate-800 pt-6`}>
-        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">PSD115 Exam Prep by Ilias Tzoukas</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">PSD115 Exam Prep by Ilias Tzoukas</p>
+        <aside
+          className="mt-4 rounded-xl border border-rose-200/95 bg-rose-50 px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-sm dark:border-rose-800/70 dark:bg-rose-950/40 dark:shadow-none"
+          aria-label="Προσοχή — αποποίηση ευθύνης"
+        >
+          <div className="flex items-start gap-2.5">
+            <span className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden>
+              <WarningTriangleIcon className="size-5 sm:size-6" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-900 dark:text-rose-200">
+                ΠΡΟΣΟΧΗ · Αποποίηση
+              </p>
+              <p className="mt-1.5 text-xs sm:text-sm font-medium leading-relaxed text-rose-950 dark:text-rose-100/95">
+                Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· πρόκειται για προσωπική προσπάθεια μελέτης
+                και οργάνωσης σημειώσεων, χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις.
+              </p>
+            </div>
+          </div>
+        </aside>
         <button
           type="button"
           onClick={() => setResetConfirmOpen(true)}
-          className="mt-3 touch-manipulation text-left text-[11px] text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
+          className="mt-4 touch-manipulation text-left text-xs text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
         >
           Επαναφορά προόδου μελέτης
         </button>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 leading-relaxed max-w-prose">
-          Αποποίηση: Το υλικό δεν είναι επίσημο από το πανεπιστήμιο ή το μάθημα· πρόκειται για προσωπική προσπάθεια μελέτης και οργάνωσης σημειώσεων, χωρίς εγγύηση πληρότητας ή συμβατότητας με τις εξετάσεις.
-        </p>
       </footer>
 
       <ConfirmDialog

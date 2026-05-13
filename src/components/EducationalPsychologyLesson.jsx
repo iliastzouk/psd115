@@ -101,7 +101,7 @@ export default function EducationalPsychologyLesson({ educationalPsychologyFlash
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1.5 text-balance leading-snug">{L.title}</h1>
       </div>
 
-      <SectionCard title="Διάλεξη (PPT)" className={cardCompact}>
+      <SectionCard title="Διάλεξη & διαφάνειες" className={cardCompact}>
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">{L.pptSlide}</p>
       </SectionCard>
 

@@ -90,7 +90,7 @@ export default function LittleAlbertLesson({ littleAlbertFlashcards, onMarkFlash
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{L.title}</h1>
       </div>
 
-      <SectionCard title="Διάλεξη (PPT)">
+      <SectionCard title="Διάλεξη & διαφάνειες">
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">{L.pptSlide}</p>
         <figure className="mt-4 space-y-2">
           <img
