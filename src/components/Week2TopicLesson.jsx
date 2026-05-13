@@ -84,16 +84,18 @@ export default function Week2TopicLesson({ topic, topicFlashcards, onMarkFlashSe
       <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-sky-50 to-stone-50 dark:from-sky-950/40 dark:to-slate-900 border border-sky-100 dark:border-sky-900">
         <p className="text-xs font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-widest">Εβδομάδα 2 · Μέθοδος</p>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mt-2 text-balance">{topic.title}</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{topic.pptRange}</p>
+        {topic.pptRange ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{topic.pptRange}</p>
+        ) : null}
       </div>
 
       <SectionCard title="Εισαγωγή">
         <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed">{topic.intro}</p>
       </SectionCard>
 
-      <SectionCard title="Διάλεξη (K2 · PPT)">
+      <SectionCard title="Διάλεξη & διαφάνειες">
         <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed font-medium">
-          Οι διαφάνειες της ενότητας εμφανίζονται πάνω από αυτή τη σελίδα. {topic.pptRange}.
+          Οι διαφάνειες της ενότητας εμφανίζονται πάνω από αυτή τη σελίδα, δίπλα στο κείμενο και τις ασκήσεις.
         </p>
       </SectionCard>
 
