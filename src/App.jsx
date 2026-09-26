@@ -1,8 +1,6 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import AppShell from './layouts/AppShell.jsx'
 import Home from './pages/Home.jsx'
-import CoursePage from './pages/CoursePage.jsx'
-import Psd115Home from './pages/Psd115Home.jsx'
 import Week1Layout from './pages/Week1Layout.jsx'
 import Week1Home from './pages/Week1Home.jsx'
 import Week2Layout from './pages/Week2Layout.jsx'
@@ -39,20 +37,12 @@ import QuizPage from './pages/QuizPage.jsx'
 import ExamMode from './pages/ExamMode.jsx'
 import ReviewPage from './pages/ReviewPage.jsx'
 
-/** Παλιοί σύνδεσμοι `/week/...` (πριν τα πολλαπλά μαθήματα) → PSD115. */
-function LegacyWeekRedirect() {
-  const { pathname, search, hash } = useLocation()
-  return <Navigate to={`/psd115${pathname}${search}${hash}`} replace />
-}
-
 export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<Home />} />
-        <Route path="/psd115" element={<Psd115Home />} />
-        <Route path="/week/*" element={<LegacyWeekRedirect />} />
-        <Route path="/psd115/week/1" element={<Week1Layout />}>
+        <Route path="/week/1" element={<Week1Layout />}>
           <Route index element={<Week1Home />} />
           <Route path="definition" element={<DefinitionPage />} />
           <Route path="philosophers" element={<PhilosophersPage />} />
@@ -79,7 +69,7 @@ export default function App() {
           <Route path="exam" element={<ExamMode />} />
           <Route path="review" element={<ReviewPage />} />
         </Route>
-        <Route path="/psd115/week/2" element={<Week2Layout />}>
+        <Route path="/week/2" element={<Week2Layout />}>
           <Route index element={<Week2Home />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
@@ -87,7 +77,7 @@ export default function App() {
           <Route path="review" element={<ReviewPage />} />
           <Route path=":slug" element={<Week2TopicPage />} />
         </Route>
-        <Route path="/psd115/week/3" element={<Week3Layout />}>
+        <Route path="/week/3" element={<Week3Layout />}>
           <Route index element={<Week3Home />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
@@ -95,7 +85,7 @@ export default function App() {
           <Route path="review" element={<ReviewPage />} />
           <Route path=":slug" element={<Week3TopicPage />} />
         </Route>
-        <Route path="/psd115/week/4" element={<Week4Layout />}>
+        <Route path="/week/4" element={<Week4Layout />}>
           <Route index element={<Week4Home />} />
           <Route path="flashcards" element={<FlashcardsPage />} />
           <Route path="quiz" element={<QuizPage />} />
@@ -103,8 +93,6 @@ export default function App() {
           <Route path="review" element={<ReviewPage />} />
           <Route path=":slug" element={<Week4TopicPage />} />
         </Route>
-        <Route path="/:courseId" element={<CoursePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

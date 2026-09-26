@@ -8,7 +8,7 @@ export { K3_PPT_SLIDES_BY_ROUTE } from './k3PptRefsByRoute.js'
 
 /** @type {{ to: string, title: string }[]} */
 export const WEEK3_LESSON_NAV = WEEK3_TOPICS.map((t) => ({
-  to: `/psd115/week/3/${t.slug}`,
+  to: `/week/3/${t.slug}`,
   title: t.title,
 }))
 

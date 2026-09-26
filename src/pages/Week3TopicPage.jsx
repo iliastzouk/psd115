@@ -13,7 +13,7 @@ export default function Week3TopicPage() {
     [flashcards, topic],
   )
 
-  if (!topic) return <Navigate to="/psd115/week/3" replace />
+  if (!topic) return <Navigate to="/week/3" replace />
 
   return (
     <Week3TopicLesson

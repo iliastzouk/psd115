@@ -33,11 +33,11 @@ function newUid() {
 
 export function useStudySession() {
   const { pathname } = useLocation()
-  const weekBand = pathname.startsWith('/psd115/week/4')
+  const weekBand = pathname.startsWith('/week/4')
     ? 4
-    : pathname.startsWith('/psd115/week/3')
+    : pathname.startsWith('/week/3')
       ? 3
-      : pathname.startsWith('/psd115/week/2')
+      : pathname.startsWith('/week/2')
         ? 2
         : 1
 

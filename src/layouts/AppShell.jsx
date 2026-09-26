@@ -5,7 +5,7 @@ import DisclaimerModal from '../components/DisclaimerModal.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
 import WarningTriangleIcon from '../components/WarningTriangleIcon.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
-import { CURRENT_TERM, courseFromPath } from '../courses/registry.js'
+import { HEADER_WEEK_NAV } from './weekNavConfig.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
@@ -45,16 +45,6 @@ function MenuIcon() {
 export default function AppShell() {
   const study = useStudySession()
   const location = useLocation()
-  const course = courseFromPath(location.pathname)
-  const headerNav = [
-    { to: '/', end: true, short: 'Μαθήματα', long: 'Όλα τα μαθήματα' },
-    ...(course
-      ? [
-          { to: `/${course.id}`, end: true, short: course.code, long: `${course.code} · Αρχική` },
-          ...(course.weeks ?? []),
-        ]
-      : []),
-  ]
   const [menuOpen, setMenuOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [disclaimerOpen, setDisclaimerOpen] = useState(() =>
@@ -125,16 +115,16 @@ export default function AppShell() {
                 <h1 className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-balance leading-snug">
                   <Link
                     to="/"
-                    title="Exam Prep by Ilias Tzoukas — όλα τα μαθήματα"
+                    title="PSD115 Exam Prep by Ilias Tzoukas — Ψυχολογία 2"
                     className="text-[10px] sm:text-xs text-teal-700 dark:text-teal-300 font-semibold hover:underline shrink min-w-0"
                   >
-                    Exam Prep by Ilias Tzoukas
+                    PSD115 Exam Prep by Ilias Tzoukas
                   </Link>
                   <span aria-hidden className="shrink-0 text-slate-400 dark:text-slate-500 select-none text-[10px] sm:text-xs">
                     ·
                   </span>
                   <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-50 shrink-0">
-                    {course ? `${course.code} · ${course.title}` : `${CURRENT_TERM.semester} · ${CURRENT_TERM.label}`}
+                    Ψυχολογία 2
                   </span>
                 </h1>
                 <p
@@ -165,7 +155,7 @@ export default function AppShell() {
             className="mt-0.5 -mx-3 px-3 sm:mx-0 sm:px-0 hidden lg:flex flex-nowrap gap-0.5 sm:gap-1 md:gap-1 overflow-x-auto overscroll-x-contain pb-0.5 scroll-smooth snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-0.5 sm:[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600"
             aria-label="Κύρια πλοήγηση"
           >
-            {headerNav.map((item) => (
+            {HEADER_WEEK_NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -193,7 +183,7 @@ export default function AppShell() {
             id="week-drawer-nav"
             role="dialog"
             aria-modal="true"
-            aria-label="Πλοήγηση μαθημάτων και εβδομάδων"
+            aria-label="Πλοήγηση εβδομάδων"
             className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] max-w-full flex-col border-r border-slate-200/90 bg-stone-50 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:hidden"
           >
             <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-slate-800">
@@ -208,7 +198,7 @@ export default function AppShell() {
             </div>
             <nav className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-3" aria-label="Κύρια πλοήγηση">
               <ul className="space-y-1">
-                {headerNav.map((item) => (
+                {HEADER_WEEK_NAV.map((item) => (
                   <li key={item.to}>
                     <NavLink
                       to={item.to}
@@ -243,7 +233,7 @@ export default function AppShell() {
       </main>
 
       <footer className={`${shell} px-3 sm:px-5 mt-10 pb-8 border-t border-slate-200/80 dark:border-slate-800 pt-6`}>
-        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Exam Prep by Ilias Tzoukas</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">PSD115 Exam Prep by Ilias Tzoukas</p>
         <aside
           className="mt-4 rounded-xl border border-rose-100/90 bg-rose-50/35 px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-sm dark:border-rose-900/30 dark:bg-rose-950/20 dark:shadow-none"
           aria-label="Προσοχή — αποποίηση ευθύνης"

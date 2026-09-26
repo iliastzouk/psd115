@@ -15,7 +15,7 @@ export default function Week3Home() {
           <li key={t.slug}>
             {t.ready ? (
               <Link
-                to={`/psd115/week/3/${t.slug}`}
+                to={`/week/3/${t.slug}`}
                 className="block h-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-emerald-400 transition"
               >
                 <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Ενότητα</p>

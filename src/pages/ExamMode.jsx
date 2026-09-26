@@ -11,11 +11,11 @@ import ProgressBar from '../components/ProgressBar.jsx'
 export default function ExamMode() {
   const { pathname } = useLocation()
   const deck = useMemo(() => {
-    const pool = pathname.startsWith('/psd115/week/4')
+    const pool = pathname.startsWith('/week/4')
       ? getWeek4ExamQuestions()
-      : pathname.startsWith('/psd115/week/3')
+      : pathname.startsWith('/week/3')
         ? getWeek3ExamQuestions()
-        : pathname.startsWith('/psd115/week/2')
+        : pathname.startsWith('/week/2')
           ? getWeek2ExamQuestions()
           : getWeek1ExamQuestions()
     return shuffle(pool)

@@ -8,17 +8,17 @@ import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
 import { WEEK4_CATEGORIES, flashcards, quizQuestions } from '../data/questions.js'
 import { K4_PPT_SLIDES_BY_ROUTE } from '../data/week4/k4PptRefsByRoute.js'
 
-const TOOL_PATHS = new Set(['/psd115/week/4/flashcards', '/psd115/week/4/quiz', '/psd115/week/4/exam', '/psd115/week/4/review'])
-const HIDE_PROGRESS_PATHS = new Set(['/psd115/week/4/exam', '/psd115/week/4/review'])
+const TOOL_PATHS = new Set(['/week/4/flashcards', '/week/4/quiz', '/week/4/exam', '/week/4/review'])
+const HIDE_PROGRESS_PATHS = new Set(['/week/4/exam', '/week/4/review'])
 
 const week4CategoryIds = new Set(WEEK4_CATEGORIES.map((c) => c.id))
 
 export default function Week4Layout() {
   const ctx = useOutletContext()
   const { pathname } = useLocation()
-  const p = pathname.replace(/\/$/, '') || '/psd115/week/4'
-  const progressExpandedByDefault = p === '/psd115/week/4' || TOOL_PATHS.has(p)
-  const k4Slides = p === '/psd115/week/4' || TOOL_PATHS.has(p) ? null : K4_PPT_SLIDES_BY_ROUTE[p] ?? null
+  const p = pathname.replace(/\/$/, '') || '/week/4'
+  const progressExpandedByDefault = p === '/week/4' || TOOL_PATHS.has(p)
+  const k4Slides = p === '/week/4' || TOOL_PATHS.has(p) ? null : K4_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !HIDE_PROGRESS_PATHS.has(p)
 
   const week4FlashTotal = useMemo(
