@@ -23,6 +23,18 @@ npm.cmd run dev
 
 Διαδρομές: `/` · `/week/1` … · `/week/2` … (`flashcards` · `quiz` · `exam` · `review` ανά εβδομάδα).
 
+## Προστασία (έλεγχοι & αντίγραφα προόδου)
+
+| Εντολή | Τι κάνει |
+|--------|----------|
+| `npm run validate:content` | Ελέγχει το περιεχόμενο (διπλά IDs, άκυρα `correctIndex`/τύποι, αναφορές σε ανύπαρκτες ερωτήσεις/κατηγορίες/διαφάνειες). Τρέχει αυτόματα πριν από κάθε `npm run build` — αν αποτύχει, αποτυγχάνει και το build (και στο Vercel). |
+| `npm run validate:progress -- <αρχείο.json>` | Ελέγχει ένα αρχείο «Εξαγωγή προόδου» χωρίς να γράψει τίποτα. |
+| `npm run smoke` | Μετά από `npm run build`: ανοίγει όλες τις διαδρομές σε headless Chromium και ελέγχει τον κύκλο εξαγωγή → εισαγωγή → επαναφορά. Χρειάζεται Chromium του Playwright (`npx playwright install chromium`) ή `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. |
+
+Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα) και `build` σε κάθε push/PR.
+
+**Πρόοδος:** στο footer υπάρχουν «Εξαγωγή προόδου (JSON)» και «Εισαγωγή προόδου…». Το αρχείο περιέχει αυτούσια όλα τα κλειδιά `psd115-*` του localStorage. Η εισαγωγή ελέγχει το αρχείο, ζητά επιβεβαίωση, κατεβάζει πρώτα αντίγραφο της τρέχουσας προόδου (και κρατά τα 3 τελευταία στο localStorage ως `psd115-backup-*`), δεν σβήνει κλειδιά που λείπουν από το αρχείο και επαναφορτώνει τη σελίδα. Και η «Επαναφορά προόδου μελέτης» κατεβάζει πρώτα αντίγραφο.
+
 ## Deploy στο Vercel
 
 1. **GitHub:** ώθησε το repo (το `vercel.json` ήδη ρυθμίζει SPA fallback σε `index.html`).

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import DisclaimerModal from '../components/DisclaimerModal.jsx'
+import ProgressBackupPanel from '../components/ProgressBackupPanel.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
 import WarningTriangleIcon from '../components/WarningTriangleIcon.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
 import { HEADER_WEEK_NAV } from './weekNavConfig.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
+import { createSafetyBackup } from '../utils/progressBackup.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -253,6 +255,7 @@ export default function AppShell() {
             </div>
           </div>
         </aside>
+        <ProgressBackupPanel />
         <button
           type="button"
           onClick={() => setResetConfirmOpen(true)}
@@ -266,11 +269,12 @@ export default function AppShell() {
         open={resetConfirmOpen}
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={() => {
+          createSafetyBackup('reset')
           study.resetAllStudyProgress()
           setResetConfirmOpen(false)
         }}
         title="Επαναφορά προόδου"
-        description="Να διαγραφεί όλη η αποθηκευμένη πρόοδος; Η ενέργεια δεν μπορεί να αναιρεθεί."
+        description="Να διαγραφεί όλη η αποθηκευμένη πρόοδος; Πριν από τη διαγραφή θα κατέβει αυτόματα αντίγραφο (JSON), που μπορείς να επαναφέρεις με «Εισαγωγή προόδου»."
         cancelLabel="Άκυρο"
         confirmLabel="Ναι, διαγραφή"
         variant="danger"
