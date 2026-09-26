@@ -2,11 +2,11 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { WEEK4_LESSON_NAV } from '../data/week4/lessonNav.js'
 
 const toolLinks = [
-  { to: '/week/4', label: 'Ενότητες', end: true },
-  { to: '/week/4/flashcards', label: 'Κάρτες' },
-  { to: '/week/4/quiz', label: 'Κουίζ' },
-  { to: '/week/4/exam', label: 'Εξέταση' },
-  { to: '/week/4/review', label: 'Λάθη' },
+  { to: '/psd115/week/4', label: 'Ενότητες', end: true },
+  { to: '/psd115/week/4/flashcards', label: 'Κάρτες' },
+  { to: '/psd115/week/4/quiz', label: 'Κουίζ' },
+  { to: '/psd115/week/4/exam', label: 'Εξέταση' },
+  { to: '/psd115/week/4/review', label: 'Λάθη' },
 ]
 
 const lessonPaths = new Set(WEEK4_LESSON_NAV.map((l) => l.to))
@@ -25,13 +25,13 @@ function linkClass(isActive) {
 
 function normalizePath(pathname) {
   const p = pathname.replace(/\/$/, '')
-  return p || '/week/4'
+  return p || '/psd115/week/4'
 }
 
 const selectClass =
   'w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
 
-const TOOL_PREFIXES = ['/week/4/flashcards', '/week/4/quiz', '/week/4/exam', '/week/4/review']
+const TOOL_PREFIXES = ['/psd115/week/4/flashcards', '/psd115/week/4/quiz', '/psd115/week/4/exam', '/psd115/week/4/review']
 
 function isStudyToolPath(pathname) {
   const p = normalizePath(pathname)

@@ -4,11 +4,11 @@ import { WEEK1_LESSON_NAV } from '../data/week1/lessonNav.js'
 /** Πάντα ορατά — χωρίς οριζόντιο scroll για Κάρτες/Κουίζ */
 const toolLinks = [
   /** Όχι «Αρχική» — αυτό είναι το app home στο header (`/`). Εδώ: λίστα ενοτήτων εβδομάδας. */
-  { to: '/week/1', label: 'Ενότητες', end: true },
-  { to: '/week/1/flashcards', label: 'Κάρτες' },
-  { to: '/week/1/quiz', label: 'Κουίζ' },
-  { to: '/week/1/exam', label: 'Εξέταση' },
-  { to: '/week/1/review', label: 'Λάθη' },
+  { to: '/psd115/week/1', label: 'Ενότητες', end: true },
+  { to: '/psd115/week/1/flashcards', label: 'Κάρτες' },
+  { to: '/psd115/week/1/quiz', label: 'Κουίζ' },
+  { to: '/psd115/week/1/exam', label: 'Εξέταση' },
+  { to: '/psd115/week/1/review', label: 'Λάθη' },
 ]
 
 const lessonPaths = new Set(WEEK1_LESSON_NAV.map((l) => l.to))
@@ -27,13 +27,13 @@ function linkClass(isActive) {
 
 function normalizePath(pathname) {
   const p = pathname.replace(/\/$/, '')
-  return p || '/week/1'
+  return p || '/psd115/week/1'
 }
 
 const selectClass =
   'w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
 
-const TOOL_PREFIXES = ['/week/1/flashcards', '/week/1/quiz', '/week/1/exam', '/week/1/review']
+const TOOL_PREFIXES = ['/psd115/week/1/flashcards', '/psd115/week/1/quiz', '/psd115/week/1/exam', '/psd115/week/1/review']
 
 function isStudyToolPath(pathname) {
   const p = normalizePath(pathname)

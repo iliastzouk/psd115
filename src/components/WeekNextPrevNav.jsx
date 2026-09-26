@@ -14,7 +14,7 @@ export default function WeekNextPrevNav({ weekNum }) {
         ← Αρχική
       </Link>
     ) : (
-      <Link to={`/week/${weekNum - 1}`} className={btn}>
+      <Link to={`/psd115/week/${weekNum - 1}`} className={btn}>
         ← Προηγούμενη εβδομάδα
       </Link>
     )
@@ -25,7 +25,7 @@ export default function WeekNextPrevNav({ weekNum }) {
         Αρχική →
       </Link>
     ) : (
-      <Link to={`/week/${weekNum + 1}`} className={`${btn} sm:text-right sm:ml-auto`}>
+      <Link to={`/psd115/week/${weekNum + 1}`} className={`${btn} sm:text-right sm:ml-auto`}>
         Επόμενη εβδομάδα →
       </Link>
     )

@@ -8,7 +8,7 @@ export { K2_PPT_SLIDES_BY_ROUTE } from './k2PptRefsByRoute.js'
 
 /** @type {{ to: string, title: string }[]} */
 export const WEEK2_LESSON_NAV = WEEK2_TOPICS.map((t) => ({
-  to: `/week/2/${t.slug}`,
+  to: `/psd115/week/2/${t.slug}`,
   title: t.title,
 }))
 

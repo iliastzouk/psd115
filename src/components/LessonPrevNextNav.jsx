@@ -9,12 +9,12 @@ const linkClass =
 
 export default function LessonPrevNextNav() {
   const { pathname } = useLocation()
-  const p = pathname.replace(/\/$/, '') || '/week/1'
-  const nav = p.startsWith('/week/4')
+  const p = pathname.replace(/\/$/, '') || '/psd115/week/1'
+  const nav = p.startsWith('/psd115/week/4')
     ? WEEK4_LESSON_NAV
-    : p.startsWith('/week/3')
+    : p.startsWith('/psd115/week/3')
       ? WEEK3_LESSON_NAV
-      : p.startsWith('/week/2')
+      : p.startsWith('/psd115/week/2')
         ? WEEK2_LESSON_NAV
         : WEEK1_LESSON_NAV
   const i = nav.findIndex((x) => x.to === p)
