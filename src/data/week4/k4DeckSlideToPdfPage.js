@@ -1,7 +1,2 @@
-/**
- * Deck K4 (1…51) ↔ σελίδα PDF / αρχείο PNG — ευθυγράμμιση 1:1 με τις διαφάνειες.
- */
-export function k4DeckSlideToPdfPageNum(deckSlide) {
-  if (deckSlide < 1) return 1
-  return Math.min(deckSlide, 51)
-}
+/** Phase 1B adapter: το περιεχόμενο μεταφέρθηκε στο content/courses/psd115/units/k4/k4DeckSlideToPdfPage.js. Μόνο re-export — μην προσθέσεις κώδικα εδώ. */
+export * from '../../../content/courses/psd115/units/k4/k4DeckSlideToPdfPage.js'

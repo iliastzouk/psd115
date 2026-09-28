@@ -1,5 +1,5 @@
 /**
- * Extract K3 slide bodies from PDF → src/data/week3/k3PptSlideBodies.generated.js
+ * Extract K3 slide bodies from PDF → content/courses/psd115/units/k3/k3PptSlideBodies.generated.js
  * Run: node scripts/build-k3-slides.mjs
  */
 import fs from 'fs'
@@ -49,7 +49,7 @@ export const K3_PPT_SLIDE_BODIES = {
 ${bodyLines.join('\n')}
 }
 `
-const outPath = path.join(root, 'src', 'data', 'week3', 'k3PptSlideBodies.generated.js')
+const outPath = path.join(root, 'content', 'courses', 'psd115', 'units', 'k3', 'k3PptSlideBodies.generated.js')
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, out, 'utf8')
 console.log('Wrote', outPath, keys.length, 'slides, K3_PPT_TOTAL_SLIDES =', totalSlides)

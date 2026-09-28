@@ -1,7 +1,2 @@
-/**
- * Deck K2 (1…44, `-- N of 44 --`) ↔ σελίδα PDF / αρχείο PNG (σελ. 1 PDF κενή).
- */
-export function k2DeckSlideToPdfPageNum(deckSlide) {
-  if (deckSlide < 1) return 1
-  return Math.min(deckSlide + 1, 44)
-}
+/** Phase 1B adapter: το περιεχόμενο μεταφέρθηκε στο content/courses/psd115/units/k2/k2DeckSlideToPdfPage.js. Μόνο re-export — μην προσθέσεις κώδικα εδώ. */
+export * from '../../../content/courses/psd115/units/k2/k2DeckSlideToPdfPage.js'

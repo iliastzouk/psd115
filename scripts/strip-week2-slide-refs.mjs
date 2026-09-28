@@ -4,7 +4,7 @@
  */
 import fs from 'fs'
 
-const url = new URL('../src/data/week2/topicsData.js', import.meta.url)
+const url = new URL('../content/courses/psd115/units/k2/topicsData.js', import.meta.url)
 let s = fs.readFileSync(url, 'utf8')
 
 const slideNum = String.raw`[\d\u2013\u2014\-]+`

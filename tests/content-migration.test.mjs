@@ -42,6 +42,72 @@ describe('Content identity vs baseline', () => {
   })
 })
 
+const root = new URL('..', import.meta.url).pathname
+const walk = (dir) =>
+  fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(`${dir}/${d.name}`) : [`${dir}/${d.name}`]))
+
+describe('Δομή μετά το migration', () => {
+  test('κάθε αρχείο του src/data είναι καθαρό adapter (μόνο re-export προς content/)', () => {
+    const files = walk(`${root}src/data`)
+    assert.equal(files.length, 46)
+    for (const f of files) {
+      const code = fs.readFileSync(f, 'utf8').replace(/\/\*\*[\s\S]*?\*\/\s*/, '').trim()
+      assert.match(code, /^(export (\*|\{ default \}) from '(\.\.\/)+content\/courses\/psd115\/[^']+'\s*)+$/, f)
+    }
+  })
+
+  test('το content/ δεν εξαρτάται από τον κώδικα της εφαρμογής', () => {
+    for (const f of walk(`${root}content`)) {
+      for (const [, spec] of fs.readFileSync(f, 'utf8').matchAll(/from '([^']+)'/g)) {
+        assert.ok(spec.startsWith('./') || spec.startsWith('../'), `${f}: ${spec}`)
+        assert.ok(new URL(spec, `file://${f}`).pathname.startsWith(`${root}content/`), `${f} → ${spec}`)
+      }
+    }
+  })
+
+  test('course.js: ίδιο id με το registry, units συνεπή με decks και πηγές', async () => {
+    const { course } = await import('../content/courses/psd115/course.js')
+    const { sources } = await import('../content/courses/psd115/sources.js')
+    const { PPT_DECK_REGISTRY } = await import('../content/courses/psd115/pptDeckRegistry.js')
+    const { registry } = await import('../src/core/academic/data/index.js')
+    assert.ok(registry.courses.some((c) => c.id === course.id))
+    assert.deepEqual(course.provenance, { origin: 'legacy', reviewed: false })
+    const unitIds = course.units.map((u) => u.id)
+    assert.equal(new Set(unitIds).size, unitIds.length)
+    for (const u of course.units) {
+      assert.ok(fs.existsSync(`${root}content/courses/psd115/units/${u.id}`), u.id)
+      assert.ok(PPT_DECK_REGISTRY[u.deck], u.deck)
+    }
+    for (const s of sources) {
+      assert.ok(unitIds.includes(s.unit), s.id)
+      assert.ok(fs.existsSync(`${root}public/${s.path}`), s.path)
+      assert.equal(PPT_DECK_REGISTRY[course.units.find((u) => u.id === s.unit).deck].pdfPath, s.path)
+    }
+  })
+})
+
+describe('Συμβατότητα με την υπάρχουσα πρόοδο', () => {
+  test('το storage.js φορτώνει αυτούσια την πρόοδο του δείγματος (κλειδιά psd115-*)', async () => {
+    const sample = JSON.parse(fs.readFileSync(`${root}tests/fixtures/progress-export.sample.json`, 'utf8'))
+    const map = new Map(Object.entries(sample.keys))
+    const prev = globalThis.localStorage
+    globalThis.localStorage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, v), removeItem: (k) => map.delete(k) }
+    try {
+      const storage = await import('../src/utils/storage.js')
+      const loaded = storage.loadProgress()
+      assert.deepEqual(loaded, JSON.parse(sample.keys['psd115-w1-study']))
+      assert.deepEqual(storage.loadPavlovChecklist(3), [true, false, true])
+      assert.deepEqual(storage.loadWeek2TopicChecklist('overview', 3), [true, true, false])
+    } finally {
+      if (prev === undefined) delete globalThis.localStorage
+      else globalThis.localStorage = prev
+    }
+    assert.deepEqual(Object.fromEntries(map), sample.keys, 'η φόρτωση δεν έγραψε τίποτα')
+  })
+  // Η πρόοδος δένεται σε IDs κατηγοριών/καρτών/ερωτήσεων και slugs θεμάτων. Η συμβατότητά της
+  // αποδεικνύεται από τα SET(before) === SET(after) και τα ίδια routes/slugs παραπάνω (όχι από δείγμα).
+})
+
 describe('Ο συγκριτής πιάνει κάθε είδος αλλαγής', () => {
   const clone = () => structuredClone(baseline)
 

@@ -1,2 +1,2 @@
-/** Πλοήγηση ενοτήτων Εβδομάδας 3 */
-export { WEEK3_LESSON_NAV } from './index.js'
+/** Phase 1B adapter: το περιεχόμενο μεταφέρθηκε στο content/courses/psd115/units/k3/lessonNav.js. Μόνο re-export — μην προσθέσεις κώδικα εδώ. */
+export * from '../../../content/courses/psd115/units/k3/lessonNav.js'

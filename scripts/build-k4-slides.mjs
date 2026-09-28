@@ -1,5 +1,5 @@
 /**
- * Extract K4 slide bodies from PDF → src/data/week4/k4PptSlideBodies.generated.js
+ * Extract K4 slide bodies from PDF → content/courses/psd115/units/k4/k4PptSlideBodies.generated.js
  * Run: node scripts/build-k4-slides.mjs
  */
 import fs from 'fs'
@@ -49,7 +49,7 @@ export const K4_PPT_SLIDE_BODIES = {
 ${bodyLines.join('\n')}
 }
 `
-const outPath = path.join(root, 'src', 'data', 'week4', 'k4PptSlideBodies.generated.js')
+const outPath = path.join(root, 'content', 'courses', 'psd115', 'units', 'k4', 'k4PptSlideBodies.generated.js')
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, out, 'utf8')
 console.log('Wrote', outPath, keys.length, 'slides, K4_PPT_TOTAL_SLIDES =', totalSlides)
