@@ -9,6 +9,7 @@ import {
 } from '../data/week1/educationalPsychology.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadEducationalPsychologyChecklist, saveEducationalPsychologyChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = [
   'fc-educational-psychology-1',
@@ -19,7 +20,8 @@ const FC_ORDER = [
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

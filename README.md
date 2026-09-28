@@ -29,7 +29,7 @@ npm.cmd run dev
 |--------|----------|
 | `npm run validate:content` | Ελέγχει το περιεχόμενο (διπλά IDs, άκυρα `correctIndex`/τύποι, αναφορές σε ανύπαρκτες ερωτήσεις/κατηγορίες/διαφάνειες). Τρέχει αυτόματα πριν από κάθε `npm run build` — αν αποτύχει, αποτυγχάνει και το build (και στο Vercel). |
 | `npm run validate:progress -- <αρχείο.json>` | Ελέγχει ένα αρχείο «Εξαγωγή προόδου» χωρίς να γράψει τίποτα. |
-| `npm run smoke` | Μετά από `npm run build`: ανοίγει όλες τις διαδρομές σε headless Chromium και ελέγχει τον κύκλο εξαγωγή → εισαγωγή → επαναφορά. Χρειάζεται Chromium του Playwright (`npx playwright install chromium`) ή `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. |
+| `npm run smoke` | Μετά από `npm run build`: ανοίγει όλες τις διαδρομές σε headless Chromium και ελέγχει τον κύκλο εξαγωγή → εισαγωγή → επαναφορά, και ότι με τις ανακατεμένες επιλογές η σωστή απάντηση μετράει σωστά (κύριο κουίζ και mini κουίζ μαθημάτων). Χρειάζεται Chromium του Playwright (`npx playwright install chromium`) ή `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. |
 
 Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα) και `build` σε κάθε push/PR.
 

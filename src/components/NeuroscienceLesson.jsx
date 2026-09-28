@@ -14,6 +14,7 @@ import {
 } from '../data/week1/neuroscience.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadNeuroscienceChecklist, saveNeuroscienceChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = [
   'fc-neuro-cn-1',
@@ -29,7 +30,8 @@ const FC_ORDER = [
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

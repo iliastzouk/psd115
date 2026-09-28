@@ -5,12 +5,14 @@ import MemoryHack from './MemoryHack.jsx'
 import { evolutionaryLesson, evolutionaryExamQuestions, evolutionaryLessonQuizIds } from '../data/week1/evolutionary.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadEvolutionaryChecklist, saveEvolutionaryChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-evolutionary-1', 'fc-evolutionary-2', 'fc-evolutionary-3', 'fc-evolutionary-4', 'fc-evolutionary-5']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

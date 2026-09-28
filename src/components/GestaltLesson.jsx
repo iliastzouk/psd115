@@ -5,12 +5,14 @@ import MemoryHack from './MemoryHack.jsx'
 import { gestaltLesson, gestaltExamQuestions, gestaltLessonQuizIds } from '../data/week1/gestalt.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadGestaltChecklist, saveGestaltChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-gestalt-1', 'fc-gestalt-2', 'fc-gestalt-3']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

@@ -4,6 +4,7 @@
  *     σωστή τελική διαδρομή, μη κενό περιεχόμενο.
  *  2. Ελέγχει τον κύκλο προστασίας προόδου: εξαγωγή → αλλοίωση → απόρριψη άκυρου αρχείου →
  *     εισαγωγή με backup → επαναφορά (reset) με backup.
+ *  3. Ανακάτεμα επιλογών: απαντά με βάση το κείμενο της σωστής επιλογής και ελέγχει ότι μετράει σωστά.
  *
  * Προϋπόθεση: `npm run build` (χρησιμοποιεί το dist/ μέσω `vite preview`).
  * Browser: ο Chromium του Playwright· αλλιώς όρισε PLAYWRIGHT_CHROMIUM_EXECUTABLE.
@@ -219,6 +220,91 @@ const before = failures.length
   }
   await context.close()
   console.log(`${failures.length > before ? '✗' : '✓'} Προστασία προόδου: export · απόρριψη άκυρου · import με backup · reset με backup`)
+}
+
+// ---------- 3. Ανακάτεμα επιλογών: η σωστή απάντηση μετράει σωστά ----------
+const beforeShuffle = failures.length
+{
+  const { quizQuestions } = await imp('src/data/questions.js')
+  const byText = new Map(quizQuestions.map((q) => [q.question.trim(), q]))
+  const context = await browser.newContext()
+  await context.addInitScript(() => localStorage.setItem('psd115-disclaimer-v1', '1'))
+  const page = await context.newPage()
+  page.on('pageerror', (e) => fail(`shuffle: σφάλμα JS: ${e.message}`))
+
+  // Κύριο κουίζ Εβδ. 2: απαντά σε ΟΛΕΣ τις ερωτήσεις με βάση το κείμενο της σωστής επιλογής.
+  await page.goto(BASE + '/week/2/quiz', { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
+  let answered = 0
+  let mcqNotAtOriginalSlot = 0
+  let mcqCount = 0
+  for (let guard = 0; guard < 500; guard++) {
+    const heading = page.locator('main h2').first()
+    const text = ((await heading.textContent()) ?? '').trim()
+    const q = byText.get(text)
+    if (!q) {
+      fail(`shuffle: η ερώτηση «${text.slice(0, 60)}» δεν βρέθηκε στα δεδομένα`)
+      break
+    }
+    const correctText = q.options[q.correctIndex]
+    const buttons = page.locator('main ul li button')
+    const labels = (await buttons.allTextContents()).map((t) => t.trim())
+    const pos = labels.indexOf(correctText)
+    if (pos < 0 || labels.length !== q.options.length || [...labels].sort().join('|') !== [...q.options].sort().join('|')) {
+      fail(`shuffle: οι επιλογές της «${q.id}» δεν ταιριάζουν με τα δεδομένα`)
+      break
+    }
+    if (q.type === 'mcq') {
+      mcqCount += 1
+      if (pos !== q.correctIndex) mcqNotAtOriginalSlot += 1
+    } else if (labels.join('|') !== q.options.join('|')) {
+      fail(`shuffle: η Σ/Λ «${q.id}» άλλαξε σειρά επιλογών`)
+    }
+    await buttons.nth(pos).click()
+    if (!/border-emerald-500/.test((await buttons.nth(pos).getAttribute('class')) ?? '')) {
+      fail(`shuffle: η σωστή επιλογή της «${q.id}» δεν σημειώθηκε ως σωστή`)
+    }
+    answered += 1
+    const cont = page.getByRole('button', { name: /^(Συνέχεια|Τέλος κουίζ)$/ })
+    const last = (await cont.textContent())?.trim() === 'Τέλος κουίζ'
+    await cont.click()
+    if (last) break
+  }
+  const study = JSON.parse((await page.evaluate(() => localStorage.getItem('psd115-w1-study'))) ?? '{}')
+  if (study.quizAnswered !== answered || study.quizCorrect !== answered) {
+    fail(`shuffle: απαντήθηκαν σωστά ${answered}, η πρόοδος γράφει ${study.quizCorrect}/${study.quizAnswered}`)
+  }
+  if (mcqCount >= 8 && mcqNotAtOriginalSlot === 0) fail('shuffle: καμία επιλογή δεν άλλαξε θέση — το ανακάτεμα δεν εφαρμόζεται')
+
+  // Mini κουίζ μέσα σε μάθημα (Εβδ. 2) και σε custom μάθημα (Εβδ. 1).
+  const w2 = await imp('src/data/week2/index.js')
+  const w1pavlov = await imp('src/data/week1/pavlov.js')
+  const lessonCases = [
+    ['/week/2/overview', w2.WEEK2_TOPICS.find((t) => t.slug === 'overview').lessonQuizIds],
+    ['/week/1/pavlov', w1pavlov.pavlovLessonQuizIds],
+  ]
+  let lessonChecked = 0
+  for (const [route, ids] of lessonCases) {
+    await page.goto(BASE + route, { waitUntil: 'networkidle' })
+    for (const id of ids) {
+      const q = quizQuestions.find((x) => x.id === id)
+      const item = page.locator('div', { has: page.locator(`p:text-is(${JSON.stringify(q.question)})`) }).last()
+      const btn = item.getByRole('button', { name: q.options[q.correctIndex], exact: true })
+      if ((await btn.count()) !== 1) {
+        fail(`shuffle: στο ${route} δεν βρέθηκε η σωστή επιλογή της «${id}»`)
+        continue
+      }
+      await btn.click()
+      if (!/border-emerald-500/.test((await btn.getAttribute('class')) ?? '')) {
+        fail(`shuffle: στο ${route} η σωστή επιλογή της «${id}» δεν σημειώθηκε ως σωστή`)
+      }
+      lessonChecked += 1
+    }
+  }
+  await context.close()
+  console.log(
+    `${failures.length > beforeShuffle ? '✗' : '✓'} Ανακάτεμα επιλογών: ${answered} ερωτήσεις κουίζ (${mcqNotAtOriginalSlot}/${mcqCount} MCQ σε νέα θέση) · ${lessonChecked} mini κουίζ μαθημάτων`,
+  )
 }
 
 await browser.close()

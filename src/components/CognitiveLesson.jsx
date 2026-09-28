@@ -5,12 +5,14 @@ import MemoryHack from './MemoryHack.jsx'
 import { cognitiveLesson, cognitiveExamQuestions, cognitiveLessonQuizIds } from '../data/week1/cognitive.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadCognitiveChecklist, saveCognitiveChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-cognitive-1', 'fc-cognitive-2', 'fc-cognitive-3', 'fc-cognitive-4']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

@@ -4,6 +4,7 @@ import SectionCard from './SectionCard.jsx'
 import { definitionLesson, definitionLessonQuizIds } from '../data/week1/definitionPsychology.js'
 import { quizQuestions } from '../data/questions.js'
 import { loadDefinitionChecklist, saveDefinitionChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function ExampleGrid({ items }) {
   return (
@@ -20,7 +21,8 @@ function ExampleGrid({ items }) {
   )
 }
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

@@ -10,12 +10,14 @@ import {
 } from '../data/week1/otherBranches.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadOtherBranchesChecklist, saveOtherBranchesChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-other-branches-1', 'fc-other-branches-2', 'fc-other-branches-3', 'fc-other-branches-4']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

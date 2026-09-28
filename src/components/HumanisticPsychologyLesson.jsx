@@ -10,8 +10,10 @@ import {
 } from '../data/week1/humanisticPsychology.js'
 import { quizQuestions } from '../data/questions.js'
 import { loadHumanisticChecklist, saveHumanisticChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

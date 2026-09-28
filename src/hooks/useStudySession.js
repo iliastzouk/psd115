@@ -9,7 +9,7 @@ import {
   quizQuestions,
   getCategoryLabel,
 } from '../data/questions.js'
-import { shuffle } from '../utils/shuffle.js'
+import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import {
   defaultProgress,
   loadProgress,
@@ -257,7 +257,7 @@ export function useStudySession() {
   }, [filteredCards])
 
   const startQuiz = useCallback(() => {
-    const deck = shuffle(filteredQuiz)
+    const deck = shuffle(filteredQuiz).map(shuffleQuestionOptions)
     if (!deck.length) return
     setQuizDeck(deck)
     setQuizIndex(0)
@@ -271,7 +271,7 @@ export function useStudySession() {
   /** Ενεργό κουίζ + αλλαγή φίλτρου (filteredQuiz): νέο deck ώστε η κάρτα να ταιριάζει με την επιλογή. */
   useLayoutEffect(() => {
     if (!quizActive) return
-    const deck = shuffle(filteredQuiz)
+    const deck = shuffle(filteredQuiz).map(shuffleQuestionOptions)
     if (!deck.length) {
       setQuizActive(false)
       setQuizDeck([])
