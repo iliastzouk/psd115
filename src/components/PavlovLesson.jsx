@@ -4,10 +4,12 @@ import SectionCard from './SectionCard.jsx'
 import { pavlovLesson, pavlovExamQuestions, pavlovLessonQuizIds } from '../data/week1/pavlov.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadPavlovChecklist, savePavlovChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-pavlov-1', 'fc-pavlov-2', 'fc-pavlov-3', 'fc-pavlov-4', 'fc-pavlov-5', 'fc-pavlov-8', 'fc-pavlov-6', 'fc-pavlov-7']
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

@@ -9,12 +9,14 @@ import {
 } from '../data/week1/socialPsychology.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadSocialPsychologyChecklist, saveSocialPsychologyChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-social-psychology-1', 'fc-social-psychology-2', 'fc-social-psychology-3', 'fc-social-psychology-4', 'fc-social-psychology-5']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

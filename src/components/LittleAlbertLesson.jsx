@@ -5,10 +5,12 @@ import MemoryHack from './MemoryHack.jsx'
 import { littleAlbertLesson, littleAlbertExamQuestions, littleAlbertLessonQuizIds } from '../data/week1/littleAlbert.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadLittleAlbertChecklist, saveLittleAlbertChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-albert-1', 'fc-albert-2', 'fc-albert-3']
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

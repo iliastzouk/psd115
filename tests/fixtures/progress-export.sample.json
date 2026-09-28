@@ -1,0 +1,14 @@
+{
+  "format": "psd115-progress-export",
+  "version": 1,
+  "exportedAt": "2026-09-26T12:00:00.000Z",
+  "reason": "export",
+  "source": "psd115.vercel.app",
+  "keys": {
+    "psd115-w1-study": "{\"quizAnswered\":3,\"quizCorrect\":2,\"byCategory\":{\"pavlov\":{\"correct\":2,\"wrong\":1}},\"flashcardSeenIds\":[\"fc-pavlov-1\"],\"wrongBook\":[{\"uid\":\"u1\",\"id\":\"q-pavlov-1\",\"categoryId\":\"pavlov\",\"question\":\"Q\",\"explanation\":\"E\",\"userLabel\":\"A\",\"correctLabel\":\"B\"}]}",
+    "psd115-w1-pavlov-checklist": "[true,false,true]",
+    "psd115-w2-checklists": "{\"overview\":[true,true,false]}",
+    "psd115-w1-theme": "dark",
+    "psd115-disclaimer-v1": "1"
+  }
+}

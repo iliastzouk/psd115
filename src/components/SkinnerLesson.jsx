@@ -5,12 +5,14 @@ import MemoryHack from './MemoryHack.jsx'
 import { skinnerLesson, skinnerExamQuestions, skinnerLessonQuizIds } from '../data/week1/skinner.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadSkinnerChecklist, saveSkinnerChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-skinner-1', 'fc-skinner-2', 'fc-skinner-3', 'fc-skinner-4', 'fc-skinner-5']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

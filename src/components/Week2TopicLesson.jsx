@@ -4,8 +4,10 @@ import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
 import { getCategoryLabel, quizQuestions } from '../data/questions.js'
 import { loadWeek2TopicChecklist, saveWeek2TopicChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex

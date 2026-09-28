@@ -5,12 +5,14 @@ import MemoryHack from './MemoryHack.jsx'
 import { thorndikeLesson, thorndikeExamQuestions, thorndikeLessonQuizIds } from '../data/week1/thorndike.js'
 import { quizQuestions, getCategoryLabel } from '../data/questions.js'
 import { loadThorndikeChecklist, saveThorndikeChecklist } from '../utils/storage.js'
+import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-thorndike-1', 'fc-thorndike-2', 'fc-thorndike-3']
 
 const cardCompact = '!p-3 sm:!p-4'
 
-function LessonQuizItem({ q }) {
+function LessonQuizItem({ q: original }) {
+  const [q] = useState(() => shuffleQuestionOptions(original))
   const [selected, setSelected] = useState(null)
   const revealed = selected !== null
   const correct = selected === q.correctIndex
