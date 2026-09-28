@@ -104,8 +104,21 @@ describe('Συμβατότητα με την υπάρχουσα πρόοδο', (
     }
     assert.deepEqual(Object.fromEntries(map), sample.keys, 'η φόρτωση δεν έγραψε τίποτα')
   })
-  // Η πρόοδος δένεται σε IDs κατηγοριών/καρτών/ερωτήσεων και slugs θεμάτων. Η συμβατότητά της
-  // αποδεικνύεται από τα SET(before) === SET(after) και τα ίδια routes/slugs παραπάνω (όχι από δείγμα).
+  // Η συμβατότητα των IDs της προόδου αποδεικνύεται από τα SET(before) === SET(after) παραπάνω.
+  // Εδώ ελέγχεται η ακεραιότητα του fixture: κάθε ID που αναφέρει πρέπει να υπάρχει στο περιεχόμενο.
+  test('το δείγμα προόδου αναφέρει μόνο πραγματικά IDs περιεχομένου', () => {
+    const sample = JSON.parse(fs.readFileSync(`${root}tests/fixtures/progress-export.sample.json`, 'utf8'))
+    const study = JSON.parse(sample.keys['psd115-w1-study'])
+    for (const c of Object.keys(study.byCategory)) assert.ok(current.ids.categories.includes(c), c)
+    for (const f of study.flashcardSeenIds) assert.ok(current.ids.flashcards.includes(f), f)
+    for (const w of study.wrongBook) {
+      assert.ok(current.ids.quizQuestions.includes(w.id), w.id)
+      assert.ok(current.ids.categories.includes(w.categoryId), w.categoryId)
+    }
+    for (const slug of Object.keys(JSON.parse(sample.keys['psd115-w2-checklists']))) {
+      assert.ok(current.routes.week2TopicSlugs.includes(slug), slug)
+    }
+  })
 })
 
 describe('Ο συγκριτής πιάνει κάθε είδος αλλαγής', () => {
