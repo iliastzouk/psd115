@@ -5,8 +5,8 @@ import Progress from '../components/Progress.jsx'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
 import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
-import { WEEK1_CATEGORIES, flashcards, quizQuestions } from '../data/questions.js'
-import { K1_PPT_SLIDES_BY_ROUTE } from '../data/week1/k1PptRefsByRoute.js'
+import { WEEK1_CATEGORIES, flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
+import { K1_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k1/k1PptRefsByRoute.js'
 
 const TOOL_PATHS = new Set(['/week/1/flashcards', '/week/1/quiz', '/week/1/exam', '/week/1/review'])
 /** Σε Εξέταση / Λάθη το μπλοκ «Πρόοδος» αποσπά· η ροή είναι μόνο το εργαλείο. */

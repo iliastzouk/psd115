@@ -2,7 +2,7 @@
  * Phase 1B: το περιεχόμενο μετά από κάθε μετακίνηση πρέπει να είναι ΤΑΥΤΟΣΗΜΟ με το baseline
  * (tests/fixtures/content-baseline.json, γραμμένο πριν από το migration).
  * Όχι μόνο ίδιοι αριθμοί: ίδια σύνολα IDs, ίδιο περιεχόμενο ανά item (hash), ίδια σειρά,
- * ίδιες διαδρομές, και ίδια exports σε κάθε module του src/data.
+ * ίδιες διαδρομές, και ίδια exports σε κάθε module περιεχομένου (τα αρχικά 46 του src/data).
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -37,7 +37,7 @@ describe('Content identity vs baseline', () => {
     assert.deepEqual(current.order, baseline.order)
   })
 
-  test('κάθε module του src/data εκθέτει τα ίδια exports με ίδιο περιεχόμενο', () => {
+  test('κάθε αρχικό module περιεχομένου εκθέτει τα ίδια exports με ίδιο περιεχόμενο', () => {
     assert.deepEqual(diffInventories(baseline, current), [])
   })
 })
@@ -47,13 +47,18 @@ const walk = (dir) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(`${dir}/${d.name}`) : [`${dir}/${d.name}`]))
 
 describe('Δομή μετά το migration', () => {
-  test('κάθε αρχείο του src/data είναι καθαρό adapter (μόνο re-export προς content/)', () => {
-    const files = walk(`${root}src/data`)
-    assert.equal(files.length, 46)
+  test('Phase 1C-A: τα adapters του src/data αφαιρέθηκαν και κανείς δεν εισάγει από εκεί', () => {
+    assert.equal(fs.existsSync(`${root}src/data`), false)
+    const files = [...walk(`${root}src`), ...walk(`${root}scripts`), ...walk(`${root}tests`).filter((f) => !f.includes('/fixtures/'))]
     for (const f of files) {
-      const code = fs.readFileSync(f, 'utf8').replace(/\/\*\*[\s\S]*?\*\/\s*/, '').trim()
-      assert.match(code, /^(export (\*|\{ default \}) from '(\.\.\/)+content\/courses\/psd115\/[^']+'\s*)+$/, f)
+      const code = fs.readFileSync(f, 'utf8')
+      assert.doesNotMatch(code, /from '(\.\.?\/)+data\/|imp\(['`]src\/data\/|import\(['`](\.\.\/)+src\/data\//, f)
     }
+  })
+
+  test('το baseline καλύπτει ακριβώς τα 46 αρχικά modules, τώρα από το content/', () => {
+    assert.equal(Object.keys(current.modules).length, 46)
+    assert.deepEqual(Object.keys(current.modules).sort(), Object.keys(baseline.modules).sort())
   })
 
   test('το content/ δεν εξαρτάται από τον κώδικα της εφαρμογής', () => {

@@ -5,8 +5,8 @@ import Progress from '../components/Progress.jsx'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
 import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
-import { WEEK3_CATEGORIES, flashcards, quizQuestions } from '../data/questions.js'
-import { K3_PPT_SLIDES_BY_ROUTE } from '../data/week3/k3PptRefsByRoute.js'
+import { WEEK3_CATEGORIES, flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
+import { K3_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k3/k3PptRefsByRoute.js'
 
 const TOOL_PATHS = new Set(['/week/3/flashcards', '/week/3/quiz', '/week/3/exam', '/week/3/review'])
 const HIDE_PROGRESS_PATHS = new Set(['/week/3/exam', '/week/3/review'])

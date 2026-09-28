@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PPT_DECK_REGISTRY } from '../data/pptDeckRegistry.js'
+import { PPT_DECK_REGISTRY } from '../../content/courses/psd115/pptDeckRegistry.js'
 
 function withBaseUrl(relPath) {
   const base = import.meta.env.BASE_URL || '/'

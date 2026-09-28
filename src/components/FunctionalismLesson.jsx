@@ -7,8 +7,8 @@ import {
   functionalismTraps,
   functionalismExamQuestions,
   functionalismLessonQuizIds,
-} from '../data/week1/functionalism.js'
-import { quizQuestions } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/functionalism.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadFunctionalismChecklist, saveFunctionalismChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

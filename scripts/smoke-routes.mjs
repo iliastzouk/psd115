@@ -27,10 +27,10 @@ if (!fs.existsSync(path.join(root, 'dist/index.html'))) {
 }
 
 // --- Λίστα διαδρομών από το ίδιο το περιεχόμενο ---
-const w1 = await imp('src/data/week1/index.js')
-const w2 = await imp('src/data/week2/index.js')
-const w3 = await imp('src/data/week3/index.js')
-const w4 = await imp('src/data/week4/index.js')
+const w1 = await imp('content/courses/psd115/units/k1/index.js')
+const w2 = await imp('content/courses/psd115/units/k2/index.js')
+const w3 = await imp('content/courses/psd115/units/k3/index.js')
+const w4 = await imp('content/courses/psd115/units/k4/index.js')
 
 /** @type {{ path: string, expect?: string, note?: string }[]} */
 const routes = [{ path: '/' }]
@@ -225,7 +225,7 @@ const before = failures.length
 // ---------- 3. Ανακάτεμα επιλογών: η σωστή απάντηση μετράει σωστά ----------
 const beforeShuffle = failures.length
 {
-  const { quizQuestions } = await imp('src/data/questions.js')
+  const { quizQuestions } = await imp('content/courses/psd115/questions.js')
   const byText = new Map(quizQuestions.map((q) => [q.question.trim(), q]))
   const context = await browser.newContext()
   await context.addInitScript(() => localStorage.setItem('psd115-disclaimer-v1', '1'))
@@ -277,8 +277,8 @@ const beforeShuffle = failures.length
   if (mcqCount >= 8 && mcqNotAtOriginalSlot === 0) fail('shuffle: καμία επιλογή δεν άλλαξε θέση — το ανακάτεμα δεν εφαρμόζεται')
 
   // Mini κουίζ μέσα σε μάθημα (Εβδ. 2) και σε custom μάθημα (Εβδ. 1).
-  const w2 = await imp('src/data/week2/index.js')
-  const w1pavlov = await imp('src/data/week1/pavlov.js')
+  const w2 = await imp('content/courses/psd115/units/k2/index.js')
+  const w1pavlov = await imp('content/courses/psd115/units/k1/pavlov.js')
   const lessonCases = [
     ['/week/2/overview', w2.WEEK2_TOPICS.find((t) => t.slug === 'overview').lessonQuizIds],
     ['/week/1/pavlov', w1pavlov.pavlovLessonQuizIds],

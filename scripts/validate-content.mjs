@@ -1,5 +1,5 @@
 /**
- * Έλεγχος εγκυρότητας περιεχομένου για την ΤΡΕΧΟΥΣΑ δομή (src/data/week1..4).
+ * Έλεγχος εγκυρότητας περιεχομένου για την ΤΡΕΧΟΥΣΑ δομή (content/courses/psd115).
  * Αποτυγχάνει (exit 1) με σαφή μηνύματα· αλλιώς τυπώνει σύντομη σύνοψη.
  * Run: node scripts/validate-content.mjs
  */
@@ -33,18 +33,18 @@ function checkUnique(items, label, getId = (x) => x.id) {
 
 let questions
 try {
-  questions = await imp('src/data/questions.js')
+  questions = await imp('content/courses/psd115/questions.js')
 } catch (e) {
-  console.error(`✗ Αποτυχία φόρτωσης περιεχομένου (src/data/questions.js):\n  ${e.stack || e}`)
+  console.error(`✗ Αποτυχία φόρτωσης περιεχομένου (content/courses/psd115/questions.js):\n  ${e.stack || e}`)
   process.exit(1)
 }
 const { CATEGORIES, WEEK1_CATEGORIES, WEEK2_CATEGORIES, WEEK3_CATEGORIES, WEEK4_CATEGORIES, flashcards, quizQuestions } =
   questions
 const weeks = {
-  1: await imp('src/data/week1/index.js'),
-  2: await imp('src/data/week2/index.js'),
-  3: await imp('src/data/week3/index.js'),
-  4: await imp('src/data/week4/index.js'),
+  1: await imp('content/courses/psd115/units/k1/index.js'),
+  2: await imp('content/courses/psd115/units/k2/index.js'),
+  3: await imp('content/courses/psd115/units/k3/index.js'),
+  4: await imp('content/courses/psd115/units/k4/index.js'),
 }
 const WEEK_CATEGORIES = { 1: WEEK1_CATEGORIES, 2: WEEK2_CATEGORIES, 3: WEEK3_CATEGORIES, 4: WEEK4_CATEGORIES }
 
@@ -122,9 +122,9 @@ function checkQuizRefs(ids, where) {
 }
 
 // --- Εβδομάδα 1: lessonQuizIds, κάρτες θεμάτων, πλοήγηση ---
-const week1Dir = path.join(root, 'src/data/week1')
+const week1Dir = path.join(root, 'content/courses/psd115/units/k1')
 for (const file of fs.readdirSync(week1Dir).filter((f) => f.endsWith('.js')).sort()) {
-  const mod = await imp(`src/data/week1/${file}`)
+  const mod = await imp(`content/courses/psd115/units/k1/${file}`)
   for (const [name, value] of Object.entries(mod)) {
     if (name.endsWith('LessonQuizIds')) checkQuizRefs(value, `week1/${file} → ${name}`)
   }
@@ -177,10 +177,10 @@ for (const w of [2, 3, 4]) {
 
 // --- Διαφάνειες ανά διαδρομή ---
 const slideSets = [
-  [1, (await imp('src/data/week1/k1PptRefsByRoute.js')).K1_PPT_SLIDES_BY_ROUTE, (await imp('src/data/week1/k1PptSlideBodies.generated.js')).K1_PPT_TOTAL_SLIDES],
-  [2, weeks[2].K2_PPT_SLIDES_BY_ROUTE, (await imp('src/data/week2/k2PptSlideBodies.generated.js')).K2_PPT_TOTAL_SLIDES],
-  [3, weeks[3].K3_PPT_SLIDES_BY_ROUTE, (await imp('src/data/week3/k3PptSlideBodies.generated.js')).K3_PPT_TOTAL_SLIDES],
-  [4, weeks[4].K4_PPT_SLIDES_BY_ROUTE, (await imp('src/data/week4/k4PptSlideBodies.generated.js')).K4_PPT_TOTAL_SLIDES],
+  [1, (await imp('content/courses/psd115/units/k1/k1PptRefsByRoute.js')).K1_PPT_SLIDES_BY_ROUTE, (await imp('content/courses/psd115/units/k1/k1PptSlideBodies.generated.js')).K1_PPT_TOTAL_SLIDES],
+  [2, weeks[2].K2_PPT_SLIDES_BY_ROUTE, (await imp('content/courses/psd115/units/k2/k2PptSlideBodies.generated.js')).K2_PPT_TOTAL_SLIDES],
+  [3, weeks[3].K3_PPT_SLIDES_BY_ROUTE, (await imp('content/courses/psd115/units/k3/k3PptSlideBodies.generated.js')).K3_PPT_TOTAL_SLIDES],
+  [4, weeks[4].K4_PPT_SLIDES_BY_ROUTE, (await imp('content/courses/psd115/units/k4/k4PptSlideBodies.generated.js')).K4_PPT_TOTAL_SLIDES],
 ]
 let slideRefCount = 0
 for (const [w, byRoute, total] of slideSets) {

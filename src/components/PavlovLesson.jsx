@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
-import { pavlovLesson, pavlovExamQuestions, pavlovLessonQuizIds } from '../data/week1/pavlov.js'
-import { quizQuestions, getCategoryLabel } from '../data/questions.js'
+import { pavlovLesson, pavlovExamQuestions, pavlovLessonQuizIds } from '../../content/courses/psd115/units/k1/pavlov.js'
+import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { loadPavlovChecklist, savePavlovChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

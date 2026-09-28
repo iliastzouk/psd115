@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Navigate, useOutletContext, useParams } from 'react-router-dom'
 import Week4TopicLesson from '../components/Week4TopicLesson.jsx'
-import { getWeek4TopicBySlug } from '../data/week4/index.js'
+import { getWeek4TopicBySlug } from '../../content/courses/psd115/units/k4/index.js'
 
 export default function Week4TopicPage() {
   const { slug } = useParams()

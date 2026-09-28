@@ -5,8 +5,8 @@ import MemoryHack from './MemoryHack.jsx'
 import {
   philosophers,
   philosopherLessonQuizIds,
-} from '../data/week1/philosophers.js'
-import { quizQuestions } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/philosophers.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function LessonQuizItem({ q: original }) {

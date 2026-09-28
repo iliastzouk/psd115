@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { WEEK3_LESSON_NAV } from '../data/week3/lessonNav.js'
+import { WEEK3_LESSON_NAV } from '../../content/courses/psd115/units/k3/lessonNav.js'
 
 const toolLinks = [
   { to: '/week/3', label: 'Ενότητες', end: true },

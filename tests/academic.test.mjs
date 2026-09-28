@@ -61,7 +61,7 @@ describe('Global IDs', () => {
     }
   })
   test('τα υπάρχοντα local IDs μένουν αυτούσια', async () => {
-    const { flashcards, quizQuestions, CATEGORIES } = await import('../src/data/questions.js')
+    const { flashcards, quizQuestions, CATEGORIES } = await import('../content/courses/psd115/questions.js')
     const ids = [...flashcards, ...quizQuestions, ...CATEGORIES].map((x) => x.id)
     assert.ok(ids.length > 400)
     for (const id of ids) assert.equal(parseGlobalId(toGlobalId('psd115', id)).localId, id)

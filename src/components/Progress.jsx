@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CATEGORIES as ALL_CATEGORIES } from '../data/questions.js'
+import { CATEGORIES as ALL_CATEGORIES } from '../../content/courses/psd115/questions.js'
 
 function pct(part, total) {
   if (!total) return 0

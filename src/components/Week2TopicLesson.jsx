@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
-import { getCategoryLabel, quizQuestions } from '../data/questions.js'
+import { getCategoryLabel, quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadWeek2TopicChecklist, saveWeek2TopicChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

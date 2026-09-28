@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { WEEK3_TOPIC_CARDS } from '../data/week3/index.js'
+import { WEEK3_TOPIC_CARDS } from '../../content/courses/psd115/units/k3/index.js'
 
 export default function Week3Home() {
   return (

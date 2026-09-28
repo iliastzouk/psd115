@@ -6,7 +6,8 @@
  *  - αναφορές διαφανειών ως `διαδρομή#αριθμός` (187)
  *  - στόχους διαδρομών και slugs θεμάτων (εβδομάδες 1–4)
  *  - canonical hash ΚΑΘΕ item (κείμενο, επιλογές, σωστή απάντηση, κατηγορία…)
- *  - canonical hash ΚΑΘΕ export ΚΑΘΕ module κάτω από το src/data (η επιφάνεια που βλέπει η εφαρμογή)
+ *  - canonical hash ΚΑΘΕ export ΚΑΘΕ module περιεχομένου (content/courses/psd115, με τα λογικά
+ *    ονόματα src/data/... του baseline — βλ. legacyModuleName)
  *  - hash της σειράς των πινάκων (flashcards / quizQuestions / CATEGORIES)
  *
  * Run:
@@ -41,13 +42,29 @@ function walk(dir) {
     .flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : [path.join(dir, d.name)]))
 }
 
+const CONTENT = 'content/courses/psd115'
+
+/**
+ * Το baseline (Phase 1B) κατέγραψε τα modules με τα αρχικά τους ονόματα (src/data/...).
+ * Από το Phase 1C-A το src/data δεν υπάρχει· τα ίδια modules διαβάζονται από το content/ και
+ * καταγράφονται με το ΙΔΙΟ λογικό όνομα, ώστε η σύγκριση με το baseline να μένει ένα-προς-ένα.
+ * Νέα αρχεία του content/ (course.js, sources.js) δεν ανήκουν στην επιφάνεια του baseline.
+ */
+export function legacyModuleName(contentRel) {
+  const r = contentRel.slice(CONTENT.length + 1)
+  if (r === 'questions.js' || r === 'pptDeckRegistry.js') return `src/data/${r}`
+  if (r === 'units/k1/week1Quiz.js') return 'src/data/quizzes/week1Quiz.js'
+  const m = r.match(/^units\/k([1-4])\/([^/]+\.js)$/)
+  return m ? `src/data/week${m[1]}/${m[2]}` : null
+}
+
 export async function buildInventory() {
-  const q = await imp('src/data/questions.js')
+  const q = await imp(`${CONTENT}/questions.js`)
   const w = {
-    1: await imp('src/data/week1/index.js'),
-    2: await imp('src/data/week2/index.js'),
-    3: await imp('src/data/week3/index.js'),
-    4: await imp('src/data/week4/index.js'),
+    1: await imp(`${CONTENT}/units/k1/index.js`),
+    2: await imp(`${CONTENT}/units/k2/index.js`),
+    3: await imp(`${CONTENT}/units/k3/index.js`),
+    4: await imp(`${CONTENT}/units/k4/index.js`),
   }
   const exam = [
     ...w[1].getWeek1ExamQuestions(),
@@ -56,19 +73,21 @@ export async function buildInventory() {
     ...w[4].getWeek4ExamQuestions(),
   ]
   const slideMaps = {
-    1: (await imp('src/data/week1/k1PptRefsByRoute.js')).K1_PPT_SLIDES_BY_ROUTE,
+    1: (await imp(`${CONTENT}/units/k1/k1PptRefsByRoute.js`)).K1_PPT_SLIDES_BY_ROUTE,
     2: w[2].K2_PPT_SLIDES_BY_ROUTE,
     3: w[3].K3_PPT_SLIDES_BY_ROUTE,
     4: w[4].K4_PPT_SLIDES_BY_ROUTE,
   }
   const slideRefs = Object.values(slideMaps).flatMap((m) => Object.entries(m).flatMap(([route, nums]) => nums.map((n) => `${route}#${n}`)))
 
-  // Κάθε module κάτω από src/data: όνομα export → hash τιμής. Αυτή είναι η επιφάνεια που διαβάζει η εφαρμογή.
+  // Κάθε module περιεχομένου: όνομα export → hash τιμής, με το λογικό όνομα του baseline.
   const modules = {}
-  for (const abs of walk(path.join(root, 'src/data')).filter((f) => f.endsWith('.js')).sort()) {
+  for (const abs of walk(path.join(root, CONTENT)).filter((f) => f.endsWith('.js')).sort()) {
     const rel = path.relative(root, abs).split(path.sep).join('/')
+    const name = legacyModuleName(rel)
+    if (!name) continue
     const mod = await imp(rel)
-    modules[rel] = Object.fromEntries(Object.keys(mod).sort().map((k) => [k, hash(mod[k])]))
+    modules[name] = Object.fromEntries(Object.keys(mod).sort().map((k) => [k, hash(mod[k])]))
   }
 
   return {

@@ -8,7 +8,7 @@ import {
   flashcards,
   quizQuestions,
   getCategoryLabel,
-} from '../data/questions.js'
+} from '../../content/courses/psd115/questions.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import {
   defaultProgress,

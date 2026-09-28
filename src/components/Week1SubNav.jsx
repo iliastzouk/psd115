@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { WEEK1_LESSON_NAV } from '../data/week1/lessonNav.js'
+import { WEEK1_LESSON_NAV } from '../../content/courses/psd115/units/k1/lessonNav.js'
 
 /** Πάντα ορατά — χωρίς οριζόντιο scroll για Κάρτες/Κουίζ */
 const toolLinks = [

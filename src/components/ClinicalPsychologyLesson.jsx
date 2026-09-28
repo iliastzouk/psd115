@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
-import { clinicalLesson, clinicalExamQuestions, clinicalLessonQuizIds } from '../data/week1/clinicalPsychology.js'
-import { quizQuestions } from '../data/questions.js'
+import { clinicalLesson, clinicalExamQuestions, clinicalLessonQuizIds } from '../../content/courses/psd115/units/k1/clinicalPsychology.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function LessonQuizItem({ q: original }) {

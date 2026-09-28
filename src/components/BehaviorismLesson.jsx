@@ -7,8 +7,8 @@ import {
   behaviorismTraps,
   behaviorismExamQuestions,
   behaviorismLessonQuizIds,
-} from '../data/week1/behaviorism.js'
-import { quizQuestions } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/behaviorism.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadBehaviorismChecklist, saveBehaviorismChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
