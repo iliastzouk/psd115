@@ -9,6 +9,7 @@
     "validate:content": "node scripts/validate-content.mjs",
     "validate:progress": "node scripts/validate-progress-export.mjs",
     "smoke": "node scripts/smoke-routes.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "preview": "vite preview",
     "build:k1-slides": "node scripts/build-k1-slides.mjs",
     "build:k1-images": "node scripts/render-k1-slides.mjs",

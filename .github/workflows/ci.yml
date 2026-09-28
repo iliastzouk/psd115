@@ -18,5 +18,7 @@ jobs:
         run: npm run validate:content
       - name: Validate progress export format (sample)
         run: npm run validate:progress -- tests/fixtures/progress-export.sample.json
+      - name: Unit tests
+        run: npm test
       - name: Build
         run: npm run build

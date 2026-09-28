@@ -30,8 +30,9 @@ npm.cmd run dev
 | `npm run validate:content` | Ελέγχει το περιεχόμενο (διπλά IDs, άκυρα `correctIndex`/τύποι, αναφορές σε ανύπαρκτες ερωτήσεις/κατηγορίες/διαφάνειες). Τρέχει αυτόματα πριν από κάθε `npm run build` — αν αποτύχει, αποτυγχάνει και το build (και στο Vercel). |
 | `npm run validate:progress -- <αρχείο.json>` | Ελέγχει ένα αρχείο «Εξαγωγή προόδου» χωρίς να γράψει τίποτα. |
 | `npm run smoke` | Μετά από `npm run build`: ανοίγει όλες τις διαδρομές σε headless Chromium και ελέγχει τον κύκλο εξαγωγή → εισαγωγή → επαναφορά, και ότι με τις ανακατεμένες επιλογές η σωστή απάντηση μετράει σωστά (κύριο κουίζ και mini κουίζ μαθημάτων). Χρειάζεται Chromium του Playwright (`npx playwright install chromium`) ή `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. |
+| `npm test` | Unit tests (ενσωματωμένο `node --test`) για τη νέα υποδομή προόδου `src/core/progress/` — ακόμα **αχρησιμοποίητη** από την εφαρμογή· σχέδιο μετάβασης στο `docs/progress-migration.md`. |
 
-Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα) και `build` σε κάθε push/PR.
+Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα), `npm test` και `build` σε κάθε push/PR.
 
 **Πρόοδος:** στο footer υπάρχουν «Εξαγωγή προόδου (JSON)» και «Εισαγωγή προόδου…». Το αρχείο περιέχει αυτούσια όλα τα κλειδιά `psd115-*` του localStorage. Η εισαγωγή ελέγχει το αρχείο, ζητά επιβεβαίωση, κατεβάζει πρώτα αντίγραφο της τρέχουσας προόδου (και κρατά τα 3 τελευταία στο localStorage ως `psd115-backup-*`), δεν σβήνει κλειδιά που λείπουν από το αρχείο και επαναφορτώνει τη σελίδα. Και η «Επαναφορά προόδου μελέτης» κατεβάζει πρώτα αντίγραφο.
 
