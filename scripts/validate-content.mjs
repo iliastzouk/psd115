@@ -194,6 +194,21 @@ for (const [w, byRoute, total] of slideSets) {
   }
 }
 
+// --- Academic registry (Phase 1A) ---
+const { registry } = await imp('src/core/academic/data/index.js')
+const { validateRegistry } = await imp('src/core/academic/schema.js')
+const { isLocalId, toGlobalId, parseGlobalId } = await imp('src/core/academic/ids.js')
+const reg = validateRegistry(registry)
+for (const e of reg.errors) err(`Registry: ${e}`)
+// Το υπάρχον περιεχόμενο ανήκει στο PSD115· κάθε ID πρέπει να τυλίγεται σε global ID χωρίς αλλαγή.
+const CONTENT_COURSE = 'psd115'
+if (!registry.courses.some((c) => c.id === CONTENT_COURSE)) err(`Registry: λείπει το μάθημα «${CONTENT_COURSE}» του υπάρχοντος περιεχομένου`)
+const contentIds = [...CATEGORIES, ...flashcards, ...quizQuestions, ...allExam].map((x) => x.id)
+for (const id of contentIds) {
+  if (!isLocalId(id)) err(`Global IDs: το «${id}» δεν είναι έγκυρο localId`)
+  else if (parseGlobalId(toGlobalId(CONTENT_COURSE, id))?.localId !== id) err(`Global IDs: το «${id}» δεν επιστρέφει αυτούσιο`)
+}
+
 // --- Αποτέλεσμα ---
 for (const w of warnings) console.warn(`⚠ ${w}`)
 if (errors.length) {
@@ -205,4 +220,8 @@ console.log(
   `✓ Περιεχόμενο έγκυρο: ${CATEGORIES.length} κατηγορίες · ${flashcards.length} κάρτες · ${quizQuestions.length} ερωτήσεις κουίζ · ` +
     `${allExam.length} ερωτήσεις ανάπτυξης · ${slideRefCount} αναφορές διαφανειών` +
     (warnings.length ? ` · ${warnings.length} προειδοποιήσεις` : ''),
+)
+console.log(
+  `✓ Academic registry έγκυρο: ${registry.terms.length} terms · ${registry.courses.length} μαθήματα · ` +
+    `${registry.enrollments.length} εγγραφές · ${contentIds.length} IDs περιεχομένου συμβατά ως ${CONTENT_COURSE}/<id>`,
 )
