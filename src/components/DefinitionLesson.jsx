@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
-import { definitionLesson, definitionLessonQuizIds } from '../data/week1/definitionPsychology.js'
-import { quizQuestions } from '../data/questions.js'
+import { definitionLesson, definitionLessonQuizIds } from '../../content/courses/psd115/units/k1/definitionPsychology.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadDefinitionChecklist, saveDefinitionChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

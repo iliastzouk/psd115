@@ -7,8 +7,8 @@ import {
   psychoanalysisTraps,
   psychoanalysisExamQuestions,
   psychoanalysisLessonQuizIds,
-} from '../data/week1/psychoanalysis.js'
-import { quizQuestions } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/psychoanalysis.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadPsychoanalysisChecklist, savePsychoanalysisChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

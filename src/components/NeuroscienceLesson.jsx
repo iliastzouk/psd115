@@ -11,8 +11,8 @@ import {
   neuroscienceLessonQuizIds,
   neuroscienceMemoryHackLines,
   neuroscienceChecklist,
-} from '../data/week1/neuroscience.js'
-import { quizQuestions, getCategoryLabel } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/neuroscience.js'
+import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { loadNeuroscienceChecklist, saveNeuroscienceChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

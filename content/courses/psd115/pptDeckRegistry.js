@@ -1,11 +1,11 @@
-import { K1_PPT_SLIDE_BODIES, K1_PPT_TOTAL_SLIDES } from './week1/k1PptSlideBodies.generated.js'
-import { k1DeckSlideToPdfPageNum } from './week1/k1DeckSlideToPdfPage.js'
-import { K2_PPT_SLIDE_BODIES, K2_PPT_TOTAL_SLIDES } from './week2/k2PptSlideBodies.generated.js'
-import { k2DeckSlideToPdfPageNum } from './week2/k2DeckSlideToPdfPage.js'
-import { K3_PPT_SLIDE_BODIES, K3_PPT_TOTAL_SLIDES } from './week3/k3PptSlideBodies.generated.js'
-import { k3DeckSlideToPdfPageNum } from './week3/k3DeckSlideToPdfPage.js'
-import { K4_PPT_SLIDE_BODIES, K4_PPT_TOTAL_SLIDES } from './week4/k4PptSlideBodies.generated.js'
-import { k4DeckSlideToPdfPageNum } from './week4/k4DeckSlideToPdfPage.js'
+import { K1_PPT_SLIDE_BODIES, K1_PPT_TOTAL_SLIDES } from './units/k1/k1PptSlideBodies.generated.js'
+import { k1DeckSlideToPdfPageNum } from './units/k1/k1DeckSlideToPdfPage.js'
+import { K2_PPT_SLIDE_BODIES, K2_PPT_TOTAL_SLIDES } from './units/k2/k2PptSlideBodies.generated.js'
+import { k2DeckSlideToPdfPageNum } from './units/k2/k2DeckSlideToPdfPage.js'
+import { K3_PPT_SLIDE_BODIES, K3_PPT_TOTAL_SLIDES } from './units/k3/k3PptSlideBodies.generated.js'
+import { k3DeckSlideToPdfPageNum } from './units/k3/k3DeckSlideToPdfPage.js'
+import { K4_PPT_SLIDE_BODIES, K4_PPT_TOTAL_SLIDES } from './units/k4/k4PptSlideBodies.generated.js'
+import { k4DeckSlideToPdfPageNum } from './units/k4/k4DeckSlideToPdfPage.js'
 
 /** @typedef {'week1' | 'week2' | 'week3' | 'week4'} PptDeckId */
 

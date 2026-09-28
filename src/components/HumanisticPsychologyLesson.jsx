@@ -7,8 +7,8 @@ import {
   humanisticTraps,
   humanisticExamQuestions,
   humanisticLessonQuizIds,
-} from '../data/week1/humanisticPsychology.js'
-import { quizQuestions } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/humanisticPsychology.js'
+import { quizQuestions } from '../../content/courses/psd115/questions.js'
 import { loadHumanisticChecklist, saveHumanisticChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

@@ -7,8 +7,8 @@ import {
   otherBranchesExamQuestions,
   otherBranchesLessonQuizIds,
   branchesQuickReview,
-} from '../data/week1/otherBranches.js'
-import { quizQuestions, getCategoryLabel } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/otherBranches.js'
+import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { loadOtherBranchesChecklist, saveOtherBranchesChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

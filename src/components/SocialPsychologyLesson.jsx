@@ -6,8 +6,8 @@ import {
   socialPsychologyLesson,
   socialPsychologyExamQuestions,
   socialPsychologyLessonQuizIds,
-} from '../data/week1/socialPsychology.js'
-import { quizQuestions, getCategoryLabel } from '../data/questions.js'
+} from '../../content/courses/psd115/units/k1/socialPsychology.js'
+import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { loadSocialPsychologyChecklist, saveSocialPsychologyChecklist } from '../utils/storage.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 

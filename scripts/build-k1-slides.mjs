@@ -1,5 +1,5 @@
 /**
- * Extract K1 slide bodies from PDF into src/data/week1/k1PptSlideBodies.generated.js
+ * Extract K1 slide bodies from PDF into content/courses/psd115/units/k1/k1PptSlideBodies.generated.js
  * Run: node scripts/build-k1-slides.mjs
  */
 import fs from 'fs'
@@ -48,6 +48,6 @@ export const K1_PPT_SLIDE_BODIES = {
 ${bodyLines.join('\n')}
 }
 `
-const outPath = path.join(root, 'src', 'data', 'week1', 'k1PptSlideBodies.generated.js')
+const outPath = path.join(root, 'content', 'courses', 'psd115', 'units', 'k1', 'k1PptSlideBodies.generated.js')
 fs.writeFileSync(outPath, out, 'utf8')
 console.log('Wrote', outPath, keys.length, 'slides')

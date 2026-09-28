@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getCategoryLabel } from '../data/questions.js'
+import { getCategoryLabel } from '../../content/courses/psd115/questions.js'
 
 export default function WrongAnswersReview({ items, onClear, onClearOne }) {
   const [openId, setOpenId] = useState(null)
