@@ -209,6 +209,41 @@ for (const id of contentIds) {
   else if (parseGlobalId(toGlobalId(CONTENT_COURSE, id))?.localId !== id) err(`Global IDs: το «${id}» δεν επιστρέφει αυτούσιο`)
 }
 
+// --- Canonical routing (Phase 1C-B): ρητός πίνακας θεμάτων + legacy πίνακας ---
+const { course: courseDef } = await imp('content/courses/psd115/course.js')
+const { topics: topicMap } = await imp('content/courses/psd115/topics.js')
+const { checkTopicMap } = await imp('src/core/routing/catalog.js')
+const unitSlugs = {
+  k1: weeks[1].WEEK1_LESSON_NAV.map((n) => n.to.replace(/^\/week\/1\//, '')),
+  k2: weeks[2].WEEK2_TOPICS.map((t) => t.slug),
+  k3: weeks[3].WEEK3_TOPICS.map((t) => t.slug),
+  k4: weeks[4].WEEK4_TOPICS.map((t) => t.slug),
+}
+for (const e of checkTopicMap({ course: courseDef, topics: topicMap, unitSlugs })) err(`Πίνακας θεμάτων: ${e}`)
+let legacyRoutes = new Map()
+try {
+  const legacy = await imp('src/core/routing/legacy.js')
+  const { resolveLocation } = await imp('src/core/routing/resolve.js')
+  legacyRoutes = legacy.LEGACY_ROUTES
+  const legacyKeys = new Set([
+    ...courseDef.units.map((u) => u.route),
+    ...courseDef.units.flatMap((u) => legacy.LEGACY_TOOLS.map((t) => `${u.route}/${t}`)),
+    ...Object.values(weeks).flatMap((w, i) => w[`WEEK${i + 1}_LESSON_NAV`].map((n) => n.to)),
+  ])
+  for (const key of legacyKeys) if (!legacyRoutes.has(key)) err(`Legacy: η διαδρομή «${key}» δεν έχει canonical αντιστοίχιση`)
+  const targets = new Set()
+  for (const [from, to] of legacyRoutes) {
+    const [p, q = ''] = to.split('?')
+    const id = resolveLocation(p, q ? `?${q}` : '')
+    if (id.kind === 'notFound' || id.kind === 'legacy') err(`Legacy: «${from}» → «${to}» δεν επιλύεται`)
+    else if (id.legacyKey && id.legacyKey !== from) err(`Legacy: «${from}» → «${to}» επιστρέφει legacyKey «${id.legacyKey}»`)
+    if (targets.has(to)) err(`Legacy: δύο διαδρομές καταλήγουν στο «${to}»`)
+    targets.add(to)
+  }
+} catch (e) {
+  err(`Legacy πίνακας: ${e.message}`)
+}
+
 // --- Αποτέλεσμα ---
 for (const w of warnings) console.warn(`⚠ ${w}`)
 if (errors.length) {
@@ -225,3 +260,4 @@ console.log(
   `✓ Academic registry έγκυρο: ${registry.terms.length} terms · ${registry.courses.length} μαθήματα · ` +
     `${registry.enrollments.length} εγγραφές · ${contentIds.length} IDs περιεχομένου συμβατά ως ${CONTENT_COURSE}/<id>`,
 )
+console.log(`✓ Routing έγκυρο: ${topicMap.length} topics · ${legacyRoutes.size} legacy διαδρομές → canonical`)

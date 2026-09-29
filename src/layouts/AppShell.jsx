@@ -6,6 +6,7 @@ import ProgressBackupPanel from '../components/ProgressBackupPanel.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
 import WarningTriangleIcon from '../components/WarningTriangleIcon.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
+import { useRouteIdentity } from '../core/routing/hooks.js'
 import { HEADER_WEEK_NAV } from './weekNavConfig.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
 import { createSafetyBackup } from '../utils/progressBackup.js'
@@ -46,6 +47,8 @@ function MenuIcon() {
 
 export default function AppShell() {
   const study = useStudySession()
+  const routeId = useRouteIdentity()
+  const navUnitActive = (item) => Boolean(item.unitId) && routeId.courseId === 'psd115' && routeId.unitId === item.unitId
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
@@ -163,7 +166,7 @@ export default function AppShell() {
                 to={item.to}
                 end={item.end}
                 title={item.long}
-                className={({ isActive }) => headerNavClass(isActive)}
+                className={({ isActive }) => headerNavClass(isActive || navUnitActive(item))}
               >
                 <span className="sm:hidden">{item.short}</span>
                 <span className="hidden sm:inline">{item.long}</span>
@@ -205,7 +208,7 @@ export default function AppShell() {
                     <NavLink
                       to={item.to}
                       end={item.end}
-                      className={({ isActive }) => drawerNavClass(isActive)}
+                      className={({ isActive }) => drawerNavClass(isActive || navUnitActive(item))}
                       onClick={() => setMenuOpen(false)}
                     >
                       {item.long}

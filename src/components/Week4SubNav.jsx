@@ -1,12 +1,14 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useLegacyRouteKey } from '../core/routing/hooks.js'
+import { toCanonical } from '../core/routing/legacy.js'
 import { WEEK4_LESSON_NAV } from '../../content/courses/psd115/units/k4/lessonNav.js'
 
 const toolLinks = [
-  { to: '/week/4', label: 'Ενότητες', end: true },
-  { to: '/week/4/flashcards', label: 'Κάρτες' },
-  { to: '/week/4/quiz', label: 'Κουίζ' },
-  { to: '/week/4/exam', label: 'Εξέταση' },
-  { to: '/week/4/review', label: 'Λάθη' },
+  { to: toCanonical('/week/4'), label: 'Ενότητες', end: true },
+  { to: toCanonical('/week/4/flashcards'), label: 'Κάρτες' },
+  { to: toCanonical('/week/4/quiz'), label: 'Κουίζ' },
+  { to: toCanonical('/week/4/exam'), label: 'Εξέταση' },
+  { to: toCanonical('/week/4/review'), label: 'Λάθη' },
 ]
 
 const lessonPaths = new Set(WEEK4_LESSON_NAV.map((l) => l.to))
@@ -40,7 +42,7 @@ function isStudyToolPath(pathname) {
 
 export default function Week4SubNav() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const pathname = useLegacyRouteKey()
   const path = normalizePath(pathname)
   const lessonSelectValue = lessonPaths.has(path) ? path : ''
   const onToolPage = isStudyToolPath(pathname)
@@ -74,7 +76,7 @@ export default function Week4SubNav() {
             value={lessonSelectValue}
             onChange={(e) => {
               const next = e.target.value
-              if (next) navigate(next)
+              if (next) navigate(toCanonical(next))
             }}
             aria-label="Επίλεξε θέμα για να ανοίξεις τη σελίδα ενότητας"
           >

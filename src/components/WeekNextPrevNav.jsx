@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { unitPath } from '../core/routing/paths.js'
 
 const btn =
   'touch-manipulation inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-medium min-h-[48px] transition border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:border-teal-500 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 text-teal-800 dark:text-teal-200'
@@ -14,7 +15,7 @@ export default function WeekNextPrevNav({ weekNum }) {
         ← Αρχική
       </Link>
     ) : (
-      <Link to={`/week/${weekNum - 1}`} className={btn}>
+      <Link to={unitPath('psd115', `k${weekNum - 1}`)} className={btn}>
         ← Προηγούμενη εβδομάδα
       </Link>
     )
@@ -25,7 +26,7 @@ export default function WeekNextPrevNav({ weekNum }) {
         Αρχική →
       </Link>
     ) : (
-      <Link to={`/week/${weekNum + 1}`} className={`${btn} sm:text-right sm:ml-auto`}>
+      <Link to={unitPath('psd115', `k${weekNum + 1}`)} className={`${btn} sm:text-right sm:ml-auto`}>
         Επόμενη εβδομάδα →
       </Link>
     )

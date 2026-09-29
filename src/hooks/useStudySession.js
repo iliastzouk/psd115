@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLegacyRouteKey } from '../core/routing/hooks.js'
 import {
   WEEK1_CATEGORIES,
   WEEK2_CATEGORIES,
@@ -32,7 +32,7 @@ function newUid() {
 }
 
 export function useStudySession() {
-  const { pathname } = useLocation()
+  const pathname = useLegacyRouteKey()
   const weekBand = pathname.startsWith('/week/4')
     ? 4
     : pathname.startsWith('/week/3')
