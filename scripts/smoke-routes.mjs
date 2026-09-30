@@ -5,6 +5,8 @@
  *     β. κάθε canonical course/unit/topic/doc/term/study/progress URL ανοίγει απευθείας (αναλλοίωτο B)·
  *     γ. αρνητικά: άγνωστες διαδρομές δείχνουν Not Found χωρίς σιωπηλή ανακατεύθυνση.
  *     Σε όλες: χωρίς JS σφάλματα, μη κενό περιεχόμενο, τίτλος θέματος όπου υπάρχει.
+ *     δ. πλοήγηση (1C-C): κανένα εσωτερικό link προς /week/· τα θέματα κάθε unit δείχνουν σε
+ *        /psd115/topics/<topicId> με τη σειρά του topics.js· το header ανήκει στο ενεργό μάθημα.
  *  2. Ελέγχει τον κύκλο προστασίας προόδου: εξαγωγή → αλλοίωση → απόρριψη άκυρου αρχείου →
  *     εισαγωγή με backup → επαναφορά (reset) με backup.
  *  3. Ανακάτεμα επιλογών: απαντά με βάση το κείμενο της σωστής επιλογής και ελέγχει ότι μετράει σωστά.
@@ -39,6 +41,7 @@ const { topics } = await imp('content/courses/psd115/topics.js')
 const { sources } = await imp('content/courses/psd115/sources.js')
 const { toCanonical, LEGACY_TOOLS } = await imp('src/core/routing/legacy.js')
 const P = await imp('src/core/routing/paths.js')
+const NAV = await imp('src/core/routing/navigation.js')
 
 const titleBySlug = {
   k1: Object.fromEntries(w1.WEEK1_LESSON_NAV.map((n) => [n.to.replace(/^\/week\/1\//, ''), n.title])),
@@ -72,16 +75,25 @@ routes.push({ group: 'legacy', path: '/week/9', notFound: true })
 
 // β. Canonical απευθείας
 routes.push({ group: 'canonical', path: '/' })
-routes.push({ group: 'canonical', path: P.coursePath('psd115') })
+routes.push({ group: 'canonical', path: P.coursePath('psd115'), header: 'psd115' })
 for (const u of course.units) {
-  routes.push({ group: 'canonical', path: P.unitPath('psd115', u.id) })
+  routes.push({
+    group: 'canonical',
+    path: P.unitPath('psd115', u.id),
+    topicLinks: NAV.unitTopics('psd115', u.id).map((t) => t.path),
+    header: 'psd115',
+  })
   for (const tool of LEGACY_TOOLS) routes.push({ group: 'canonical', path: P.studyPath(tool, `unit:psd115/${u.id}`) })
 }
-for (const t of topics) routes.push({ group: 'canonical', path: P.topicPath('psd115', t.id), title: topicTitle(t) })
+for (const t of topics) {
+  routes.push({ group: 'canonical', path: P.topicPath('psd115', t.id), title: topicTitle(t), selectedTopic: t.id, header: 'psd115' })
+}
 for (const d of sources) routes.push({ group: 'canonical', path: P.documentPath('psd115', d.id), link: `/${d.path}` })
 routes.push({ group: 'canonical', path: P.termPath('2026F'), testid: 'term-page', link: '/psd200' })
 routes.push({ group: 'canonical', path: P.termPath('2026S'), testid: 'term-page' })
-routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα', link: '/terms/2026F' })
+routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα', link: '/terms/2026F', header: 'psd200' })
+routes.push({ group: 'negative', path: '/psd200/units/k1', notFound: true, header: 'psd200' })
+routes.push({ group: 'negative', path: '/psd200/topics/pavlov', notFound: true, header: 'psd200' })
 routes.push({ group: 'canonical', path: P.studyPath('today', 'term:2026F'), testid: 'study-today' })
 routes.push({ group: 'canonical', path: P.studyPath('quiz', 'psd115'), link: P.studyPath('quiz', 'unit:psd115/k1') })
 routes.push({ group: 'canonical', path: P.progressPath('psd115') })
@@ -204,6 +216,28 @@ const browser = await launch()
     if (r.text && !mainText.includes(r.text)) fail(`${label}: δεν βρέθηκε το κείμενο «${r.text}»`)
     if (r.testid && (await page.getByTestId(r.testid).count()) === 0) fail(`${label}: λείπει το ${r.testid}`)
     if (r.link && (await main.locator(`a[href="${r.link}"]`).count()) === 0) fail(`${label}: λείπει link προς ${r.link}`)
+    // δ. Πλοήγηση
+    const hrefs = await page.$$eval('a[href]', (as) => as.map((a) => a.getAttribute('href')))
+    for (const h of hrefs) if (/^\/week(\/|$)/.test(h)) fail(`${label}: εσωτερικό link προς legacy διαδρομή ${h}`)
+    if (r.topicLinks) {
+      const got = await main.locator('a[href^="/psd115/topics/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')))
+      if (got.join('|') !== r.topicLinks.join('|')) fail(`${label}: τα links θεμάτων διαφέρουν από τα canonical topics (${got.length}/${r.topicLinks.length})`)
+    }
+    if (r.selectedTopic) {
+      const value = await main.locator('select').first().inputValue().catch(() => null)
+      if (value !== r.selectedTopic) fail(`${label}: η επιλογή θέματος δείχνει «${value}»`)
+    }
+    if (r.header) {
+      const course = NAV.courseIdentity(r.header)
+      const header = page.locator('header')
+      const headerText = (await header.textContent()) ?? ''
+      const unitLinks = await header.locator('a[href*="/units/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')))
+      const expectedUnits = NAV.courseUnits(r.header).map((u) => u.path)
+      if (!headerText.includes(`${course.code} Exam Prep`)) fail(`${label}: το header δεν δείχνει ${course.code}`)
+      if (unitLinks.join('|') !== expectedUnits.join('|')) fail(`${label}: units στο header: ${unitLinks.join(', ') || '—'}`)
+      if (r.header !== 'psd115' && /PSD115|Ψυχολογία 2/.test(headerText)) fail(`${label}: το header δείχνει στοιχεία του PSD115`)
+      if (r.header !== 'psd115' && !headerText.includes(course.title)) fail(`${label}: το header δεν δείχνει τον τίτλο «${course.title}»`)
+    }
     for (const e of pageErrors) fail(`${label}: ${e}`)
     counts[r.group] = (counts[r.group] ?? 0) + 1
   }

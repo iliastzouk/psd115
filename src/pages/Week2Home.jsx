@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { toCanonical } from '../core/routing/legacy.js'
+import { withTopics } from '../core/routing/navigation.js'
 import { WEEK2_TOPIC_CARDS } from '../../content/courses/psd115/units/k2/index.js'
 
 export default function Week2Home() {
@@ -10,11 +10,11 @@ export default function Week2Home() {
         χρησιμοποίησε <strong>Κάρτες</strong>, <strong>Κουίζ</strong> και <strong>Εξέταση</strong> από το μενού πάνω.
       </p>
       <ul className="grid gap-3 sm:grid-cols-2">
-        {WEEK2_TOPIC_CARDS.map((t) => (
-          <li key={t.slug}>
+        {withTopics('psd115', 'k2', WEEK2_TOPIC_CARDS, (c) => c.slug).map((t) => (
+          <li key={t.topicId}>
             {t.ready ? (
               <Link
-                to={toCanonical(`/week/2/${t.slug}`)}
+                to={t.path}
                 className="block h-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-sky-400 transition"
               >
                 <p className="text-xs font-medium text-sky-600 dark:text-sky-400">Ενότητα</p>

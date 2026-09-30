@@ -1,35 +1,36 @@
 import { Link } from 'react-router-dom'
-import { unitPath } from '../core/routing/paths.js'
+import { courseHomePath, unitNeighbors } from '../core/routing/navigation.js'
 
 const btn =
   'touch-manipulation inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-medium min-h-[48px] transition border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:border-teal-500 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 text-teal-800 dark:text-teal-200'
 
 /**
- * Footer navigation between weeks (after lesson prev/next within the same week).
- * @param {{ weekNum: 1 | 2 | 3 | 4 }} props
+ * Footer navigation between units of a course (after lesson prev/next within the same unit).
+ * Γείτονες από τη σειρά των units του μαθήματος· στα άκρα, η αρχική του μαθήματος.
+ * @param {{ courseId: string, unitId: string }} props
  */
-export default function WeekNextPrevNav({ weekNum }) {
-  const prev =
-    weekNum <= 1 ? (
-      <Link to="/" className={btn}>
-        ← Αρχική
-      </Link>
-    ) : (
-      <Link to={unitPath('psd115', `k${weekNum - 1}`)} className={btn}>
-        ← Προηγούμενη εβδομάδα
-      </Link>
-    )
+export default function WeekNextPrevNav({ courseId, unitId }) {
+  const { prev: prevUnit, next: nextUnit } = unitNeighbors(courseId, unitId)
+  const home = courseHomePath(courseId)
+  const prev = prevUnit ? (
+    <Link to={prevUnit.path} className={btn}>
+      ← Προηγούμενη εβδομάδα
+    </Link>
+  ) : (
+    <Link to={home} className={btn}>
+      ← Αρχική
+    </Link>
+  )
 
-  const next =
-    weekNum >= 4 ? (
-      <Link to="/" className={`${btn} sm:text-right sm:ml-auto`}>
-        Αρχική →
-      </Link>
-    ) : (
-      <Link to={unitPath('psd115', `k${weekNum + 1}`)} className={`${btn} sm:text-right sm:ml-auto`}>
-        Επόμενη εβδομάδα →
-      </Link>
-    )
+  const next = nextUnit ? (
+    <Link to={nextUnit.path} className={`${btn} sm:text-right sm:ml-auto`}>
+      Επόμενη εβδομάδα →
+    </Link>
+  ) : (
+    <Link to={home} className={`${btn} sm:text-right sm:ml-auto`}>
+      Αρχική →
+    </Link>
+  )
 
   return (
     <nav className="pt-6 mt-2 border-t border-slate-200/90 dark:border-slate-700/90" aria-label="Πλοήγηση μεταξύ εβδομάδων">
