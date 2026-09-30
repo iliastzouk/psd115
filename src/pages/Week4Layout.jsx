@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Outlet, useOutletContext } from 'react-router-dom'
-import { useLegacyRouteKey } from '../core/routing/hooks.js'
-import Week4SubNav from '../components/Week4SubNav.jsx'
+import { useLegacyRouteKey, useRouteIdentity } from '../core/routing/hooks.js'
+import UnitSubNav from '../components/UnitSubNav.jsx'
 import Progress from '../components/Progress.jsx'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
@@ -9,17 +9,21 @@ import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
 import { WEEK4_CATEGORIES, flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
 import { K4_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k4/k4PptRefsByRoute.js'
 
-const TOOL_PATHS = new Set(['/week/4/flashcards', '/week/4/quiz', '/week/4/exam', '/week/4/review'])
-const HIDE_PROGRESS_PATHS = new Set(['/week/4/exam', '/week/4/review'])
+/** Σε Εξέταση / Λάθη το μπλοκ «Πρόοδος» αποσπά· η ροή είναι μόνο το εργαλείο. */
+const HIDE_PROGRESS_TOOLS = new Set(['exam', 'review'])
 
 const week4CategoryIds = new Set(WEEK4_CATEGORIES.map((c) => c.id))
 
 export default function Week4Layout() {
   const ctx = useOutletContext()
+  const id = useRouteIdentity()
+  // Legacy κλειδί μόνο για τις διαφάνειες ανά θέμα (κλειδιά του περιεχομένου, adapter 1C-B).
   const p = useLegacyRouteKey() || '/week/4'
-  const progressExpandedByDefault = p === '/week/4' || TOOL_PATHS.has(p)
-  const k4Slides = p === '/week/4' || TOOL_PATHS.has(p) ? null : K4_PPT_SLIDES_BY_ROUTE[p] ?? null
-  const showProgress = !HIDE_PROGRESS_PATHS.has(p)
+  const onUnitHome = id.kind === 'unit'
+  const onToolPage = id.kind === 'study'
+  const progressExpandedByDefault = onUnitHome || onToolPage
+  const k4Slides = onUnitHome || onToolPage ? null : K4_PPT_SLIDES_BY_ROUTE[p] ?? null
+  const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
   const week4FlashTotal = useMemo(
     () => flashcards.filter((c) => week4CategoryIds.has(c.categoryId)).length,
@@ -32,7 +36,7 @@ export default function Week4Layout() {
 
   return (
     <div className="space-y-5">
-      <Week4SubNav />
+      <UnitSubNav courseId="psd115" unitId="k4" />
       {showProgress && (
         <Progress
           progress={ctx.progress}
@@ -45,7 +49,7 @@ export default function Week4Layout() {
       {k4Slides && <PptSlideDeck slideNumbers={k4Slides} routeKey={p} deckId="week4" />}
       <Outlet context={ctx} />
       <LessonPrevNextNav />
-      <WeekNextPrevNav weekNum={4} />
+      <WeekNextPrevNav courseId="psd115" unitId="k4" />
     </div>
   )
 }

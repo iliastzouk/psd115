@@ -21,7 +21,7 @@ const shown = (v) => (v === UNKNOWN ? '—' : v)
 export function CoursePage() {
   const id = useRouteIdentity()
   if (id.kind !== 'course') return <NotFound />
-  if (id.hasContent) return <Home />
+  if (id.hasContent) return <Home courseId={id.courseId} />
   const course = getCourseById(registry, id.courseId)
   const enrollments = getEnrollments(registry, { courseId: id.courseId })
   return (

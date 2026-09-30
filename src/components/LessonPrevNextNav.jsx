@@ -1,28 +1,16 @@
 import { Link } from 'react-router-dom'
-import { useLegacyRouteKey } from '../core/routing/hooks.js'
-import { toCanonical } from '../core/routing/legacy.js'
-import { WEEK1_LESSON_NAV } from '../../content/courses/psd115/units/k1/lessonNav.js'
-import { WEEK2_LESSON_NAV } from '../../content/courses/psd115/units/k2/lessonNav.js'
-import { WEEK3_LESSON_NAV } from '../../content/courses/psd115/units/k3/lessonNav.js'
-import { WEEK4_LESSON_NAV } from '../../content/courses/psd115/units/k4/lessonNav.js'
+import { useRouteIdentity } from '../core/routing/hooks.js'
+import { topicNeighbors } from '../core/routing/navigation.js'
+import { topicTitle } from '../pages/routing/coursePresentation.js'
 
 const linkClass =
   'touch-manipulation block rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/80 px-4 py-3 min-h-[52px] hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition text-left sm:max-w-md'
 
+/** Προηγούμενο/επόμενο θέμα της ίδιας unit, από τη σειρά του topics.js (όχι από pathname). */
 export default function LessonPrevNextNav() {
-  const p = useLegacyRouteKey() || '/week/1'
-  const nav = p.startsWith('/week/4')
-    ? WEEK4_LESSON_NAV
-    : p.startsWith('/week/3')
-      ? WEEK3_LESSON_NAV
-      : p.startsWith('/week/2')
-        ? WEEK2_LESSON_NAV
-        : WEEK1_LESSON_NAV
-  const i = nav.findIndex((x) => x.to === p)
-  if (i < 0) return null
-
-  const prev = i > 0 ? nav[i - 1] : null
-  const next = i < nav.length - 1 ? nav[i + 1] : null
+  const id = useRouteIdentity()
+  if (id.kind !== 'topic') return null
+  const { prev, next } = topicNeighbors(id.courseId, id.topicId)
   if (!prev && !next) return null
 
   return (
@@ -31,9 +19,9 @@ export default function LessonPrevNextNav() {
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
         <div className="flex-1 min-w-0">
           {prev ? (
-            <Link to={toCanonical(prev.to)} className={linkClass}>
+            <Link to={prev.path} className={linkClass}>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 block mb-0.5">Προηγούμενη ενότητα</span>
-              <span className="text-sm font-semibold text-teal-700 dark:text-teal-300 leading-snug">← {prev.title}</span>
+              <span className="text-sm font-semibold text-teal-700 dark:text-teal-300 leading-snug">← {topicTitle(prev)}</span>
             </Link>
           ) : (
             <span className="hidden sm:block sm:invisible" aria-hidden>
@@ -43,9 +31,9 @@ export default function LessonPrevNextNav() {
         </div>
         <div className="flex-1 min-w-0 sm:flex sm:justify-end">
           {next ? (
-            <Link to={toCanonical(next.to)} className={`${linkClass} sm:text-right`}>
+            <Link to={next.path} className={`${linkClass} sm:text-right`}>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 block mb-0.5">Επόμενη ενότητα</span>
-              <span className="text-sm font-semibold text-teal-700 dark:text-teal-300 leading-snug">{next.title} →</span>
+              <span className="text-sm font-semibold text-teal-700 dark:text-teal-300 leading-snug">{topicTitle(next)} →</span>
             </Link>
           ) : null}
         </div>

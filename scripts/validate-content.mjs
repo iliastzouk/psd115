@@ -220,6 +220,11 @@ const unitSlugs = {
   k4: weeks[4].WEEK4_TOPICS.map((t) => t.slug),
 }
 for (const e of checkTopicMap({ course: courseDef, topics: topicMap, unitSlugs })) err(`Πίνακας θεμάτων: ${e}`)
+// Η πλοήγηση (1C-C) ακολουθεί τη σειρά του topics.js· πρέπει να ταυτίζεται με τη σειρά μαθημάτων κάθε unit.
+for (const [unit, slugs] of Object.entries(unitSlugs)) {
+  const order = topicMap.filter((t) => t.unit === unit).map((t) => t.legacySlug)
+  if (order.join('|') !== slugs.join('|')) err(`Πίνακας θεμάτων: η σειρά της ${unit} διαφέρει από τη σειρά των μαθημάτων`)
+}
 let legacyRoutes = new Map()
 try {
   const legacy = await imp('src/core/routing/legacy.js')
