@@ -225,6 +225,12 @@ for (const [unit, slugs] of Object.entries(unitSlugs)) {
   const order = topicMap.filter((t) => t.unit === unit).map((t) => t.legacySlug)
   if (order.join('|') !== slugs.join('|')) err(`Πίνακας θεμάτων: η σειρά της ${unit} διαφέρει από τη σειρά των μαθημάτων`)
 }
+// Study adapter (1D): τα unit keys του STUDY_CONTENT ταυτίζονται με τις units του course.js.
+const { STUDY_CONTENT } = await imp('src/core/study/content.js')
+const studyUnits = Object.keys(STUDY_CONTENT.psd115?.units ?? {})
+if (studyUnits.join('|') !== courseDef.units.map((u) => u.id).join('|')) {
+  err(`Study adapter: units ${studyUnits.join(',')} ≠ course.js ${courseDef.units.map((u) => u.id).join(',')}`)
+}
 let legacyRoutes = new Map()
 try {
   const legacy = await imp('src/core/routing/legacy.js')

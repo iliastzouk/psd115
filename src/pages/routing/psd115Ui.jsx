@@ -33,12 +33,7 @@ import EvolutionaryPage from '../EvolutionaryPage.jsx'
 import SocialPsychologyPage from '../SocialPsychologyPage.jsx'
 import EducationalPsychologyPage from '../EducationalPsychologyPage.jsx'
 import OtherBranchesPage from '../OtherBranchesPage.jsx'
-import {
-  WEEK1_CATEGORIES,
-  WEEK2_CATEGORIES,
-  WEEK3_CATEGORIES,
-  WEEK4_CATEGORIES,
-} from '../../../content/courses/psd115/questions.js'
+import { STUDY_CONTENT } from '../../core/study/content.js'
 
 /** Σελίδες θεμάτων Εβδ. 1, ανά legacySlug (όπως οι παλιές διαδρομές /week/1/<slug>). */
 const WEEK1_TOPIC_PAGES = {
@@ -69,7 +64,7 @@ const SLUG_TOPIC_PAGES = { k2: Week2TopicPage, k3: Week3TopicPage, k4: Week4Topi
 export const PSD115_UI = {
   layouts: { k1: Week1Layout, k2: Week2Layout, k3: Week3Layout, k4: Week4Layout },
   homes: { k1: Week1Home, k2: Week2Home, k3: Week3Home, k4: Week4Home },
-  categories: { k1: WEEK1_CATEGORIES, k2: WEEK2_CATEGORIES, k3: WEEK3_CATEGORIES, k4: WEEK4_CATEGORIES },
+  categories: Object.fromEntries(Object.entries(STUDY_CONTENT.psd115.units).map(([unitId, u]) => [unitId, u.categories])),
   /** @returns {JSX.Element | null} */
   topicElement(unitId, legacySlug) {
     if (unitId === 'k1') {

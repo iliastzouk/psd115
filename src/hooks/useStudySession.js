@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useLegacyRouteKey } from '../core/routing/hooks.js'
-import {
-  WEEK1_CATEGORIES,
-  WEEK2_CATEGORIES,
-  WEEK3_CATEGORIES,
-  WEEK4_CATEGORIES,
-  flashcards,
-  quizQuestions,
-  getCategoryLabel,
-} from '../../content/courses/psd115/questions.js'
+import { useRouteIdentity } from '../core/routing/hooks.js'
+import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
+import { flashcards, quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import {
   defaultProgress,
@@ -32,52 +25,11 @@ function newUid() {
 }
 
 export function useStudySession() {
-  const pathname = useLegacyRouteKey()
-  const weekBand = pathname.startsWith('/week/4')
-    ? 4
-    : pathname.startsWith('/week/3')
-      ? 3
-      : pathname.startsWith('/week/2')
-        ? 2
-        : 1
-
-  const week1CategoryIds = useMemo(() => new Set(WEEK1_CATEGORIES.map((c) => c.id)), [])
-  const week2CategoryIds = useMemo(() => new Set(WEEK2_CATEGORIES.map((c) => c.id)), [])
-  const week3CategoryIds = useMemo(() => new Set(WEEK3_CATEGORIES.map((c) => c.id)), [])
-  const week4CategoryIds = useMemo(() => new Set(WEEK4_CATEGORIES.map((c) => c.id)), [])
-
-  const scopedFlashcards = useMemo(() => {
-    const ids =
-      weekBand === 4
-        ? week4CategoryIds
-        : weekBand === 3
-          ? week3CategoryIds
-          : weekBand === 2
-            ? week2CategoryIds
-            : week1CategoryIds
-    return flashcards.filter((c) => ids.has(c.categoryId))
-  }, [weekBand, week1CategoryIds, week2CategoryIds, week3CategoryIds, week4CategoryIds])
-
-  const scopedQuizQuestions = useMemo(() => {
-    const ids =
-      weekBand === 4
-        ? week4CategoryIds
-        : weekBand === 3
-          ? week3CategoryIds
-          : weekBand === 2
-            ? week2CategoryIds
-            : week1CategoryIds
-    return quizQuestions.filter((q) => ids.has(q.categoryId))
-  }, [weekBand, week1CategoryIds, week2CategoryIds, week3CategoryIds, week4CategoryIds])
-
-  const scopeCategories =
-    weekBand === 4
-      ? WEEK4_CATEGORIES
-      : weekBand === 3
-        ? WEEK3_CATEGORIES
-        : weekBand === 2
-          ? WEEK2_CATEGORIES
-          : WEEK1_CATEGORIES
+  // Υλικό μελέτης από το canonical scope της διαδρομής (Phase 1D). Χωρίς scope → κενό υλικό.
+  const material = selectStudyMaterial(studyScope(useRouteIdentity()))
+  const scopedFlashcards = material.flashcards
+  const scopedQuizQuestions = material.quizQuestions
+  const scopeCategories = material.categories
 
   const [dark, setDark] = useState(false)
   const [progress, setProgress] = useState(defaultProgress)
