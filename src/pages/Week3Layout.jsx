@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Outlet, useLocation, useOutletContext } from 'react-router-dom'
+import { Outlet, useOutletContext } from 'react-router-dom'
+import { useLegacyRouteKey } from '../core/routing/hooks.js'
 import Week3SubNav from '../components/Week3SubNav.jsx'
 import Progress from '../components/Progress.jsx'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
@@ -15,8 +16,7 @@ const week3CategoryIds = new Set(WEEK3_CATEGORIES.map((c) => c.id))
 
 export default function Week3Layout() {
   const ctx = useOutletContext()
-  const { pathname } = useLocation()
-  const p = pathname.replace(/\/$/, '') || '/week/3'
+  const p = useLegacyRouteKey() || '/week/3'
   const progressExpandedByDefault = p === '/week/3' || TOOL_PATHS.has(p)
   const k3Slides = p === '/week/3' || TOOL_PATHS.has(p) ? null : K3_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !HIDE_PROGRESS_PATHS.has(p)
@@ -42,7 +42,7 @@ export default function Week3Layout() {
           categories={WEEK3_CATEGORIES}
         />
       )}
-      {k3Slides && <PptSlideDeck slideNumbers={k3Slides} routeKey={pathname} deckId="week3" />}
+      {k3Slides && <PptSlideDeck slideNumbers={k3Slides} routeKey={p} deckId="week3" />}
       <Outlet context={ctx} />
       <LessonPrevNextNav />
       <WeekNextPrevNav weekNum={3} />

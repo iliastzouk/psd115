@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLegacyRouteKey } from '../core/routing/hooks.js'
 import { shuffle } from '../utils/shuffle.js'
 import { getWeek1ExamQuestions } from '../../content/courses/psd115/units/k1/index.js'
 import { getWeek2ExamQuestions } from '../../content/courses/psd115/units/k2/index.js'
@@ -9,7 +9,7 @@ import ExamQuestion from '../components/ExamQuestion.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 export default function ExamMode() {
-  const { pathname } = useLocation()
+  const pathname = useLegacyRouteKey()
   const deck = useMemo(() => {
     const pool = pathname.startsWith('/week/4')
       ? getWeek4ExamQuestions()

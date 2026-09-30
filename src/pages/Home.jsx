@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { unitPath } from '../core/routing/paths.js'
 
 export default function Home() {
   return (
@@ -20,7 +21,7 @@ export default function Home() {
         <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">Εβδομάδες</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Link
-            to="/week/1"
+            to={unitPath('psd115', 'k1')}
             className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-teal-400 dark:hover:border-teal-600 transition group"
           >
             <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Διαθέσιμο</p>
@@ -32,7 +33,7 @@ export default function Home() {
             </p>
           </Link>
           <Link
-            to="/week/2"
+            to={unitPath('psd115', 'k2')}
             className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-sky-400 dark:hover:border-sky-600 transition group"
           >
             <p className="text-xs font-medium text-sky-600 dark:text-sky-400">Διαθέσιμο</p>
@@ -44,7 +45,7 @@ export default function Home() {
             </p>
           </Link>
           <Link
-            to="/week/3"
+            to={unitPath('psd115', 'k3')}
             className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-emerald-400 dark:hover:border-emerald-600 transition group"
           >
             <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Διαθέσιμο</p>
@@ -56,7 +57,7 @@ export default function Home() {
             </p>
           </Link>
           <Link
-            to="/week/4"
+            to={unitPath('psd115', 'k4')}
             className="block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-violet-400 dark:hover:border-violet-600 transition group"
           >
             <p className="text-xs font-medium text-violet-600 dark:text-violet-400">Διαθέσιμο</p>

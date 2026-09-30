@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { toCanonical } from '../core/routing/legacy.js'
 import { WEEK4_TOPIC_CARDS } from '../../content/courses/psd115/units/k4/index.js'
 
 export default function Week4Home() {
@@ -14,7 +15,7 @@ export default function Week4Home() {
           <li key={t.slug}>
             {t.ready ? (
               <Link
-                to={`/week/4/${t.slug}`}
+                to={toCanonical(`/week/4/${t.slug}`)}
                 className="block h-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-violet-400 transition"
               >
                 <p className="text-xs font-medium text-violet-600 dark:text-violet-400">Ενότητα</p>

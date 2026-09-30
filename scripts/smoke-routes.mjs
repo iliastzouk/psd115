@@ -1,7 +1,10 @@
 /**
- * Smoke test της ΤΡΕΧΟΥΣΑΣ εφαρμογής (baseline πριν από κάθε migration).
- *  1. Ανοίγει κάθε υπάρχουσα διαδρομή στο production build και ελέγχει: χωρίς JS σφάλματα,
- *     σωστή τελική διαδρομή, μη κενό περιεχόμενο.
+ * Smoke test της εφαρμογής στο production build.
+ *  1. Διαδρομές (Phase 1C-B):
+ *     α. legacy πίνακας: κάθε παλιό /week/... URL καταλήγει στο σωστό canonical URL (αναλλοίωτο A)·
+ *     β. κάθε canonical course/unit/topic/doc/term/study/progress URL ανοίγει απευθείας (αναλλοίωτο B)·
+ *     γ. αρνητικά: άγνωστες διαδρομές δείχνουν Not Found χωρίς σιωπηλή ανακατεύθυνση.
+ *     Σε όλες: χωρίς JS σφάλματα, μη κενό περιεχόμενο, τίτλος θέματος όπου υπάρχει.
  *  2. Ελέγχει τον κύκλο προστασίας προόδου: εξαγωγή → αλλοίωση → απόρριψη άκυρου αρχείου →
  *     εισαγωγή με backup → επαναφορά (reset) με backup.
  *  3. Ανακάτεμα επιλογών: απαντά με βάση το κείμενο της σωστής επιλογής και ελέγχει ότι μετράει σωστά.
@@ -26,24 +29,81 @@ if (!fs.existsSync(path.join(root, 'dist/index.html'))) {
   process.exit(1)
 }
 
-// --- Λίστα διαδρομών από το ίδιο το περιεχόμενο ---
+// --- Λίστα διαδρομών από το ίδιο το περιεχόμενο και τον ρητό πίνακα θεμάτων ---
 const w1 = await imp('content/courses/psd115/units/k1/index.js')
 const w2 = await imp('content/courses/psd115/units/k2/index.js')
 const w3 = await imp('content/courses/psd115/units/k3/index.js')
 const w4 = await imp('content/courses/psd115/units/k4/index.js')
+const { course } = await imp('content/courses/psd115/course.js')
+const { topics } = await imp('content/courses/psd115/topics.js')
+const { sources } = await imp('content/courses/psd115/sources.js')
+const { toCanonical, LEGACY_TOOLS } = await imp('src/core/routing/legacy.js')
+const P = await imp('src/core/routing/paths.js')
 
-/** @type {{ path: string, expect?: string, note?: string }[]} */
-const routes = [{ path: '/' }]
-for (const w of [1, 2, 3, 4]) {
-  routes.push({ path: `/week/${w}` })
-  for (const tool of ['flashcards', 'quiz', 'exam', 'review']) routes.push({ path: `/week/${w}/${tool}` })
+const titleBySlug = {
+  k1: Object.fromEntries(w1.WEEK1_LESSON_NAV.map((n) => [n.to.replace(/^\/week\/1\//, ''), n.title])),
+  k2: Object.fromEntries(w2.WEEK2_TOPICS.map((t) => [t.slug, t.title])),
+  k3: Object.fromEntries(w3.WEEK3_TOPICS.map((t) => [t.slug, t.title])),
+  k4: Object.fromEntries(w4.WEEK4_TOPICS.map((t) => [t.slug, t.title])),
 }
-for (const n of w1.WEEK1_LESSON_NAV) routes.push({ path: n.to })
-for (const [w, mod] of [[2, w2], [3, w3], [4, w4]]) {
-  for (const t of mod[`WEEK${w}_TOPICS`]) routes.push({ path: `/week/${w}/${t.slug}` })
-  routes.push({ path: `/week/${w}/does-not-exist`, expect: `/week/${w}`, note: 'άγνωστο θέμα → hub' })
+const topicTitle = (t) => titleBySlug[t.unit][t.legacySlug]
+
+/**
+ * @type {{ path: string, expect?: string, title?: string, text?: string, note?: string, notFound?: boolean, link?: string, testid?: string, group: string }[]}
+ *  expect = τελικό pathname+search (προεπιλογή: το ίδιο το path)
+ */
+const routes = []
+// α. Legacy → canonical
+for (const u of course.units) {
+  routes.push({ group: 'legacy', path: u.route, expect: toCanonical(u.route) })
+  for (const tool of LEGACY_TOOLS) routes.push({ group: 'legacy', path: `${u.route}/${tool}`, expect: toCanonical(`${u.route}/${tool}`) })
 }
-routes.push({ path: '/week/1/?x=1', expect: '/week/1/', note: 'query string / trailing slash' })
+for (const t of topics) {
+  const key = `/week/${t.unit.slice(1)}/${t.legacySlug}`
+  routes.push({ group: 'legacy', path: key, expect: P.topicPath('psd115', t.id), title: topicTitle(t) })
+}
+routes.push({ group: 'legacy', path: '/week/1/?x=1', expect: '/psd115/units/k1?x=1', note: 'query string / trailing slash' })
+routes.push({ group: 'legacy', path: '/week/1/pavlov/', expect: '/psd115/topics/pavlov', note: 'trailing slash' })
+routes.push({ group: 'legacy', path: '/week/2/quiz?x=1', expect: '/study/quiz?scope=unit:psd115/k2&x=1', note: 'query σε εργαλείο' })
+for (const w of [2, 3, 4]) {
+  routes.push({ group: 'legacy', path: `/week/${w}/does-not-exist`, notFound: true, link: P.unitPath('psd115', `k${w}`), note: 'άγνωστο θέμα' })
+}
+routes.push({ group: 'legacy', path: '/week/9', notFound: true })
+
+// β. Canonical απευθείας
+routes.push({ group: 'canonical', path: '/' })
+routes.push({ group: 'canonical', path: P.coursePath('psd115') })
+for (const u of course.units) {
+  routes.push({ group: 'canonical', path: P.unitPath('psd115', u.id) })
+  for (const tool of LEGACY_TOOLS) routes.push({ group: 'canonical', path: P.studyPath(tool, `unit:psd115/${u.id}`) })
+}
+for (const t of topics) routes.push({ group: 'canonical', path: P.topicPath('psd115', t.id), title: topicTitle(t) })
+for (const d of sources) routes.push({ group: 'canonical', path: P.documentPath('psd115', d.id), link: `/${d.path}` })
+routes.push({ group: 'canonical', path: P.termPath('2026F'), testid: 'term-page', link: '/psd200' })
+routes.push({ group: 'canonical', path: P.termPath('2026S'), testid: 'term-page' })
+routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα', link: '/terms/2026F' })
+routes.push({ group: 'canonical', path: P.studyPath('today', 'term:2026F'), testid: 'study-today' })
+routes.push({ group: 'canonical', path: P.studyPath('quiz', 'psd115'), link: P.studyPath('quiz', 'unit:psd115/k1') })
+routes.push({ group: 'canonical', path: P.progressPath('psd115') })
+routes.push({ group: 'canonical', path: P.progressPath('unit:psd115/k2') })
+
+// γ. Αρνητικά
+for (const p of [
+  '/nope',
+  '/psd115/topics/overview',
+  '/psd115/units/k9',
+  '/psd115/docs/nope',
+  '/psd115/units/k1/extra',
+  '/study/quiz',
+  '/study/quiz?scope=unit:psd115/k9',
+  '/study/quiz?scope=bad',
+  '/study/nope?scope=psd115',
+  '/progress',
+  '/terms/2030F',
+  '/psd115/week/1',
+]) {
+  routes.push({ group: 'negative', path: p, notFound: true })
+}
 
 // --- Server ---
 const server = spawn(path.join(root, 'node_modules/.bin/vite'), ['preview', '--port', String(PORT), '--strictPort'], {
@@ -120,21 +180,41 @@ const browser = await launch()
     if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) pageErrors.push(`console: ${m.text()}`)
   })
 
+  const counts = {}
   for (const r of routes) {
     pageErrors = []
     const res = await page.goto(BASE + r.path, { waitUntil: 'networkidle' })
     const status = res?.status() ?? 0
-    const finalPath = new URL(page.url()).pathname
-    const mainText = ((await page.locator('#main-content').textContent().catch(() => '')) ?? '').trim()
-    const expected = r.expect ?? r.path.replace(/\?.*$/, '')
-    const label = `${r.path}${r.note ? ` (${r.note})` : ''}`
+    const url = new URL(page.url())
+    const finalPath = decodeURIComponent(url.pathname + url.search)
+    const main = page.locator('#main-content')
+    const mainText = ((await main.textContent().catch(() => '')) ?? '').trim()
+    const expected = r.expect ?? r.path
+    const label = `[${r.group}] ${r.path}${r.note ? ` (${r.note})` : ''}`
+    const isNotFound = (await page.getByTestId('not-found').count()) > 0
     if (status !== 200) fail(`${label}: HTTP ${status}`)
     if (finalPath !== expected) fail(`${label}: κατέληξε στο ${finalPath}, αναμενόταν ${expected}`)
     if (mainText.length < 20) fail(`${label}: κενό περιεχόμενο`)
+    if (r.notFound && !isNotFound) fail(`${label}: αναμενόταν Not Found`)
+    if (!r.notFound && isNotFound) fail(`${label}: εμφανίστηκε Not Found`)
+    if (r.title) {
+      const headings = (await main.locator('h1, h2').allTextContents()).map((t) => t.trim())
+      if (!headings.some((h) => h.includes(r.title))) fail(`${label}: δεν βρέθηκε επικεφαλίδα «${r.title}»`)
+    }
+    if (r.text && !mainText.includes(r.text)) fail(`${label}: δεν βρέθηκε το κείμενο «${r.text}»`)
+    if (r.testid && (await page.getByTestId(r.testid).count()) === 0) fail(`${label}: λείπει το ${r.testid}`)
+    if (r.link && (await main.locator(`a[href="${r.link}"]`).count()) === 0) fail(`${label}: λείπει link προς ${r.link}`)
     for (const e of pageErrors) fail(`${label}: ${e}`)
+    counts[r.group] = (counts[r.group] ?? 0) + 1
   }
+  // Η πλοήγηση δεν γράφει στο νέο progress store (καμία εγγραφή γεγονότων σε αυτή τη φάση).
+  const newStoreKeys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('study-progress-')))
+  if (newStoreKeys.length) fail(`routes: γράφτηκαν κλειδιά του νέου store: ${newStoreKeys.join(', ')}`)
   await context.close()
-  console.log(`${failures.length ? '✗' : '✓'} Διαδρομές: ${routes.length} ελέγχθηκαν`)
+  console.log(
+    `${failures.length ? '✗' : '✓'} Διαδρομές: ${routes.length} ελέγχθηκαν ` +
+      `(legacy ${counts.legacy} · canonical ${counts.canonical} · αρνητικά ${counts.negative})`,
+  )
 }
 
 // ---------- 2. Προστασία προόδου ----------
@@ -233,7 +313,7 @@ const beforeShuffle = failures.length
   page.on('pageerror', (e) => fail(`shuffle: σφάλμα JS: ${e.message}`))
 
   // Κύριο κουίζ Εβδ. 2: απαντά σε ΟΛΕΣ τις ερωτήσεις με βάση το κείμενο της σωστής επιλογής.
-  await page.goto(BASE + '/week/2/quiz', { waitUntil: 'networkidle' })
+  await page.goto(BASE + '/study/quiz?scope=unit:psd115/k2', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
   let answered = 0
   let mcqNotAtOriginalSlot = 0
@@ -277,11 +357,10 @@ const beforeShuffle = failures.length
   if (mcqCount >= 8 && mcqNotAtOriginalSlot === 0) fail('shuffle: καμία επιλογή δεν άλλαξε θέση — το ανακάτεμα δεν εφαρμόζεται')
 
   // Mini κουίζ μέσα σε μάθημα (Εβδ. 2) και σε custom μάθημα (Εβδ. 1).
-  const w2 = await imp('content/courses/psd115/units/k2/index.js')
   const w1pavlov = await imp('content/courses/psd115/units/k1/pavlov.js')
   const lessonCases = [
-    ['/week/2/overview', w2.WEEK2_TOPICS.find((t) => t.slug === 'overview').lessonQuizIds],
-    ['/week/1/pavlov', w1pavlov.pavlovLessonQuizIds],
+    ['/psd115/topics/research-methods-overview', w2.WEEK2_TOPICS.find((t) => t.slug === 'overview').lessonQuizIds],
+    ['/psd115/topics/pavlov', w1pavlov.pavlovLessonQuizIds],
   ]
   let lessonChecked = 0
   for (const [route, ids] of lessonCases) {

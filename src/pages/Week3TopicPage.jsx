@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
-import { Navigate, useOutletContext, useParams } from 'react-router-dom'
+import { Navigate, useOutletContext } from 'react-router-dom'
+import { unitPath } from '../core/routing/paths.js'
 import Week3TopicLesson from '../components/Week3TopicLesson.jsx'
 import { getWeek3TopicBySlug } from '../../content/courses/psd115/units/k3/index.js'
 
-export default function Week3TopicPage() {
-  const { slug } = useParams()
+/** @param {{ slug: string }} props — legacySlug του επιλυμένου topic (routing/psd115Ui.jsx) */
+export default function Week3TopicPage({ slug }) {
   const topic = getWeek3TopicBySlug(slug ?? '')
   const { lessonResetKey, markFlashSeen, flashcards } = useOutletContext()
 
@@ -13,7 +14,7 @@ export default function Week3TopicPage() {
     [flashcards, topic],
   )
 
-  if (!topic) return <Navigate to="/week/3" replace />
+  if (!topic) return <Navigate to={unitPath('psd115', 'k3')} replace />
 
   return (
     <Week3TopicLesson

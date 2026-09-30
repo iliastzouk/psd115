@@ -273,8 +273,14 @@ describe('Isolation', () => {
   })
 
   // Phase 1A guard: η εφαρμογή ΔΕΝ καταναλώνει ακόμα το registry. Αφαιρείται όταν γίνει η σύνδεση (Phase 1C).
-  test('κανένα αρχείο της εφαρμογής δεν εισάγει το src/core/academic', () => {
-    const appFiles = walk(path.join(root, 'src')).filter((f) => !f.includes(`${path.sep}core${path.sep}academic${path.sep}`))
+  test('μόνο το routing/term surface εισάγει το src/core/academic· κανένα component μελέτης/περιεχομένου/προόδου', () => {
+    const allowed = [
+      `${path.sep}core${path.sep}academic${path.sep}`,
+      `${path.sep}core${path.sep}routing${path.sep}`,
+      `${path.sep}pages${path.sep}routing${path.sep}`,
+    ]
+    const appFiles = walk(path.join(root, 'src')).filter((f) => !allowed.some((a) => f.includes(a)))
+    assert.ok(appFiles.length > 20)
     for (const f of appFiles) {
       assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /core\/academic/, path.relative(root, f))
     }
