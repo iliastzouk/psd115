@@ -42,6 +42,15 @@ const { sources } = await imp('content/courses/psd115/sources.js')
 const { toCanonical, LEGACY_TOOLS } = await imp('src/core/routing/legacy.js')
 const P = await imp('src/core/routing/paths.js')
 const NAV = await imp('src/core/routing/navigation.js')
+const STUDY = await imp('src/core/study/scope.js')
+// Αναμενόμενο κείμενο εργαλείου = μέγεθος υλικού της unit (1D: ίδιο dataset legacy και canonical).
+const toolText = (unitId, tool) => {
+  const m = STUDY.selectStudyMaterial({ kind: 'unit', courseId: 'psd115', unitId })
+  if (tool === 'quiz') return `Διαθέσιμες με φίλτρο: ${m.quizQuestions.length}`
+  if (tool === 'exam') return `Θέμα 1 / ${m.examQuestions.length}`
+  if (tool === 'flashcards') return `Κάρτα 1/${m.flashcards.length}`
+  return undefined
+}
 
 const titleBySlug = {
   k1: Object.fromEntries(w1.WEEK1_LESSON_NAV.map((n) => [n.to.replace(/^\/week\/1\//, ''), n.title])),
@@ -59,7 +68,9 @@ const routes = []
 // α. Legacy → canonical
 for (const u of course.units) {
   routes.push({ group: 'legacy', path: u.route, expect: toCanonical(u.route) })
-  for (const tool of LEGACY_TOOLS) routes.push({ group: 'legacy', path: `${u.route}/${tool}`, expect: toCanonical(`${u.route}/${tool}`) })
+  for (const tool of LEGACY_TOOLS) {
+    routes.push({ group: 'legacy', path: `${u.route}/${tool}`, expect: toCanonical(`${u.route}/${tool}`), text: toolText(u.id, tool) })
+  }
 }
 for (const t of topics) {
   const key = `/week/${t.unit.slice(1)}/${t.legacySlug}`
@@ -83,7 +94,7 @@ for (const u of course.units) {
     topicLinks: NAV.unitTopics('psd115', u.id).map((t) => t.path),
     header: 'psd115',
   })
-  for (const tool of LEGACY_TOOLS) routes.push({ group: 'canonical', path: P.studyPath(tool, `unit:psd115/${u.id}`) })
+  for (const tool of LEGACY_TOOLS) routes.push({ group: 'canonical', path: P.studyPath(tool, `unit:psd115/${u.id}`), text: toolText(u.id, tool) })
 }
 for (const t of topics) {
   routes.push({ group: 'canonical', path: P.topicPath('psd115', t.id), title: topicTitle(t), selectedTopic: t.id, header: 'psd115' })
@@ -95,7 +106,21 @@ routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμ�
 routes.push({ group: 'negative', path: '/psd200/units/k1', notFound: true, header: 'psd200' })
 routes.push({ group: 'negative', path: '/psd200/topics/pavlov', notFound: true, header: 'psd200' })
 routes.push({ group: 'canonical', path: P.studyPath('today', 'term:2026F'), testid: 'study-today' })
-routes.push({ group: 'canonical', path: P.studyPath('quiz', 'psd115'), link: P.studyPath('quiz', 'unit:psd115/k1') })
+routes.push({
+  group: 'canonical',
+  path: P.studyPath('quiz', 'psd115'),
+  link: P.studyPath('quiz', 'unit:psd115/k1'),
+  text: 'Διάλεξε εβδομάδα',
+  absentText: 'Διαθέσιμες με φίλτρο',
+  note: 'course scope: επιλογή unit, χωρίς υλικό',
+})
+routes.push({
+  group: 'negative',
+  path: P.studyPath('quiz', 'topic:psd115/pavlov'),
+  notFound: true,
+  text: 'δεν υποστηρίζει ακόμα αυτό το scope',
+  note: 'topic scope σε εργαλείο: ρητά unsupported',
+})
 routes.push({ group: 'canonical', path: P.progressPath('psd115') })
 routes.push({ group: 'canonical', path: P.progressPath('unit:psd115/k2') })
 
@@ -214,6 +239,7 @@ const browser = await launch()
       if (!headings.some((h) => h.includes(r.title))) fail(`${label}: δεν βρέθηκε επικεφαλίδα «${r.title}»`)
     }
     if (r.text && !mainText.includes(r.text)) fail(`${label}: δεν βρέθηκε το κείμενο «${r.text}»`)
+    if (r.absentText && mainText.includes(r.absentText)) fail(`${label}: δεν έπρεπε να υπάρχει «${r.absentText}»`)
     if (r.testid && (await page.getByTestId(r.testid).count()) === 0) fail(`${label}: λείπει το ${r.testid}`)
     if (r.link && (await main.locator(`a[href="${r.link}"]`).count()) === 0) fail(`${label}: λείπει link προς ${r.link}`)
     // δ. Πλοήγηση

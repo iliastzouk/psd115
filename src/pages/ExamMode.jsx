@@ -1,32 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLegacyRouteKey } from '../core/routing/hooks.js'
+import { useRouteIdentity } from '../core/routing/hooks.js'
+import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
 import { shuffle } from '../utils/shuffle.js'
-import { getWeek1ExamQuestions } from '../../content/courses/psd115/units/k1/index.js'
-import { getWeek2ExamQuestions } from '../../content/courses/psd115/units/k2/index.js'
-import { getWeek3ExamQuestions } from '../../content/courses/psd115/units/k3/index.js'
-import { getWeek4ExamQuestions } from '../../content/courses/psd115/units/k4/index.js'
 import ExamQuestion from '../components/ExamQuestion.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 export default function ExamMode() {
-  const pathname = useLegacyRouteKey()
-  const deck = useMemo(() => {
-    const pool = pathname.startsWith('/week/4')
-      ? getWeek4ExamQuestions()
-      : pathname.startsWith('/week/3')
-        ? getWeek3ExamQuestions()
-        : pathname.startsWith('/week/2')
-          ? getWeek2ExamQuestions()
-          : getWeek1ExamQuestions()
-    return shuffle(pool)
-  }, [pathname])
+  // Ερωτήσεις ανάπτυξης από το canonical scope (Phase 1D)· το material είναι σταθερό ανά scope.
+  const material = selectStudyMaterial(studyScope(useRouteIdentity()))
+  const deck = useMemo(() => shuffle(material.examQuestions), [material])
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
     setIndex(0)
     setRevealed(false)
-  }, [pathname])
+  }, [material])
 
   const total = deck.length
   const current = deck[index]
