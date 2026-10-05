@@ -6,7 +6,7 @@
  * σημάδι → safety backup v2 → μία εγγραφή του `study-progress-state-v1` μέσω συναλλαγής (verify/rollback).
  * Τα `psd115-*` ΔΕΝ αλλάζουν. Το `study-progress-events-v1` ΔΕΝ γράφεται (μηδέν events).
  */
-import { STATE_KEY } from '../core/progress/progressStore.js'
+import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { buildLegacyBaseline, LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY } from '../core/progress/legacyBaseline.js'
 import { createSafetyBackup, readProgressEntries, readStoreEntries } from './progressBackup.js'
 import { runTransaction } from './progressTransaction.js'
@@ -50,6 +50,18 @@ export async function migrateLegacyBaseline({
           ? 'υπάρχει baseline χωρίς σημάδι migration· δεν αντικαθίσταται'
           : `υπάρχει ήδη migration με διαφορετικό source hash (${marker?.sourceHash}) από το τρέχον (${sourceHash})· δεν αντικαθίσταται`,
       ],
+    }
+  }
+
+  // Αρχικό migration: επιτρέπεται μόνο με άδειο log (απόν ή []). Events χωρίς σημάδι migration θα
+  // προστίθεντο πάνω από το baseline χωρίς να ξέρουμε αν είναι ήδη μέσα του → ρητή άρνηση, καμία εγγραφή.
+  const eventsRaw = storage.getItem(EVENTS_KEY)
+  const existingEvents = eventsRaw === null ? 0 : JSON.parse(eventsRaw).length
+  if (existingEvents > 0) {
+    return {
+      status: 'conflict',
+      sourceHash,
+      errors: [`το νέο store έχει ήδη ${existingEvents} events χωρίς σημάδι migration· το αρχικό baseline απαιτεί άδειο log`],
     }
   }
 

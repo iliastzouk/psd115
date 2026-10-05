@@ -78,6 +78,9 @@ events με `t` = χρόνος του migration **απορρίφθηκε**: θα
 - Ίδιο source hash με το υπάρχον σημάδι (και baseline) → **no-op** (`already-migrated`): κανένα baseline, σημάδι ή event δεν αλλάζει.
 - Υπάρχει σημάδι με **διαφορετικό** source hash (π.χ. η legacy πρόοδος άλλαξε μετά το migration) → **ρητή άρνηση** (`conflict`), καμία εγγραφή.
 - Υπάρχει baseline χωρίς σημάδι → άρνηση.
+- Αρχικό migration (χωρίς σημάδι) με **μη κενό** `study-progress-events-v1` → άρνηση (`conflict`), καμία εγγραφή: το baseline
+  δημιουργείται μόνο με απόν ή άδειο (`[]`) log, ώστε κανένα event να μη μετρηθεί και μέσα στο baseline και στο log.
+  Μετά το migration, νέα events είναι αναμενόμενα και δεν επηρεάζουν το idempotent no-op.
 - Δεν υπάρχουν legacy events, άρα δεν χρειάζονται ντετερμινιστικά event IDs.
 
 ## 7. Rollback

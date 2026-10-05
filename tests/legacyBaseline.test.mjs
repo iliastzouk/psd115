@@ -281,6 +281,38 @@ describe('migration πάνω σε storage (fake)', () => {
     assert.deepEqual(s.dump(), before)
   })
 
+  test('conflict: έγκυρα events χωρίς σημάδι migration → άρνηση, μηδέν εγγραφές', async () => {
+    const ev = { id: newEventId(), t: T0 - 1000, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 1, ctx: 'quiz' }
+    const s = fakeStorage({ ...keys, [EVENTS_KEY]: JSON.stringify([ev]), [STATE_KEY]: JSON.stringify({ other: 1 }) })
+    const before = s.dump()
+    let backups = 0
+    const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1) })
+    assert.equal(r.status, 'conflict')
+    assert.match(r.errors[0], /ήδη 1 events χωρίς σημάδι migration/)
+    assert.deepEqual(s.dump(), before, 'legacy, events και state αμετάβλητα')
+    const state = JSON.parse(s.getItem(STATE_KEY))
+    assert.equal(state[MIGRATION_MARKER_KEY], undefined, 'κανένα σημάδι')
+    assert.equal(state[LEGACY_BASELINE_KEY], undefined, 'κανένα baseline')
+    assert.equal(s.getItem(TXN_KEY), null)
+    assert.equal(backups, 0, 'ούτε backup: δεν φτάνει στην εγγραφή')
+  })
+
+  test('άδειος πίνακας events ([]) χωρίς σημάδι → το migration επιτρέπεται', async () => {
+    const s = fakeStorage({ ...keys, [EVENTS_KEY]: '[]' })
+    assert.equal((await migrate(s)).status, 'migrated')
+    assert.equal(s.getItem(EVENTS_KEY), '[]', 'το log δεν αγγίζεται')
+    assert.equal(JSON.parse(s.getItem(STATE_KEY))[MIGRATION_MARKER_KEY].sourceHash, PROD_SOURCE_HASH)
+  })
+
+  test('μετά το migration, νέα events δεν εμποδίζουν το idempotent no-op', async () => {
+    const s = fakeStorage({ ...keys })
+    await migrate(s)
+    await createProgressStore({ storage: s }).append({ id: newEventId(), t: T0 + 5, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 1, ctx: 'quiz' })
+    const before = s.dump()
+    assert.equal((await migrate(s, T0 + 10)).status, 'already-migrated')
+    assert.deepEqual(s.dump(), before)
+  })
+
   test('διατηρεί άλλα κλειδιά state που υπάρχουν ήδη', async () => {
     const s = fakeStorage({ ...keys, [STATE_KEY]: JSON.stringify({ other: 1 }) })
     await migrate(s)
