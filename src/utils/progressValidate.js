@@ -9,6 +9,7 @@
  */
 import { validateEvent } from '../core/progress/events.js'
 import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { boundaryViolations, migrationBoundary } from '../core/progress/boundary.js'
 
 export const STORAGE_PREFIX = 'psd115-'
 /** Αντίγραφα ασφαλείας μέσα στο localStorage· δεν είναι πρόοδος και δεν εξάγονται. */
@@ -21,7 +22,7 @@ export const SUPPORTED_EXPORT_VERSIONS = Object.freeze([1, 2])
 /** Κλειδιά του νέου store που ταξιδεύουν στο export v2 (raw, όπως είναι στο localStorage). */
 export const PROGRESS_STORE_KEYS = Object.freeze([EVENTS_KEY, STATE_KEY])
 /** Κλειδί state του νέου store με το σημάδι του migration (ορίζεται στο legacyBaseline· εδώ μόνο διαβάζεται). */
-export { MIGRATION_MARKER_KEY } from '../core/progress/legacyBaseline.js'
+export { MIGRATION_MARKER_KEY } from '../core/progress/keys.js'
 
 const STUDY_KEY = 'psd115-w1-study'
 const THEME_KEY = 'psd115-w1-theme'
@@ -212,6 +213,15 @@ export function validateStoreEntries(raw) {
     } else {
       if (!isObj(parsed.value)) errors.push(`${key}: αναμενόταν αντικείμενο state`)
       else stats.stateKeys = Object.keys(parsed.value).length
+    }
+  }
+  // Όριο migration μέσα στο ίδιο σύνολο: events πριν από το σημάδι του state απορρίπτονται.
+  if (!errors.length && raw[EVENTS_KEY] !== undefined && raw[STATE_KEY] !== undefined) {
+    try {
+      const boundary = migrationBoundary(JSON.parse(raw[STATE_KEY]))
+      errors.push(...boundaryViolations(JSON.parse(raw[EVENTS_KEY]), boundary))
+    } catch (e) {
+      errors.push(`${STATE_KEY}: ${e.message}`)
     }
   }
   return { ok: errors.length === 0, errors, stats }

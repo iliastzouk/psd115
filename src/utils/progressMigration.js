@@ -6,7 +6,9 @@
  * σημάδι → safety backup v2 → μία εγγραφή του `study-progress-state-v1` μέσω συναλλαγής (verify/rollback).
  * Τα `psd115-*` ΔΕΝ αλλάζουν. Το `study-progress-events-v1` ΔΕΝ γράφεται (μηδέν events).
  */
-import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { RESET_MARKER_KEY, SHADOW_STATE_KEY } from '../core/progress/keys.js'
+import { reconcileShadow } from '../core/progress/reconcile.js'
 import { buildLegacyBaseline, LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY } from '../core/progress/legacyBaseline.js'
 import { createSafetyBackup, readProgressEntries, readStoreEntries } from './progressBackup.js'
 import { runTransaction } from './progressTransaction.js'
@@ -69,4 +71,36 @@ export async function migrateLegacyBaseline({
   const next = { ...state, [LEGACY_BASELINE_KEY]: built.baseline, [MIGRATION_MARKER_KEY]: built.marker }
   runTransaction(storage, { op: 'migration:psd115-v1', targets: { [STATE_KEY]: JSON.stringify(next) }, now })
   return { status: 'migrated', sourceHash, warnings: built.warnings }
+}
+
+/**
+ * Ελεγχόμενη ενεργοποίηση shadow mode (Phase 1E-3): migration (idempotent) ΚΑΙ μετά runtime ενεργοποίηση.
+ * Δεν καλείται από την εφαρμογή. Για να γράψει events χρειάζεται ΕΠΙΣΗΣ ανοιχτό build flag (progressShadow).
+ * Ο shadow mode ξεκινά πάντα ΜΕΤΑ το baseline: χωρίς επιτυχημένο migration δεν ενεργοποιείται.
+ */
+export async function activateShadow({ storage = globalThis.localStorage, now = () => Date.now(), backup } = {}) {
+  const migration = await migrateLegacyBaseline({ storage, now, enabled: true, ...(backup ? { backup } : {}) })
+  if (migration.status !== 'migrated' && migration.status !== 'already-migrated') return { status: 'not-activated', migration }
+  const store = createProgressStore({ storage, now })
+  const prev = (await store.getState(SHADOW_STATE_KEY)) ?? {}
+  await store.setState(SHADOW_STATE_KEY, { failures: 0, recentFailures: [], ...prev, enabled: true, activatedAt: prev.activatedAt ?? new Date(now()).toISOString() })
+  return { status: 'active', migration }
+}
+
+/** Kill switch: σταματά τα shadow writes χωρίς build· τα υπάρχοντα events/baseline μένουν. */
+export async function deactivateShadow({ storage = globalThis.localStorage, now = () => Date.now() } = {}) {
+  const store = createProgressStore({ storage, now })
+  const prev = (await store.getState(SHADOW_STATE_KEY)) ?? {}
+  await store.setState(SHADOW_STATE_KEY, { ...prev, enabled: false })
+}
+
+/** Reconciliation από το storage (shadow ↔ legacy). Μόνο ανάγνωση. */
+export async function shadowReconciliation({ storage = globalThis.localStorage } = {}) {
+  const store = createProgressStore({ storage })
+  const baseline = await store.getState(LEGACY_BASELINE_KEY)
+  if (!baseline) return { status: 'no-baseline' }
+  const legacyRaw = storage.getItem('psd115-w1-study')
+  const legacy = legacyRaw ? JSON.parse(legacyRaw) : {}
+  const report = reconcileShadow({ baseline, legacy, events: await store.query(), reset: (await store.getState(RESET_MARKER_KEY)) ?? null })
+  return { status: report.ok ? 'in-sync' : 'diverged', report, shadow: (await store.getState(SHADOW_STATE_KEY)) ?? null }
 }

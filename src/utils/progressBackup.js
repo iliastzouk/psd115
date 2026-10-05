@@ -11,6 +11,8 @@
  */
 import { sameEvent } from '../core/progress/events.js'
 import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { boundaryViolations, importBoundary } from '../core/progress/boundary.js'
+import { MIGRATION_MARKER_KEY as MARKER_KEY, RESET_MARKER_KEY } from '../core/progress/keys.js'
 import { runTransaction } from './progressTransaction.js'
 import {
   BACKUP_KEY_PREFIX,
@@ -160,6 +162,17 @@ function planStoreImport(fileStore, storage) {
   let added = 0
   let skipped = 0
 
+  // Όριο migration (1E-3): events του αρχείου πριν από το σημάδι (τρέχον ή του αρχείου) απορρίπτονται.
+  const currentStateRaw = storage.getItem(STATE_KEY)
+  const currentState = currentStateRaw === null ? {} : JSON.parse(currentStateRaw)
+  const incomingState = STATE_KEY in fileStore ? JSON.parse(fileStore[STATE_KEY]) : {}
+  const { boundary, error } = importBoundary(currentState, incomingState)
+  if (error) return { targets, errors: [error], added, skipped }
+  if (EVENTS_KEY in fileStore) {
+    const late = boundaryViolations(JSON.parse(fileStore[EVENTS_KEY]), boundary)
+    if (late.length) return { targets, errors: late, added, skipped }
+  }
+
   if (EVENTS_KEY in fileStore) {
     const incoming = JSON.parse(fileStore[EVENTS_KEY])
     const raw = storage.getItem(EVENTS_KEY)
@@ -277,9 +290,22 @@ export function describeReset(storage = defaultStorage()) {
  * συναλλαγής (επαληθευμένη, με rollback). Το νέο store ΔΕΝ αγγίζεται στο 1E-1.
  * Μετά ο καλών καθαρίζει τη μνήμη της εφαρμογής (useStudySession.resetAllStudyProgress).
  */
-export function resetProgressSafely({ storage = defaultStorage(), download = downloadJson } = {}) {
+export function resetProgressSafely({ storage = defaultStorage(), download = downloadJson, now = () => Date.now() } = {}) {
   const backup = createSafetyBackup('reset', { storage, download })
   const targets = Object.fromEntries(legacyResetKeys(storage).map((key) => [key, null]))
+  // Μετά το migration (1E-3): το reset καταγράφεται και στο νέο store, στην ΙΔΙΑ συναλλαγή, ώστε
+  // baseline + events να μη «δείχνουν» πρόοδο που ο χρήστης μηδένισε. Τα events/baseline ΔΕΝ σβήνονται.
+  // Χωρίς σημάδι migration (ή με κατεστραμμένο state): καμία εγγραφή στο νέο store, όπως πριν.
+  const stateRaw = storage.getItem(STATE_KEY)
+  let state = null
+  try {
+    state = stateRaw === null ? null : JSON.parse(stateRaw)
+  } catch {
+    state = null
+  }
+  if (state && typeof state === 'object' && !Array.isArray(state) && state[MARKER_KEY]) {
+    targets[STATE_KEY] = JSON.stringify({ ...state, [RESET_MARKER_KEY]: { at: new Date(now()).toISOString(), reason: 'legacy-reset' } })
+  }
   const { changed } = runTransaction(storage, { op: 'reset', targets })
   return { backup, removed: changed, keptStoreKeys: Object.keys(readStoreEntries(storage)) }
 }

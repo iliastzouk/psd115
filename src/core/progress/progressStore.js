@@ -10,6 +10,7 @@
  * Παράγωγες τιμές (ακρίβεια, mastery, σύνολα…) δεν αποθηκεύονται ποτέ — υπολογίζονται από τα events.
  */
 import { sameEvent, validateEvent } from './events.js'
+import { boundaryViolations, importBoundary, migrationBoundary } from './boundary.js'
 
 export const EVENTS_KEY = 'study-progress-events-v1'
 export const STATE_KEY = 'study-progress-state-v1'
@@ -88,6 +89,14 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
     }
   }
 
+  function boundaryOf(state) {
+    try {
+      return migrationBoundary(state)
+    } catch (e) {
+      throw new ProgressStoreError(e.message)
+    }
+  }
+
   function checkEvent(ev) {
     const r = validateEvent(ev)
     if (!r.ok) throw new ProgressStoreError('Άκυρο event', r.errors)
@@ -104,6 +113,9 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
       if (events.some((e) => e.id === event.id)) {
         throw new ProgressStoreError(`Υπάρχει ήδη event με id ${event.id}· τα events δεν αντικαθίστανται`)
       }
+      // Όριο migration (1E-3): μετά το σημάδι, κανένα event πριν από το `marker.at`.
+      const late = boundaryViolations([event], boundaryOf(readState()))
+      if (late.length) throw new ProgressStoreError('Event πριν από το όριο migration· δεν γράφτηκε', late)
       writeAtomic([...events, { ...event }], null)
       return { ...event }
     },
@@ -183,6 +195,12 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
       })
       if (errors.length) throw new ProgressStoreError('Άκυρα events· δεν εισήχθη τίποτα', errors)
 
+      const currentState = readState()
+      const { boundary, error } = importBoundary(currentState, data.state)
+      if (error) throw new ProgressStoreError('Σύγκρουση σημαδιού migration· δεν εισήχθη τίποτα', [error])
+      const late = boundaryViolations(data.events, boundary)
+      if (late.length) throw new ProgressStoreError('Events πριν από το όριο migration· δεν εισήχθη τίποτα', late)
+
       const current = readEvents()
       const byId = new Map(current.map((e) => [e.id, e]))
       const added = []
@@ -195,7 +213,7 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
       }
       if (errors.length) throw new ProgressStoreError('Σύγκρουση με υπάρχοντα events· δεν εισήχθη τίποτα', errors)
 
-      const state = { ...readState(), ...JSON.parse(JSON.stringify(data.state)) }
+      const state = { ...currentState, ...JSON.parse(JSON.stringify(data.state)) }
       writeAtomic([...current, ...added], state)
       return { added: added.length, skipped, stateKeys: Object.keys(data.state).length }
     },

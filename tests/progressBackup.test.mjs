@@ -362,7 +362,8 @@ describe('καμία εγγραφή στο νέο store στην κανονικ�
       .filter((f) => !f.includes(`${path.sep}core${path.sep}progress${path.sep}`))
       .filter((f) => /getProgressStore\(|createProgressStore\(/.test(fs.readFileSync(f, 'utf8')))
       .map((f) => path.relative(root, f))
-    assert.deepEqual(users, ['src/main.jsx'])
+    // main.jsx: μόνο στο DEV block. progressMigration: δεν εισάγεται από την εφαρμογή. progressShadow: πίσω από build flag (1E-3).
+    assert.deepEqual(users, ['src/main.jsx', 'src/utils/progressMigration.js', 'src/utils/progressShadow.js'])
     assert.match(fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8'), /if \(import\.meta\.env\.DEV\) \{[\s\S]*getProgressStore\(\)/)
   })
   test('μόνο το applyImport γράφει κλειδιά του νέου store, και μόνο ως στόχους συναλλαγής', () => {

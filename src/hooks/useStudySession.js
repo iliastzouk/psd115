@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useRouteIdentity } from '../core/routing/hooks.js'
 import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
+import { recordFlashcardSeen, recordQuizAnswer } from '../utils/progressShadow.js'
 import { flashcards, quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import {
@@ -193,6 +194,8 @@ export function useStudySession() {
   }, [])
 
   const markFlashSeen = useCallback((id) => {
+    // Shadow (1E-3): στον handler, όχι στον updater (το StrictMode τρέχει τους updaters δύο φορές).
+    recordFlashcardSeen({ cardId: id })
     setProgress((p) => {
       if (p.flashcardSeenIds.includes(id)) return p
       return { ...p, flashcardSeenIds: [...p.flashcardSeenIds, id] }
@@ -249,6 +252,8 @@ export function useStudySession() {
       setQuizRevealed(true)
       const correct = idx === currentQuestion.correctIndex
       setSessionCorrect((s) => (correct ? s + 1 : s))
+      // Shadow (1E-3): ένα event ανά απάντηση, στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
+      recordQuizAnswer({ questionId: currentQuestion.id, ok: correct })
 
       setProgress((p) => {
         const cat = currentQuestion.categoryId

@@ -16,10 +16,8 @@ import { course } from '../../../content/courses/psd115/course.js'
 import { parseGlobalId } from '../academic/ids.js'
 import { sha256Hex } from './sha256.js'
 
-export const LEGACY_BASELINE_KEY = 'legacy-baseline:psd115'
-export const MIGRATION_MARKER_KEY = 'migration:psd115-v1'
-/** Θα χρησιμοποιηθεί όταν ενεργοποιηθεί ο νέος reader/writer (όχι στο 1E-2). */
-export const RESET_MARKER_KEY = 'progress-reset:psd115'
+import { LEGACY_BASELINE_KEY } from './keys.js'
+export { LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY, RESET_MARKER_KEY } from './keys.js'
 export const BASELINE_FORMAT = 'legacy-baseline'
 export const BASELINE_VERSION = 1
 export const MIGRATION_VERSION = 1
