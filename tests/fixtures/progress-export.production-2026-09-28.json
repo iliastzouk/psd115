@@ -1,0 +1,13 @@
+{
+  "format": "psd115-progress-export",
+  "version": 1,
+  "exportedAt": "2026-09-28T15:05:30.494Z",
+  "reason": "export",
+  "source": "psd115.vercel.app",
+  "keys": {
+    "psd115-w1-study": "{\"quizAnswered\":0,\"quizCorrect\":0,\"byCategory\":{},\"flashcardSeenIds\":[],\"wrongBook\":[]}",
+    "psd115-disclaimer-v1": "1",
+    "psd115-w4-checklists": "{\"overview\":[false,false]}",
+    "psd115-w1-theme": "light"
+  }
+}

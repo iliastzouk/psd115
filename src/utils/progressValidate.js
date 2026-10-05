@@ -20,8 +20,8 @@ export const EXPORT_VERSION = 2
 export const SUPPORTED_EXPORT_VERSIONS = Object.freeze([1, 2])
 /** Κλειδιά του νέου store που ταξιδεύουν στο export v2 (raw, όπως είναι στο localStorage). */
 export const PROGRESS_STORE_KEYS = Object.freeze([EVENTS_KEY, STATE_KEY])
-/** Κλειδί state του νέου store με το σημάδι του migration (θα γραφτεί στο 1E-2· εδώ μόνο διαβάζεται). */
-export const MIGRATION_MARKER_KEY = 'migration:psd115-v1'
+/** Κλειδί state του νέου store με το σημάδι του migration (ορίζεται στο legacyBaseline· εδώ μόνο διαβάζεται). */
+export { MIGRATION_MARKER_KEY } from '../core/progress/legacyBaseline.js'
 
 const STUDY_KEY = 'psd115-w1-study'
 const THEME_KEY = 'psd115-w1-theme'

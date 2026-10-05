@@ -1,0 +1,26 @@
+{
+  "format": "psd115-progress-export",
+  "version": 2,
+  "exportedAt": "2026-10-05T09:02:26.491Z",
+  "reason": "export",
+  "source": "psd115.vercel.app",
+  "keys": {
+    "psd115-w1-definition-checklist": "[false,false,false,false,false]",
+    "psd115-w1-study": "{\"quizAnswered\":1,\"quizCorrect\":0,\"byCategory\":{\"w2-variables\":{\"correct\":0,\"wrong\":1}},\"flashcardSeenIds\":[\"fc-def-1\",\"fc-def-2\",\"fc-def-3\",\"fc-philo-1\",\"fc-philo-2\",\"fc-philo-3\",\"fc-philo-4\",\"fc-philo-5\",\"fc-wundt-1\",\"fc-wundt-2\",\"fc-wundt-3\",\"fc-wundt-4\",\"fc-wundt-5\",\"fc-func-1\",\"fc-func-2\",\"fc-func-3\",\"fc-func-4\",\"fc-func-5\",\"fc-clinical-1\",\"fc-clinical-2\",\"fc-clinical-3\"],\"wrongBook\":[{\"uid\":\"bdf43c65-272e-4c5b-8219-cd9983bbf9db\",\"id\":\"q-w2-var-4\",\"categoryId\":\"w2-variables\",\"question\":\"Τι δείχνει συνήθως ο συντελεστής συσχέτισης r = +1;\",\"explanation\":\"Στη συνήθη κλίμακα -1 έως +1.\",\"userLabel\":\"Τυχαία σχέση\",\"correctLabel\":\"Τέλεια θετική συσχέτιση\"}]}",
+    "psd115-w2-checklists": "{\"overview\":[false,false,false],\"empiricism\":[false,false,false,false]}",
+    "psd115-w1-pavlov-checklist": "[false,false,false,false,false,false,false,false,false]",
+    "psd115-w3-checklists": "{\"overview\":[false,false]}",
+    "psd115-w1-humanistic-checklist": "[false,false,false,false,false]",
+    "psd115-w1-wundt-checklist": "[false,false,false,false,false]",
+    "psd115-w4-checklists": "{\"overview\":[false,false]}",
+    "psd115-w1-theme": "light",
+    "psd115-w1-psychoanalysis-checklist": "[false,false,false,false,false,false,false]",
+    "psd115-disclaimer-v1": "1",
+    "psd115-w1-functionalism-checklist": "[false,false,false,false,false]"
+  },
+  "progressStore": {},
+  "migration": {
+    "markerKey": "migration:psd115-v1",
+    "marker": null
+  }
+}
