@@ -44,9 +44,14 @@
 
 **Απόφαση σχεδίου:** τα ιστορικά αθροίσματα **δεν** μετατρέπονται σε ψεύτικα events. Διατηρούνται ως **legacy baseline** (ένα state κλειδί `legacy:psd115-w1-study` με αντίγραφο του αρχικού αντικειμένου). Το UI μπορεί να τα προσθέτει στα στατιστικά που υπολογίζονται από τα events, μέχρι να μην έχουν πια σημασία.
 
-Για `wrongBook` και `flashcardSeenIds` υπάρχουν δύο επιλογές, που αποφασίζονται στο migration phase:
-- (α) μόνο στο legacy baseline, ή
-- (β) ως events με `ctx: 'review'` / `'flash'` και `t` = χρόνος του migration, σημασμένα ως τέτοια μέσω του `session` (π.χ. `session: 'legacy-import'`), ώστε να ξεχωρίζουν πάντα.
+Για `wrongBook` και `flashcardSeenIds`: **μόνο στο legacy baseline** (απόφαση Phase 1E). Η παλιότερη ιδέα για
+events με `t` = χρόνος του migration **απορρίφθηκε**: θα ήταν επινοημένα timestamps, δηλαδή ψεύτικο ιστορικό.
+Το migration δεν δημιουργεί κανένα `answer`, `flip` ή `self` event.
+
+**`wrongBook` = state** (και μετά τη μετάβαση): το event schema δεν κρατά την επιλεγμένη απάντηση (`userLabel`),
+άρα η λίστα λαθών δεν μπορεί να είναι projection των `answer` events. Η επέκταση του schema είναι ξεχωριστή απόφαση.
+Από events: μόνο στατιστικά κουίζ/καρτών. Σε state: `wrongBook`, checklists, reset marker και ό,τι άλλο UI state
+δεν ανακατασκευάζεται αξιόπιστα από events.
 
 ## 4. Τι μένει state
 
@@ -98,3 +103,24 @@
 - Δεν υπάρχει UI.
 - Δεν υπάρχουν IndexedDB, Supabase ή αλγόριθμοι mastery / spaced repetition.
 - Το `requestPersistentStorage()` (`src/core/progress/persist.js`) υπάρχει αλλά δεν καλείται ακόμα.
+
+## 8. Backup v2 και ασφάλεια εγγραφών (Phase 1E-1)
+
+Πριν γραφτεί οποιαδήποτε πραγματική εγγραφή στο `study-progress-*`, το backup καλύπτει και τα δύο μέρη:
+
+```text
+{ format: 'psd115-progress-export', version: 2, exportedAt, reason, source,
+  keys:          { 'psd115-…': '<raw>' },                         // legacy, όπως το v1
+  progressStore: { 'study-progress-events-v1': '<raw>', 'study-progress-state-v1': '<raw>' },  // μόνο όσα υπάρχουν
+  migration:     { markerKey: 'migration:psd115-v1', marker: <από το state ή null> } }      // πληροφοριακό
+```
+
+- Το v1 (μόνο `keys`) γίνεται πάντα import.
+- Import: έλεγχος όλων (legacy + νέο store, και των τρεχόντων δεδομένων του store) → υπολογισμός εγγραφών →
+  safety backup v2 → συναλλαγή. Legacy: γράφονται τα κλειδιά του αρχείου, κανένα άλλο δεν σβήνεται. Νέο store:
+  ίδιοι κανόνες με το `progressStore.importAll` (ένωση events, σύγκρουση id → απόρριψη όλων, state ανά κλειδί).
+- Reset: safety backup v2 → διαγραφή των legacy κλειδιών προόδου μέσω συναλλαγής. Το νέο store δεν αγγίζεται ακόμα.
+- **Συναλλαγή** (`src/utils/progressTransaction.js`): το localStorage **δεν** είναι transactional ανάμεσα σε
+  διαφορετικά κλειδιά. Γίνεται application-level: snapshot → σημάδι `progress-txn-v1` (before/after) → εγγραφές →
+  επαλήθευση → rollback όλων σε σφάλμα. Αν η σελίδα κλείσει στη μέση, το σημάδι μένει και στην επόμενη εκκίνηση
+  (`main.jsx`) η αλλαγή ολοκληρώνεται (αν όλα είναι ήδη «after») ή αναιρείται. Χωρίς σημάδι: μία ανάγνωση, καμία εγγραφή.

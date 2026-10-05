@@ -10,7 +10,7 @@ import { useRouteIdentity } from '../core/routing/hooks.js'
 import { activeCourseId } from '../core/routing/navigation.js'
 import { courseHeader } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
-import { createSafetyBackup } from '../utils/progressBackup.js'
+import { resetProgressSafely } from '../utils/progressBackup.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -275,7 +275,14 @@ export default function AppShell() {
         open={resetConfirmOpen}
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={() => {
-          createSafetyBackup('reset')
+          // Backup (legacy + νέο store) και διαγραφή μέσω επαληθευμένης συναλλαγής. Αν αποτύχει, δεν σβήνεται τίποτα.
+          try {
+            resetProgressSafely()
+          } catch {
+            setResetConfirmOpen(false)
+            window.alert('Η επαναφορά δεν ολοκληρώθηκε· η πρόοδος δεν άλλαξε.')
+            return
+          }
           study.resetAllStudyProgress()
           setResetConfirmOpen(false)
         }}
