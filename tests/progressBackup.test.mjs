@@ -185,6 +185,25 @@ describe('import v2', () => {
     assert.throws(() => applyImport({ format: 'psd115-progress-export', version: 2, keys: {}, progressStore: { [EVENTS_KEY]: JSON.stringify([EV(1)]) } }, s))
     assert.deepEqual(s.dump(), before)
   })
+  for (const [label, corrupt] of [
+    ['EVENTS_KEY άκυρο JSON', { [EVENTS_KEY]: '{corrupt' }],
+    ['EVENTS_KEY άκυρο event', { [EVENTS_KEY]: JSON.stringify([{ ...EV(1), kind: 'wat' }]) }],
+    ['STATE_KEY άκυρο JSON', { [STATE_KEY]: '{corrupt' }],
+    ['STATE_KEY όχι αντικείμενο', { [STATE_KEY]: '[1,2]' }],
+  ]) {
+    test(`v2 με progressStore = {} + κατεστραμμένο τρέχον νέο store (${label}) → απόρριψη, μηδέν εγγραφές`, () => {
+      const s = fakeStorage({ ...LEGACY, ...corrupt })
+      const before = s.dump()
+      const data = buildExport('export', fakeStorage({ ...LEGACY, 'psd115-w1-theme': 'dark' }))
+      assert.deepEqual(data.progressStore, {})
+      assert.equal(validateExport(data).ok, true, 'το αρχείο είναι έγκυρο')
+      assert.equal(planImport(data, s).ok, false)
+      assert.throws(() => applyImport(data, s))
+      assert.deepEqual(s.dump(), before, 'legacy και νέο store αμετάβλητα')
+      assert.equal(s.getItem(TXN_KEY), null, 'κανένα σημάδι συναλλαγής')
+    })
+  }
+  // v1: ίδια συμπεριφορά με πριν (δεν απορρίπτεται λόγω δεδομένων νέου store που δεν διαχειρίζεται).
   test('κατεστραμμένο τρέχον νέο store αλλά αρχείο χωρίς δεδομένα store → legacy εισάγεται, το raw μένει ως έχει', () => {
     const s = fakeStorage({ [EVENTS_KEY]: '{corrupt' })
     applyImport(sampleV1, s)

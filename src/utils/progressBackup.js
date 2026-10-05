@@ -217,7 +217,16 @@ export function planImport(data, storage = defaultStorage()) {
   if (!check.ok) return { ok: false, errors: check.errors, targets: {}, store: { added: 0, skipped: 0 } }
   const targets = { ...data.keys }
   let store = { targets: {}, errors: [], added: 0, skipped: 0 }
-  if (data.version >= 2) store = planStoreImport(data.progressStore, storage)
+  if (data.version >= 2) {
+    // v2: τα ΤΡΕΧΟΝΤΑ δεδομένα του νέου store ελέγχονται πάντα, ακόμα κι αν το αρχείο δεν έχει δεδομένα store
+    // (progressStore: {}). Κατεστραμμένα → απόρριψη χωρίς καμία εγγραφή (ούτε legacy). Το v1 δεν τα ελέγχει.
+    const current = validateStoreEntries(readStoreEntries(storage))
+    if (!current.ok) {
+      const errors = current.errors.map((e) => `Τρέχοντα δεδομένα νέου store: ${e}`)
+      return { ok: false, errors, targets: {}, store: { added: 0, skipped: 0 } }
+    }
+    store = planStoreImport(data.progressStore, storage)
+  }
   return {
     ok: store.errors.length === 0,
     errors: store.errors,
