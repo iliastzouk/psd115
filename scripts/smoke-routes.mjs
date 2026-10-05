@@ -317,7 +317,8 @@ const before = failures.length
     page.getByRole('button', { name: 'Εξαγωγή προόδου (JSON)' }).click(),
   ])
   const exported = await readDownload(exportDl)
-  if (exported.format !== 'psd115-progress-export' || exported.version !== 1) fail('backup: λάθος format/version στο export')
+  if (exported.format !== 'psd115-progress-export' || exported.version !== 2) fail('backup: λάθος format/version στο export')
+  if (JSON.stringify(exported.progressStore) !== '{}') fail('backup: το export v2 έχει δεδομένα νέου store ενώ δεν υπάρχουν')
   if (!same(exported.keys, original)) fail('backup: το export δεν περιέχει ακριβώς την τρέχουσα πρόοδο')
 
   // Αλλοίωση + άγνωστο κλειδί που δεν πρέπει να σβηστεί
@@ -358,6 +359,11 @@ const before = failures.length
   if (resetBackup.reason !== 'reset' || resetBackup.keys['psd115-w1-study'] !== original['psd115-w1-study']) {
     fail('backup: το αντίγραφο πριν από το reset δεν περιέχει την πρόοδο')
   }
+  // 1E-1: όλος ο κύκλος export → import → reset δεν γράφει στο νέο store και δεν αφήνει σημάδι συναλλαγής.
+  const leftovers = await page.evaluate(() =>
+    Object.keys(localStorage).filter((k) => k.startsWith('study-progress-') || k === 'progress-txn-v1'),
+  )
+  if (leftovers.length) fail(`backup: έμειναν κλειδιά ${leftovers.join(', ')}`)
   await context.close()
   console.log(`${failures.length > before ? '✗' : '✓'} Προστασία προόδου: export · απόρριψη άκυρου · import με backup · reset με backup`)
 }

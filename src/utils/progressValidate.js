@@ -3,14 +3,25 @@
  * Pure JS χωρίς browser APIs: χρησιμοποιείται από την εφαρμογή (πριν από import) και από
  * `scripts/validate-progress-export.mjs` (πάνω σε αρχείο export).
  * Δεν διορθώνει και δεν ξαναγράφει δεδομένα — μόνο αναφέρει.
+ *
+ * Export v1: μόνο τα `psd115-*` (legacy). Export v2 (Phase 1E-1): και τα raw κλειδιά του νέου
+ * progress store (`study-progress-*`) + πληροφοριακά migration metadata. Το v1 γίνεται πάντα δεκτό.
  */
+import { validateEvent } from '../core/progress/events.js'
+import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 
 export const STORAGE_PREFIX = 'psd115-'
 /** Αντίγραφα ασφαλείας μέσα στο localStorage· δεν είναι πρόοδος και δεν εξάγονται. */
 export const BACKUP_KEY_PREFIX = 'psd115-backup-'
 
 export const EXPORT_FORMAT = 'psd115-progress-export'
-export const EXPORT_VERSION = 1
+export const EXPORT_VERSION = 2
+/** Εκδόσεις export που διαβάζει η εφαρμογή. */
+export const SUPPORTED_EXPORT_VERSIONS = Object.freeze([1, 2])
+/** Κλειδιά του νέου store που ταξιδεύουν στο export v2 (raw, όπως είναι στο localStorage). */
+export const PROGRESS_STORE_KEYS = Object.freeze([EVENTS_KEY, STATE_KEY])
+/** Κλειδί state του νέου store με το σημάδι του migration (θα γραφτεί στο 1E-2· εδώ μόνο διαβάζεται). */
+export const MIGRATION_MARKER_KEY = 'migration:psd115-v1'
 
 const STUDY_KEY = 'psd115-w1-study'
 const THEME_KEY = 'psd115-w1-theme'
@@ -165,21 +176,82 @@ export function validateEntries(entries) {
 }
 
 /**
- * Ελέγχει ένα αρχείο export (ήδη parsed JSON).
+ * Ελέγχει τα raw κλειδιά του νέου store (όπως στο export v2 ή στο localStorage).
+ * @param {Record<string, string>} raw
+ */
+export function validateStoreEntries(raw) {
+  const errors = []
+  const stats = { events: 0, stateKeys: 0 }
+  for (const [key, value] of Object.entries(raw)) {
+    if (!PROGRESS_STORE_KEYS.includes(key)) {
+      errors.push(`${key}: άγνωστο κλειδί του νέου store`)
+      continue
+    }
+    if (typeof value !== 'string') {
+      errors.push(`${key}: η τιμή πρέπει να είναι string (όπως στο localStorage)`)
+      continue
+    }
+    const parsed = parseJson(value)
+    if (!parsed.ok) {
+      errors.push(`${key}: μη έγκυρο JSON`)
+      continue
+    }
+    if (key === EVENTS_KEY) {
+      if (!Array.isArray(parsed.value)) {
+        errors.push(`${key}: αναμενόταν πίνακας events`)
+        continue
+      }
+      const ids = new Set()
+      parsed.value.forEach((ev, i) => {
+        const r = validateEvent(ev)
+        if (!r.ok) errors.push(`${key}[${i}]: ${r.errors.join(', ')}`)
+        else if (ids.has(ev.id)) errors.push(`${key}[${i}]: διπλό id ${ev.id}`)
+        ids.add(ev?.id)
+      })
+      stats.events = parsed.value.length
+    } else {
+      if (!isObj(parsed.value)) errors.push(`${key}: αναμενόταν αντικείμενο state`)
+      else stats.stateKeys = Object.keys(parsed.value).length
+    }
+  }
+  return { ok: errors.length === 0, errors, stats }
+}
+
+/**
+ * Ελέγχει ένα αρχείο export (ήδη parsed JSON), v1 ή v2.
  * @param {unknown} data
  */
 export function validateExport(data) {
   if (!isObj(data)) return fail('Το αρχείο δεν είναι αντικείμενο JSON.')
   if (data.format !== EXPORT_FORMAT) return fail(`Άγνωστη μορφή αρχείου (format: ${JSON.stringify(data.format)}).`)
   if (!Number.isInteger(data.version) || data.version < 1) return fail('Λείπει ή είναι άκυρη η έκδοση (version).')
-  if (data.version > EXPORT_VERSION) {
+  if (!SUPPORTED_EXPORT_VERSIONS.includes(data.version)) {
     return fail(`Το αρχείο είναι νεότερης έκδοσης (${data.version}) από αυτή που υποστηρίζει η εφαρμογή (${EXPORT_VERSION}).`)
   }
   if (!isObj(data.keys)) return fail('Λείπει το πεδίο «keys».')
-  if (Object.keys(data.keys).length === 0) return fail('Το αρχείο δεν περιέχει κανένα κλειδί προόδου.')
   const backupKeys = Object.keys(data.keys).filter((k) => k.startsWith(BACKUP_KEY_PREFIX))
   if (backupKeys.length) return fail(`Το αρχείο περιέχει κλειδιά αντιγράφων ασφαλείας: ${backupKeys.join(', ')}`)
-  return validateEntries(data.keys)
+
+  let store = { ok: true, errors: [], stats: { events: 0, stateKeys: 0 } }
+  if (data.version >= 2) {
+    if (!isObj(data.progressStore)) return fail('Λείπει το πεδίο «progressStore» (export v2).')
+    if (data.migration !== undefined && data.migration !== null && !isObj(data.migration)) {
+      return fail('Το πεδίο «migration» πρέπει να είναι αντικείμενο ή null.')
+    }
+    store = validateStoreEntries(data.progressStore)
+  }
+  const storeKeyCount = data.version >= 2 ? Object.keys(data.progressStore).length : 0
+  if (Object.keys(data.keys).length === 0 && storeKeyCount === 0) return fail('Το αρχείο δεν περιέχει κανένα κλειδί προόδου.')
+
+  const legacy = validateEntries(data.keys)
+  const errors = [...legacy.errors, ...store.errors]
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings: legacy.warnings,
+    unknownKeys: legacy.unknownKeys,
+    stats: { ...legacy.stats, version: data.version, events: store.stats.events, stateKeys: store.stats.stateKeys },
+  }
 }
 
 function fail(message) {

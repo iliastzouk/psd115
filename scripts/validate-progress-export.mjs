@@ -28,7 +28,8 @@ if (!r.ok) {
 }
 const s = r.stats
 console.log(
-  `✓ ${file}: ${s.keys} κλειδιά (${s.bytes} χαρακτήρες) · κουίζ ${s.quizCorrect}/${s.quizAnswered} · ` +
+  `✓ ${file}: v${s.version} · ${s.keys} κλειδιά (${s.bytes} χαρακτήρες) · κουίζ ${s.quizCorrect}/${s.quizAnswered} · ` +
     `κάρτες ${s.flashcardsSeen} · λάθη ${s.wrongAnswers} · checklist ${s.checklistItemsChecked}` +
+    (s.version >= 2 ? ` · νέο store: ${s.events} events, ${s.stateKeys} κλειδιά state` : '') +
     (r.unknownKeys.length ? ` · ${r.unknownKeys.length} άγνωστα κλειδιά` : ''),
 )
