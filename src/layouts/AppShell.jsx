@@ -10,7 +10,7 @@ import { useRouteIdentity } from '../core/routing/hooks.js'
 import { activeCourseId } from '../core/routing/navigation.js'
 import { courseHeader } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/storage.js'
-import { resetProgressSafely } from '../utils/progressBackup.js'
+import { describeReset, resetProgressSafely } from '../utils/progressBackup.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -287,7 +287,8 @@ export default function AppShell() {
           setResetConfirmOpen(false)
         }}
         title="Επαναφορά προόδου"
-        description="Να διαγραφεί όλη η αποθηκευμένη πρόοδος; Πριν από τη διαγραφή θα κατέβει αυτόματα αντίγραφο (JSON), που μπορείς να επαναφέρεις με «Εισαγωγή προόδου»."
+        // «Όλη η πρόοδος» μόνο όταν το νέο store είναι άδειο (στο 1E-1 το reset δεν το διαγράφει).
+        description={resetConfirmOpen ? describeReset().description : ''}
         cancelLabel="Άκυρο"
         confirmLabel="Ναι, διαγραφή"
         variant="danger"

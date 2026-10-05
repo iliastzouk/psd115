@@ -10,6 +10,7 @@ import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress
 import {
   applyImport,
   buildExport,
+  describeReset,
   createSafetyBackup,
   legacyResetKeys,
   planImport,
@@ -296,6 +297,35 @@ describe('reset', () => {
     }
     assert.throws(() => resetProgressSafely({ storage: s, download: noDownload }), (e) => e.outcome === 'rolled-back')
     for (const [k, v] of Object.entries(LEGACY)) assert.equal(s.getItem(k), v, k)
+  })
+})
+
+describe('reset: δεν παρουσιάζεται ως πλήρες όταν μένουν δεδομένα του νέου store', () => {
+  test('άδειο νέο store → πλήρες reset («όλη η αποθηκευμένη πρόοδος»)', () => {
+    const r = describeReset(fakeStorage({ ...LEGACY }))
+    assert.equal(r.full, true)
+    assert.deepEqual(r.keptStoreKeys, [])
+    assert.match(r.description, /όλη η αποθηκευμένη πρόοδος/)
+  })
+  test('populated study-progress-* → όχι πλήρες· το κείμενο λέει ότι μένουν και δεν λέει «όλη»', () => {
+    for (const store of [{ [EVENTS_KEY]: JSON.stringify([EV(1)]) }, { [STATE_KEY]: '{"a":1}' }, { [EVENTS_KEY]: '{corrupt' }]) {
+      const r = describeReset(fakeStorage({ ...LEGACY, ...store }))
+      assert.equal(r.full, false, JSON.stringify(store))
+      assert.deepEqual(r.keptStoreKeys, Object.keys(store))
+      assert.doesNotMatch(r.description, /όλη η αποθηκευμένη πρόοδος/)
+      assert.match(r.description, /ΔΕΝ διαγράφονται/)
+    }
+  })
+  test('μετά το reset τα δεδομένα του νέου store αναφέρονται ως διατηρημένα', () => {
+    const s = fakeStorage({ ...LEGACY, [STATE_KEY]: '{"a":1}' })
+    const r = resetProgressSafely({ storage: s, download: noDownload })
+    assert.deepEqual(r.keptStoreKeys, [STATE_KEY])
+    assert.equal(s.getItem(STATE_KEY), '{"a":1}')
+  })
+  test('το UI παίρνει το κείμενο του reset από το describeReset (όχι σταθερό «όλη η πρόοδος»)', () => {
+    const src = fs.readFileSync(path.join(root, 'src/layouts/AppShell.jsx'), 'utf8')
+    assert.match(src, /describeReset\(\)\.description/)
+    assert.doesNotMatch(src, /όλη η αποθηκευμένη πρόοδος/)
   })
 })
 

@@ -246,6 +246,23 @@ export function legacyResetKeys(storage = defaultStorage()) {
   })
 }
 
+const FULL_RESET_TEXT =
+  'Να διαγραφεί όλη η αποθηκευμένη πρόοδος; Πριν από τη διαγραφή θα κατέβει αυτόματα αντίγραφο (JSON), που μπορείς να επαναφέρεις με «Εισαγωγή προόδου».'
+const PARTIAL_RESET_TEXT =
+  'Να διαγραφεί η πρόοδος μελέτης (κουίζ, κάρτες, λάθη, checklists); Τα δεδομένα της νέας υποδομής προόδου ΔΕΝ διαγράφονται ακόμα και θα παραμείνουν. ' +
+  'Πριν από τη διαγραφή θα κατέβει αυτόματα αντίγραφο (JSON) όλων, που μπορείς να επαναφέρεις με «Εισαγωγή προόδου».'
+
+/**
+ * Τι καλύπτει το reset ΤΩΡΑ. Στο 1E-1 το νέο store δεν διαγράφεται· αν έχει δεδομένα, το reset δεν είναι
+ * πλήρες και το UI δεν πρέπει να το παρουσιάζει ως «όλη η πρόοδος».
+ * @returns {{ full: boolean, keptStoreKeys: string[], description: string }}
+ */
+export function describeReset(storage = defaultStorage()) {
+  const keptStoreKeys = Object.keys(readStoreEntries(storage))
+  const full = keptStoreKeys.length === 0
+  return { full, keptStoreKeys, description: full ? FULL_RESET_TEXT : PARTIAL_RESET_TEXT }
+}
+
 /**
  * Reset με προστασία: safety backup (v2: legacy + νέο store) και διαγραφή των legacy κλειδιών μέσω
  * συναλλαγής (επαληθευμένη, με rollback). Το νέο store ΔΕΝ αγγίζεται στο 1E-1.
@@ -255,5 +272,5 @@ export function resetProgressSafely({ storage = defaultStorage(), download = dow
   const backup = createSafetyBackup('reset', { storage, download })
   const targets = Object.fromEntries(legacyResetKeys(storage).map((key) => [key, null]))
   const { changed } = runTransaction(storage, { op: 'reset', targets })
-  return { backup, removed: changed }
+  return { backup, removed: changed, keptStoreKeys: Object.keys(readStoreEntries(storage)) }
 }
