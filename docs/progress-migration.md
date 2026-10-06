@@ -174,3 +174,59 @@ checklist slug που δεν αντιστοιχεί σε θέμα → απόρρ
 
 **Conservation (tests):** για κάθε fixture, ό,τι δείχνει το legacy = ό,τι δείχνει το baseline: `quizAnswered`,
 `quizCorrect`, όλο το `byCategory`, `flashcardSeenIds`, όλες οι εγγραφές `wrongBook`, κάθε checklist.
+
+## 10. Shadow mode (Phase 1E-3)
+
+Το legacy (`psd115-*`) είναι η **μόνη** πηγή του UI. Οι πραγματικές ενέργειες γράφονται ΚΑΙ ως events στο νέο store.
+
+**Ενέργειες → events** (μόνο οι δύο persisted ενέργειες· mini κουίζ και εξέταση δεν αποθηκεύονται, άρα ούτε events):
+
+| Ενέργεια (κώδικας) | Event |
+|---|---|
+| απάντηση στο κεντρικό κουίζ (`useStudySession.handleSelectOption`) | `{ kind:'answer', ok: 0|1, ctx:'quiz', item:'psd115/<questionId>' }` |
+| «Επόμενη κάρτα» / «Από την αρχή» (`Flashcard.handleNext` → `markFlashSeen`), από τη σελίδα καρτών ή μάθημα | `{ kind:'flip', ctx:'flash', item:'psd115/<cardId>' }` |
+
+`flip` σημαίνει εδώ την υπάρχουσα persisted ενέργεια «είδα την κάρτα και πήγα στην επόμενη»· το απλό γύρισμα της κάρτας
+δεν αποθηκεύεται ούτε στο legacy. Γράφεται σε κάθε πάτημα (και για ήδη μελετημένη κάρτα)· το legacy κρατά σύνολο.
+
+**Πύλες** (χωρίς οποιαδήποτε: καμία ανάγνωση/εγγραφή στο νέο store):
+1. build flag `LEGACY_PROGRESS_SHADOW_ENABLED` (false· μόνο το smoke build με `VITE_PROGRESS_SHADOW_SMOKE=1` το ανοίγει)·
+2. σημάδι `migration:psd115-v1` (το stream ξεκινά μόνο μετά το baseline)·
+3. runtime `shadow:psd115.enabled === true` (ενεργοποίηση `activateShadow`, kill switch `deactivateShadow`).
+
+**Σειρά εγγραφών:** το event γράφεται **συγχρονικά μέσα στον handler** του κλικ (`append` εκτελείται αμέσως), πριν το React
+γράψει το legacy αντικείμενο (`useEffect` → `saveProgress`). Δεν υπάρχει συναλλαγή ανάμεσα στα δύο κλειδιά:
+- αποτυχία του event → η ενέργεια του χρήστη συνεχίζει κανονικά· καταγραφή (best effort) στο `shadow:psd115`
+  (`failures`, `recentFailures` ≤ 20)· το reconciliation δείχνει το χαμένο event·
+- αποτυχία του legacy (το `saveProgress` την αγνοεί σιωπηλά, όπως πάντα) ή κλείσιμο του tab ανάμεσα στα δύο → event χωρίς
+  αντίστοιχο legacy· το reconciliation το δείχνει.
+Ο recorder καλείται από τον handler, όχι από setState updater/effect (το StrictMode τα τρέχει δύο φορές).
+
+**Εγγυήσεις:** at-most-once ανά ενέργεια (καμία αυτόματη επανάληψη), duplicate-resistant με το `id` (ίδιο id → απόρριψη).
+**Όχι** exactly-once ανάμεσα σε legacy και νέο store: οι αποκλίσεις εντοπίζονται, δεν αποκλείονται.
+
+**Όριο migration** (`src/core/progress/boundary.js`): μετά το σημάδι, event με `t < marker.at` απορρίπτεται (`t === at` δεκτό)
+σε `progressStore.append`, `progressStore.importAll`, import αρχείου v2 και έλεγχο αρχείου v2. Διαφορετικό σημάδι στο αρχείο
+από το τρέχον → απόρριψη. Χωρίς σημάδι δεν υπάρχει όριο, αλλά το αρχικό migration απαιτεί άδειο log.
+
+**Reconciliation** (`src/core/progress/reconcile.js`): κουίζ legacy − baseline == answer events (answered, correct, ανά κατηγορία)·
+κάρτες: νέες legacy κάρτες == νέα flip items. Το `wrongBook` δεν συγκρίνεται. Με reset marker: από το μηδέν, events από το reset.
+
+**Reset σε shadow mode:** όπως στο 1E-1 (backup v2, legacy διαγραφή) και επιπλέον, αν υπάρχει σημάδι migration, γράφεται
+`progress-reset:psd115 = { at, reason }` στην ίδια συναλλαγή. Events και baseline δεν σβήνονται.
+
+**Πολλά tabs:** το legacy μένει last-write-wins — γνωστός περιορισμός, δεν λύνεται εδώ. Για το νέο store, το test δείχνει μόνο ότι
+**διαδοχικά** appends από ανεξάρτητους recorders διατηρούνται (κάθε `append` ξαναδιαβάζει το log από το storage). Δεν αποδεικνύει
+ασφάλεια σε πραγματικά ταυτόχρονο read-modify-write δύο tabs: το localStorage δεν έχει locking, και ένα τέτοιο race μπορεί θεωρητικά
+να χάσει ένα event (θα φανεί στο reconciliation).
+
+**Κύκλος ζωής `activateShadow` (idempotent):**
+- **Αρχική** (χωρίς σημάδι/baseline): legacy → αυστηρός έλεγχος → frozen baseline + σημάδι (backup v2 πριν) → enable.
+- **Επανενεργοποίηση** (υπάρχει σημάδι/baseline, π.χ. σε κάθε εκκίνηση): **δεν** ξαναϋπολογίζεται hash από το τρέχον legacy
+  (αλλάζει νόμιμα μαζί με τα events). Ελέγχονται: ακεραιότητα (μορφή/έκδοση baseline, ίδιο `sourceHash` και χρόνος σημαδιού/baseline,
+  το frozen `raw` δίνει ακόμα το `sourceHash` του) και reconciliation `in-sync`. Αλλιώς άρνηση (`integrity` / `diverged`) χωρίς εγγραφή —
+  π.χ. αλλαγές στο legacy όσο ο shadow ήταν απενεργοποιημένος.
+- Κατεστραμμένο νέο store → άρνηση (`corrupt-store`).
+
+**Ενεργοποίηση στο production (μελλοντικά, μετά από review):** backup v2 → `LEGACY_PROGRESS_SHADOW_ENABLED = true` και κλήση του
+`activateShadow()` στην εκκίνηση, σε δικό του PR → έλεγχος reconciliation. Kill switch: `deactivateShadow`.

@@ -28,3 +28,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser smoke (built app)
         run: npm run smoke
+      # Shadow mode (1E-3): ξεχωριστό build με VITE_PROGRESS_SHADOW_SMOKE=1 και δοκιμαστικό storage·
+      # το κανονικό build μένει legacy-only.
+      - name: Browser smoke (progress shadow mode)
+        run: npm run smoke:shadow
