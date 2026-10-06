@@ -7,6 +7,11 @@
  *       (σωστά id/item/kind/ctx/t)· reconciliation in-sync.
  *       απενεργοποίηση (runtime) → νέα απάντηση: legacy +1, κανένα νέο event (το reconciliation το δείχνει).
  *       import αρχείου με event πριν από το όριο migration → απόρριψη, κανένα event.
+ *  A2. Integration του πραγματικού useStudySession.handleSelectOption (shadow build, πραγματικά κλικ):
+ *     σωστή επιλογή → 1 event (item = ερώτηση που φαίνεται, ctx quiz, ok 1), legacy answered +1, correct +1·
+ *     λάθος επιλογή → 1 event (ok 0), legacy answered +1, correct +0·
+ *     αποτυχία του append (setItem του log πετάει) → legacy answered +1 κανονικά, το UI δείχνει την απάντηση,
+ *     κανένα νέο event, καταγραφή αποτυχίας στο shadow:psd115, κανένα σφάλμα JS.
  *  B. Κανονικό build (dist, flag κλειστό): ίδιο storage → καμία εγγραφή στο νέο store.
  *
  * Run: node scripts/smoke-shadow.mjs   (χτίζει μόνο του το dist-shadow· το dist πρέπει να υπάρχει)
@@ -185,6 +190,86 @@ let server
   await context.close()
   server.kill()
   console.log(`${failures.length ? '✗' : '✓'} Shadow build: 1 απάντηση + 1 κάρτα → 2 events · in-sync · απενεργοποίηση → 0 νέα · παλιό event → απόρριψη`)
+}
+
+// ---------- A2. Integration: handleSelectOption → recorder → legacy ----------
+const beforeA2 = failures.length
+{
+  server = await serve('dist-shadow', 4318)
+  const base = 'http://localhost:4318'
+  const { context, page } = await newPage(browser)
+  const k2 = new Set(built.baseline && quizQuestions.filter((q) => q.categoryId.startsWith('w2-')).map((q) => q.id))
+
+  /** Η ερώτηση που φαίνεται: ίδιο κείμενο ΚΑΙ ίδιο σύνολο επιλογών (μοναδική ταυτοποίηση). */
+  async function shown() {
+    const text = ((await page.locator('main h2').first().textContent()) ?? '').trim()
+    const labels = (await page.locator('main ul li button').allTextContents()).map((t) => t.trim())
+    const matches = quizQuestions.filter(
+      (q) => k2.has(q.id) && q.question.trim() === text && [...q.options].sort().join('|') === [...labels].sort().join('|'),
+    )
+    if (matches.length !== 1) throw new Error(`A2: δεν ταυτοποιήθηκε μοναδικά η ερώτηση «${text.slice(0, 50)}» (${matches.length})`)
+    return { q: matches[0], labels }
+  }
+  async function answer(correctChoice) {
+    const { q, labels } = await shown()
+    const correctLabel = q.options[q.correctIndex]
+    const pos = correctChoice ? labels.indexOf(correctLabel) : labels.findIndex((l) => l !== correctLabel)
+    const before = await read(page)
+    const btn = page.locator('main ul li button').nth(pos)
+    await btn.click()
+    await page.waitForTimeout(250)
+    const after = await read(page)
+    const cls = (await btn.getAttribute('class')) ?? ''
+    return { q, before, after, cls }
+  }
+  const next = () => page.getByRole('button', { name: /^(Συνέχεια|Τέλος κουίζ)$/ }).click()
+
+  await page.goto(`${base}/study/quiz?scope=unit:psd115/k2`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
+
+  // 1. Σωστή επιλογή
+  let r = await answer(true)
+  let newEvents = (r.after.events ?? []).slice((r.before.events ?? []).length)
+  check(newEvents.length === 1, `A2 σωστή: ${newEvents.length} νέα events (αναμενόταν 1)`)
+  check(newEvents[0]?.item === `psd115/${r.q.id}`, `A2 σωστή: item ${newEvents[0]?.item} ≠ psd115/${r.q.id}`)
+  check(newEvents[0]?.ctx === 'quiz' && newEvents[0]?.kind === 'answer' && newEvents[0]?.ok === 1, `A2 σωστή: ${JSON.stringify(newEvents[0])}`)
+  check(r.after.study.quizAnswered === r.before.study.quizAnswered + 1, 'A2 σωστή: το legacy quizAnswered δεν αυξήθηκε ακριβώς κατά 1')
+  check(r.after.study.quizCorrect === r.before.study.quizCorrect + 1, 'A2 σωστή: το legacy quizCorrect δεν αυξήθηκε κατά 1')
+  check(/border-emerald-500/.test(r.cls), 'A2 σωστή: το UI δεν σημείωσε σωστή απάντηση')
+  await next()
+
+  // 2. Λάθος επιλογή
+  r = await answer(false)
+  newEvents = (r.after.events ?? []).slice((r.before.events ?? []).length)
+  check(newEvents.length === 1, `A2 λάθος: ${newEvents.length} νέα events (αναμενόταν 1)`)
+  check(newEvents[0]?.item === `psd115/${r.q.id}` && newEvents[0]?.ok === 0 && newEvents[0]?.ctx === 'quiz', `A2 λάθος: ${JSON.stringify(newEvents[0])}`)
+  check(r.after.study.quizAnswered === r.before.study.quizAnswered + 1, 'A2 λάθος: το legacy quizAnswered δεν αυξήθηκε ακριβώς κατά 1')
+  check(r.after.study.quizCorrect === r.before.study.quizCorrect, 'A2 λάθος: το legacy quizCorrect άλλαξε')
+  check(/border-rose-500/.test(r.cls), 'A2 λάθος: το UI δεν σημείωσε λάθος απάντηση')
+  await next()
+
+  // 3. Αποτυχία του append: κάθε setItem του log πετάει (σαν quota) — μόνο για το κλειδί των events.
+  await page.evaluate((E) => {
+    const orig = Storage.prototype.setItem
+    Storage.prototype.setItem = function (k, v) {
+      if (k === E) throw new DOMException('quota', 'QuotaExceededError')
+      return orig.call(this, k, v)
+    }
+  }, EVENTS)
+  r = await answer(true)
+  check((r.after.events ?? []).length === (r.before.events ?? []).length, 'A2 αποτυχία: γράφτηκε event παρά την αποτυχία')
+  check(r.after.study.quizAnswered === r.before.study.quizAnswered + 1, 'A2 αποτυχία: η legacy απάντηση δεν μετρήθηκε')
+  check(r.after.study.quizCorrect === r.before.study.quizCorrect + 1, 'A2 αποτυχία: το legacy quizCorrect δεν μετρήθηκε')
+  check(/border-emerald-500/.test(r.cls), 'A2 αποτυχία: το UI δεν έδειξε την απάντηση')
+  check(r.after.state[K.SHADOW_STATE_KEY]?.failures === 1, `A2 αποτυχία: failures=${r.after.state[K.SHADOW_STATE_KEY]?.failures} (αναμενόταν 1)`)
+  await next() // το κουίζ συνεχίζει κανονικά
+  check((await page.locator('main h2').count()) > 0 || (await page.getByText('Αποτέλεσμα').count()) > 0, 'A2 αποτυχία: το κουίζ δεν συνέχισε')
+
+  await context.close()
+  server.kill()
+  console.log(
+    `${failures.length > beforeA2 ? '✗' : '✓'} Integration handleSelectOption: σωστή → ok 1 · λάθος → ok 0 · ένα event/απάντηση · legacy +1 · αποτυχία append → legacy κανονικά`,
+  )
 }
 
 // ---------- B. Κανονικό build (flag κλειστό) ----------
