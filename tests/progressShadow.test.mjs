@@ -378,3 +378,79 @@ describe('πολλά tabs', () => {
     assert.deepEqual(events(s).map((e) => e.item), ['psd115/q-w2-var-1', 'psd115/q-w2-var-2', 'psd115/fc-def-1'])
   })
 })
+
+describe('επανενεργοποίηση (activateShadow idempotent)', () => {
+  const answerBoth = async (s, t, questionId, ok) => {
+    await recorder(s, t).recordQuizAnswer({ questionId, ok })
+    const cat = quizQuestions.find((q) => q.id === questionId).categoryId
+    const study = JSON.parse(s.getItem('psd115-w1-study'))
+    study.quizAnswered += 1
+    if (ok) study.quizCorrect += 1
+    const c = (study.byCategory[cat] ??= { correct: 0, wrong: 0 })
+    if (ok) c.correct += 1
+    else c.wrong += 1
+    s.setItem('psd115-w1-study', JSON.stringify(study))
+  }
+
+  test('μετά από νόμιμη shadow δραστηριότητα (legacy άλλαξε + event) → active, χωρίς νέο baseline/conflict', async () => {
+    const s = await activated()
+    const before = state(s)
+    await answerBoth(s, T0 + 1000, 'q-w2-var-1', true)
+    await answerBoth(s, T0 + 2000, 'q-w2-var-2', false)
+    const r = await activateShadow({
+      storage: s,
+      now: fixed(T0 + 86_400_000),
+      backup: () => {
+        throw new Error('η επανενεργοποίηση δεν πρέπει να ξανατρέχει migration/backup')
+      },
+    })
+    assert.deepEqual(r, { status: 'active', mode: 'reactivation' })
+    const after = state(s)
+    assert.deepEqual(after[LEGACY_BASELINE_KEY], before[LEGACY_BASELINE_KEY], 'ίδιο baseline')
+    assert.deepEqual(after[MIGRATION_MARKER_KEY], before[MIGRATION_MARKER_KEY], 'ίδιο σημάδι / sourceHash')
+    assert.equal(after[SHADOW_STATE_KEY].enabled, true)
+    assert.equal(events(s).length, 2)
+  })
+
+  test('απενεργοποίηση → αλλαγή μόνο στο legacy → activate → άρνηση (diverged), καμία εγγραφή', async () => {
+    const s = await activated()
+    await deactivateShadow({ storage: s })
+    const study = JSON.parse(s.getItem('psd115-w1-study'))
+    study.quizAnswered += 1
+    study.byCategory['w2-variables'].wrong += 1
+    s.setItem('psd115-w1-study', JSON.stringify(study))
+    const before = s.dump()
+    const r = await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup })
+    assert.equal(r.status, 'not-activated')
+    assert.equal(r.mode, 'reactivation')
+    assert.equal(r.reason, 'diverged')
+    assert.equal(r.report.quiz.legacy.answered - r.report.quiz.events.answered, 1)
+    assert.deepEqual(s.dump(), before)
+    assert.equal(state(s)[SHADOW_STATE_KEY].enabled, false)
+  })
+
+  test('απενεργοποίηση χωρίς αλλαγές στο legacy → επανενεργοποίηση επιτρέπεται', async () => {
+    const s = await activated()
+    await deactivateShadow({ storage: s })
+    assert.equal((await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup })).status, 'active')
+    assert.equal(state(s)[SHADOW_STATE_KEY].enabled, true)
+  })
+
+  test('αλλοιωμένο baseline (raw ≠ sourceHash) ή σημάδι χωρίς baseline → άρνηση (integrity), καμία εγγραφή', async () => {
+    const s = await activated()
+    const st = state(s)
+    st[LEGACY_BASELINE_KEY].raw['psd115-w1-theme'] = 'dark'
+    st[SHADOW_STATE_KEY].enabled = false
+    s.setItem(STATE_KEY, JSON.stringify(st))
+    const before = s.dump()
+    const r = await activateShadow({ storage: s, now: fixed(T0 + 1), backup: noBackup })
+    assert.equal(r.reason, 'integrity')
+    assert.deepEqual(s.dump(), before)
+
+    const s2 = await activated()
+    const st2 = state(s2)
+    delete st2[LEGACY_BASELINE_KEY]
+    s2.setItem(STATE_KEY, JSON.stringify(st2))
+    assert.equal((await activateShadow({ storage: s2, now: fixed(T0 + 1), backup: noBackup })).reason, 'integrity')
+  })
+})

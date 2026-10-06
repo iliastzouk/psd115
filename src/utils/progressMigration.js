@@ -9,7 +9,14 @@
 import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { RESET_MARKER_KEY, SHADOW_STATE_KEY } from '../core/progress/keys.js'
 import { reconcileShadow } from '../core/progress/reconcile.js'
-import { buildLegacyBaseline, LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY } from '../core/progress/legacyBaseline.js'
+import {
+  BASELINE_FORMAT,
+  BASELINE_VERSION,
+  buildLegacyBaseline,
+  LEGACY_BASELINE_KEY,
+  legacySourceHash,
+  MIGRATION_MARKER_KEY,
+} from '../core/progress/legacyBaseline.js'
 import { createSafetyBackup, readProgressEntries, readStoreEntries } from './progressBackup.js'
 import { runTransaction } from './progressTransaction.js'
 import { validateStoreEntries } from './progressValidate.js'
@@ -73,18 +80,55 @@ export async function migrateLegacyBaseline({
   return { status: 'migrated', sourceHash, warnings: built.warnings }
 }
 
+/** Ακεραιότητα baseline + σημαδιού ΧΩΡΙΣ σύγκριση με το τρέχον legacy (το legacy αλλάζει νόμιμα μετά το migration). */
+function baselineIntegrity(baseline, marker) {
+  const errors = []
+  if (!baseline || !marker) errors.push(baseline ? 'λείπει το σημάδι migration' : 'λείπει το baseline')
+  else {
+    if (baseline.format !== BASELINE_FORMAT || baseline.version !== BASELINE_VERSION) errors.push('άγνωστη μορφή/έκδοση baseline')
+    if (marker.sourceHash !== baseline.sourceHash) errors.push('το σημάδι και το baseline έχουν διαφορετικό source hash')
+    if (marker.at !== baseline.capturedAt) errors.push('το σημάδι και το baseline έχουν διαφορετικό χρόνο')
+    // Το frozen raw snapshot πρέπει να δίνει ακόμα το δικό του hash (δεν αλλοιώθηκε).
+    if (!baseline.raw || legacySourceHash(baseline.raw) !== baseline.sourceHash) errors.push('το raw snapshot του baseline δεν αντιστοιχεί στο source hash του')
+  }
+  return errors
+}
+
 /**
- * Ελεγχόμενη ενεργοποίηση shadow mode (Phase 1E-3): migration (idempotent) ΚΑΙ μετά runtime ενεργοποίηση.
- * Δεν καλείται από την εφαρμογή. Για να γράψει events χρειάζεται ΕΠΙΣΗΣ ανοιχτό build flag (progressShadow).
- * Ο shadow mode ξεκινά πάντα ΜΕΤΑ το baseline: χωρίς επιτυχημένο migration δεν ενεργοποιείται.
+ * Ελεγχόμενη ενεργοποίηση shadow mode (Phase 1E-3). Δεν καλείται από την εφαρμογή. Για να γράψει events
+ * χρειάζεται ΕΠΙΣΗΣ ανοιχτό build flag (progressShadow). Idempotent:
+ *  - Αρχική (χωρίς σημάδι/baseline): legacy → έλεγχος → frozen baseline + σημάδι → enable.
+ *  - Επανενεργοποίηση (υπάρχει σημάδι/baseline): ΔΕΝ ξαναϋπολογίζεται hash από το τρέχον legacy
+ *    (αλλάζει νόμιμα μαζί με τα events). Ελέγχεται η ακεραιότητα baseline/σημαδιού και ότι το
+ *    reconciliation είναι in-sync· αλλιώς άρνηση χωρίς καμία εγγραφή (π.χ. αλλαγές legacy όσο ήταν off).
+ * @returns {Promise<{ status: 'active' | 'not-activated', mode?: 'initial' | 'reactivation', reason?: string, migration?: object, report?: object, errors?: string[] }>}
  */
 export async function activateShadow({ storage = globalThis.localStorage, now = () => Date.now(), backup } = {}) {
-  const migration = await migrateLegacyBaseline({ storage, now, enabled: true, ...(backup ? { backup } : {}) })
-  if (migration.status !== 'migrated' && migration.status !== 'already-migrated') return { status: 'not-activated', migration }
   const store = createProgressStore({ storage, now })
+  const current = validateStoreEntries(readStoreEntries(storage))
+  if (!current.ok) return { status: 'not-activated', reason: 'corrupt-store', errors: current.errors }
+
+  const marker = await store.getState(MIGRATION_MARKER_KEY)
+  const baseline = await store.getState(LEGACY_BASELINE_KEY)
+  let mode
+  let migration
+  if (marker === undefined && baseline === undefined) {
+    mode = 'initial'
+    migration = await migrateLegacyBaseline({ storage, now, enabled: true, ...(backup ? { backup } : {}) })
+    if (migration.status !== 'migrated') return { status: 'not-activated', mode, reason: 'migration', migration }
+  } else {
+    mode = 'reactivation'
+    const errors = baselineIntegrity(baseline, marker)
+    if (errors.length) return { status: 'not-activated', mode, reason: 'integrity', errors }
+    const rec = await shadowReconciliation({ storage })
+    if (rec.status !== 'in-sync') return { status: 'not-activated', mode, reason: 'diverged', report: rec.report }
+  }
+
   const prev = (await store.getState(SHADOW_STATE_KEY)) ?? {}
-  await store.setState(SHADOW_STATE_KEY, { failures: 0, recentFailures: [], ...prev, enabled: true, activatedAt: prev.activatedAt ?? new Date(now()).toISOString() })
-  return { status: 'active', migration }
+  if (prev.enabled !== true) {
+    await store.setState(SHADOW_STATE_KEY, { failures: 0, recentFailures: [], ...prev, enabled: true, activatedAt: prev.activatedAt ?? new Date(now()).toISOString() })
+  }
+  return { status: 'active', mode, ...(migration ? { migration } : {}) }
 }
 
 /** Kill switch: σταματά τα shadow writes χωρίς build· τα υπάρχοντα events/baseline μένουν. */

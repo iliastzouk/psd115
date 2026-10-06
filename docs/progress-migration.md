@@ -215,8 +215,18 @@ checklist slug που δεν αντιστοιχεί σε θέμα → απόρρ
 **Reset σε shadow mode:** όπως στο 1E-1 (backup v2, legacy διαγραφή) και επιπλέον, αν υπάρχει σημάδι migration, γράφεται
 `progress-reset:psd115 = { at, reason }` στην ίδια συναλλαγή. Events και baseline δεν σβήνονται.
 
-**Πολλά tabs:** το legacy μένει last-write-wins (δεν λύνεται εδώ). Το νέο store διαβάζει από το storage σε κάθε `append`, οπότε
-events από διαφορετικά tabs διατηρούνται.
+**Πολλά tabs:** το legacy μένει last-write-wins — γνωστός περιορισμός, δεν λύνεται εδώ. Για το νέο store, το test δείχνει μόνο ότι
+**διαδοχικά** appends από ανεξάρτητους recorders διατηρούνται (κάθε `append` ξαναδιαβάζει το log από το storage). Δεν αποδεικνύει
+ασφάλεια σε πραγματικά ταυτόχρονο read-modify-write δύο tabs: το localStorage δεν έχει locking, και ένα τέτοιο race μπορεί θεωρητικά
+να χάσει ένα event (θα φανεί στο reconciliation).
 
-**Ενεργοποίηση στο production (μελλοντικά, μετά από review):** backup v2 → `activateShadow` (migration + runtime enable) →
-`LEGACY_PROGRESS_SHADOW_ENABLED = true` σε δικό του PR → έλεγχος reconciliation. Kill switch: `deactivateShadow`.
+**Κύκλος ζωής `activateShadow` (idempotent):**
+- **Αρχική** (χωρίς σημάδι/baseline): legacy → αυστηρός έλεγχος → frozen baseline + σημάδι (backup v2 πριν) → enable.
+- **Επανενεργοποίηση** (υπάρχει σημάδι/baseline, π.χ. σε κάθε εκκίνηση): **δεν** ξαναϋπολογίζεται hash από το τρέχον legacy
+  (αλλάζει νόμιμα μαζί με τα events). Ελέγχονται: ακεραιότητα (μορφή/έκδοση baseline, ίδιο `sourceHash` και χρόνος σημαδιού/baseline,
+  το frozen `raw` δίνει ακόμα το `sourceHash` του) και reconciliation `in-sync`. Αλλιώς άρνηση (`integrity` / `diverged`) χωρίς εγγραφή —
+  π.χ. αλλαγές στο legacy όσο ο shadow ήταν απενεργοποιημένος.
+- Κατεστραμμένο νέο store → άρνηση (`corrupt-store`).
+
+**Ενεργοποίηση στο production (μελλοντικά, μετά από review):** backup v2 → `LEGACY_PROGRESS_SHADOW_ENABLED = true` και κλήση του
+`activateShadow()` στην εκκίνηση, σε δικό του PR → έλεγχος reconciliation. Kill switch: `deactivateShadow`.
