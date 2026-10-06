@@ -230,3 +230,40 @@ checklist slug που δεν αντιστοιχεί σε θέμα → απόρρ
 
 **Ενεργοποίηση στο production (μελλοντικά, μετά από review):** backup v2 → `LEGACY_PROGRESS_SHADOW_ENABLED = true` και κλήση του
 `activateShadow()` στην εκκίνηση, σε δικό του PR → έλεγχος reconciliation. Kill switch: `deactivateShadow`.
+
+## 11. Progress snapshot — pure read model (Phase 1E-4a)
+
+Pure layer χωρίς storage, React ή URLs (`src/core/progress/snapshot.js`). Δεν χρησιμοποιείται ακόμα από την εφαρμογή.
+
+```text
+legacy entries            → legacyToSnapshot()      → Snapshot
+baseline + events + state → buildProgressSnapshot() → Snapshot
+Snapshot                  → snapshotToLegacy()      → legacy entries (projection)
+Snapshot                  → stateFromSnapshot()     → state namespaces (υλοποίηση στο cutover)
+```
+
+**Snapshot v1** (ένα ανά μάθημα): `{ format: 'progress-snapshot', version: 1, courseId, quizAnswered, quizCorrect,
+byGroup, flashcardSeenIds (global IDs), wrongBook, checklists ({ [topicId]: { items } }) }`. Theme/disclaimer = ρυθμίσεις,
+εκτός snapshot.
+
+| Πεδίο | Προέλευση |
+|---|---|
+| quizAnswered / quizCorrect | baseline + `answer` events με ctx `quiz` (wrong = answered − correct) |
+| byGroup | baseline.byCategory + events, ομάδα μέσω `content.groupOf()` · άγνωστη ερώτηση → μόνο στα σύνολα |
+| flashcardSeenIds | baseline ∪ items των `flip` events με ctx `flash` (σειρά πρώτης εμφάνισης) |
+| wrongBook | state `progress:wrongbook:<courseId>` αν υπάρχει το κλειδί (ακόμα κι αν είναι κενό), αλλιώς baseline · ποτέ από events |
+| checklists | state `progress:checklists:<courseId>` αν υπάρχει το κλειδί, αλλιώς baseline |
+| reset | state `progress:reset:<courseId>` → αγνοούνται baseline και events με `t < at` |
+
+Εγγραφή wrongBook: `{ uid, item, group, question, explanation, userLabel, correctLabel, t }` — `t: null` για τις παλιές
+εγγραφές (άγνωστος χρόνος, δεν επινοείται).
+
+**Namespaces (απόφαση C):** τα `progress:<kind>:<courseId>` είναι **λογικά κλειδιά μέσα στο ένα αντικείμενο state**
+(`study-progress-state-v1`), όχι ξεχωριστά κλειδιά localStorage. Τα ιστορικά artifacts (`legacy-baseline:psd115`,
+`migration:psd115-v1`, `shadow:psd115`) μένουν αμετάβλητα. Το reset writer του 1E-3 γράφει ακόμα `progress-reset:psd115`
+(ποτέ στο production)· η μετάβασή του στο `progress:reset:<courseId>` ανήκει στο 1E-4c.
+
+**Content adapter** (`contentAdapter.js`): η μόνη εξάρτηση από περιεχόμενο — `hasGroup`, `groupOf`, `isQuestion`,
+`isCard`, `hasTopic` (τοπικά IDs) και προαιρετικό `legacy` codec (`decode` / `encode` των παλιών κλειδιών). Το PSD115
+adapter (`adapters/psd115.js`) είναι το μόνο σημείο που ξέρει categories, topics.js και τα κλειδιά `psd115-w*`· το
+`unknownCourseAdapter(courseId)` δεν επινοεί ομάδες/θέματα. Ο engine δεν ξέρει κανένα μάθημα (έλεγχος στα tests).
