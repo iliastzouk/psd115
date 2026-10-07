@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
@@ -9,7 +9,7 @@ import {
   branchesQuickReview,
 } from '../../content/courses/psd115/units/k1/otherBranches.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadOtherBranchesChecklist, saveOtherBranchesChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-other-branches-1', 'fc-other-branches-2', 'fc-other-branches-3', 'fc-other-branches-4']
@@ -59,13 +59,9 @@ function LessonQuizItem({ q: original }) {
 export default function OtherBranchesLesson({ otherBranchesFlashcards, onMarkFlashSeen }) {
   const L = otherBranchesLesson
   const catLabel = getCategoryLabel('otherBranches')
-  const [checklist, setChecklist] = useState(() => loadOtherBranchesChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveOtherBranchesChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

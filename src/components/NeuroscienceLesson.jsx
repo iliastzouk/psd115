@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
@@ -13,7 +13,7 @@ import {
   neuroscienceChecklist,
 } from '../../content/courses/psd115/units/k1/neuroscience.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadNeuroscienceChecklist, saveNeuroscienceChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = [
@@ -75,13 +75,9 @@ export default function NeuroscienceLesson({ neuroscienceFlashcards, onMarkFlash
   const B = brocaBlock
   const L = lashleyBlock
   const catLabel = getCategoryLabel('neuroscience')
-  const [checklist, setChecklist] = useState(() => loadNeuroscienceChecklist(neuroscienceChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(neuroscienceChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveNeuroscienceChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

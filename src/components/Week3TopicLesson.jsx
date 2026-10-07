@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
 import { getCategoryLabel, quizQuestions } from '../../content/courses/psd115/questions.js'
-import { loadWeek3TopicChecklist, saveWeek3TopicChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function LessonQuizItem({ q: original }) {
@@ -45,13 +45,9 @@ function LessonQuizItem({ q: original }) {
 }
 
 export default function Week3TopicLesson({ topic, topicFlashcards, onMarkFlashSeen }) {
-  const [checklist, setChecklist] = useState(() => loadWeek3TopicChecklist(topic.slug, topic.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(topic.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveWeek3TopicChecklist(topic.slug, checklist)
-  }, [topic.slug, checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

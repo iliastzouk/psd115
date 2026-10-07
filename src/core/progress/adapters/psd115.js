@@ -54,6 +54,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
       const errors = []
       const settings = []
       const checklists = []
+      const unknown = []
       let study
       for (const key of Object.keys(entries).sort()) {
         const raw = entries[key]
@@ -67,7 +68,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
           continue
         }
         if (key.startsWith(BACKUP_PREFIX)) {
-          errors.push(`${key}: τα αντίγραφα ασφαλείας δεν είναι πρόοδος`)
+          unknown.push(`${key}: τα αντίγραφα ασφαλείας δεν είναι πρόοδος`)
           continue
         }
         let m = key.match(W1_CHECKLIST_RE)
@@ -80,7 +81,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
         if (m) {
           const unitId = unitOfWeek(Number(m[1]))
           if (!unitId) {
-            errors.push(`${key}: άγνωστη εβδομάδα ${m[1]}`)
+            unknown.push(`${key}: άγνωστη εβδομάδα ${m[1]}`)
             continue
           }
           const p = parse(key, raw, errors)
@@ -92,14 +93,25 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
           for (const [slug, items] of Object.entries(p.value)) checklists.push({ key: `${key}#${slug}`, topicId: topicFor(unitId, slug), items })
           continue
         }
-        errors.push(`${key}: άγνωστο κλειδί προόδου`)
+        unknown.push(`${key}: άγνωστο κλειδί προόδου`)
       }
-      return { study, checklists, settings, errors }
+      return { study, checklists, settings, unknown, errors }
     },
 
-    encode({ study, checklists }) {
+    encode({ study, checklists }, { previous = {} } = {}) {
       const entries = { [STUDY_KEY]: JSON.stringify(study) }
       const weekly = {}
+      // Slugs ενός εβδομαδιαίου κλειδιού που δεν αντιστοιχούν σε θέμα (orphan): κρατιούνται όπως ήταν.
+      const keepOrphans = (key, unitId) => {
+        if (weekly[key] || typeof previous[key] !== 'string') return
+        try {
+          const prev = JSON.parse(previous[key])
+          if (!isObj(prev)) return
+          for (const [slug, items] of Object.entries(prev)) if (!topicFor(unitId, slug)) (weekly[key] ??= {})[slug] = items
+        } catch {
+          /* μη αναγνώσιμο: δεν υπάρχει τίποτα να διατηρηθεί */
+        }
+      }
       const unprojected = []
       for (const [topicId, items] of Object.entries(checklists)) {
         const topic = topicById.get(topicId)
@@ -109,7 +121,11 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
           continue
         }
         if (week === 1) entries[`psd115-w1-${topic.legacySlug}-checklist`] = JSON.stringify(items)
-        else (weekly[`psd115-w${week}-checklists`] ??= {})[topic.legacySlug] = items
+        else {
+          const key = `psd115-w${week}-checklists`
+          keepOrphans(key, topic.unit)
+          ;(weekly[key] ??= {})[topic.legacySlug] = items
+        }
       }
       for (const [key, obj] of Object.entries(weekly)) entries[key] = JSON.stringify(obj)
       return { entries, unprojected }

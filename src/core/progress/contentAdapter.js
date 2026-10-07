@@ -22,9 +22,11 @@
  *     study: unknown,                                // parsed αντικείμενο προόδου μελέτης· undefined αν δεν υπάρχει
  *     checklists: { key: string, topicId: string | null, items: unknown }[],  // topicId null = άγνωστο θέμα
  *     settings: string[],                            // κλειδιά ρυθμίσεων (όχι πρόοδος μάθησης)
- *     errors: string[],
+ *     unknown: string[],                             // κλειδιά που δεν είναι γνωστή πρόοδος (δεν διαβάζονται, δεν αγγίζονται)
+ *     errors: string[],                              // δομικά σφάλματα (π.χ. μη έγκυρο JSON)
  *   },
- *   encode: (input: { study: object, checklists: Record<string, boolean[]> }) => {
+ *   encode: (input: { study: object, checklists: Record<string, boolean[]> },
+ *            opts?: { previous?: Record<string, string> }) => {  // previous: τρέχουσες raw τιμές (διατήρηση orphan)
  *     entries: Record<string, string>,
  *     unprojected: string[],                         // topicIds χωρίς legacy κλειδί (π.χ. orphan)
  *   },

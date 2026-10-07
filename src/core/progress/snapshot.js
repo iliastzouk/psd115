@@ -250,34 +250,39 @@ function readChecklistsState(value, { courseId, content }, errors, warnings) {
 }
 
 /**
- * Παλιά κλειδιά ενός μαθήματος → Snapshot. Αυστηρό: ό,τι δεν αναγνωρίζεται ή δεν αντιστοιχεί σε περιεχόμενο
- * απορρίπτεται. Οι ρυθμίσεις (theme κ.λπ.) δεν είναι πρόοδος: επιστρέφονται χωριστά, δεν μπαίνουν στο snapshot.
+ * Παλιά κλειδιά ενός μαθήματος → Snapshot. Οι ρυθμίσεις (theme κ.λπ.) δεν είναι πρόοδος: επιστρέφονται χωριστά.
+ *
+ *   mode 'strict'  (προεπιλογή· migration): ό,τι δεν αναγνωρίζεται ή δεν αντιστοιχεί σε περιεχόμενο → απόρριψη.
+ *   mode 'runtime' (ανάγνωση της εφαρμογής): άγνωστα κλειδιά και IDs που δεν υπάρχουν πια στο περιεχόμενο →
+ *                  warning και διατήρηση (τα κλειδιά δεν αγγίζονται)· ΔΟΜΙΚΑ σφάλματα (μη έγκυρο JSON, λάθος τύποι)
+ *                  → `degraded`, ποτέ «μηδενικά».
  * @param {Record<string, string>} entries raw legacy κλειδιά (χωρίς backups)
- * @param {{ content: import('./contentAdapter.js').ContentAdapter }} opts
- * @returns {{ ok: true, snapshot: object, settings: string[], warnings: string[] } | { ok: false, errors: string[], warnings: string[] }}
+ * @param {{ content: import('./contentAdapter.js').ContentAdapter, mode?: 'strict' | 'runtime' }} opts
+ * @returns {{ ok: true, status: 'ready', snapshot: object, settings: string[], warnings: string[] }
+ *         | { ok: false, status: 'degraded', errors: string[], issues: string[], warnings: string[] }}
  */
-export function legacyToSnapshot(entries, { content }) {
-  const errors = checkContentAdapter(content)
+export function legacyToSnapshot(entries, { content, mode = 'strict' }) {
   const warnings = []
-  if (errors.length) return { ok: false, errors, warnings }
-  if (!content.legacy) return { ok: false, errors: [`το «${content.courseId}» δεν έχει παλιά (legacy) αποθήκευση`], warnings }
-  if (!isObj(entries)) return { ok: false, errors: ['τα legacy κλειδιά πρέπει να είναι αντικείμενο κλειδί → raw string'], warnings }
+  const fail = (errors) => ({ ok: false, status: 'degraded', errors, issues: errors, warnings })
+  const adapterErrors = checkContentAdapter(content)
+  if (adapterErrors.length) return fail(adapterErrors)
+  if (!content.legacy) return fail([`το «${content.courseId}» δεν έχει παλιά (legacy) αποθήκευση`])
+  if (!isObj(entries)) return fail(['τα legacy κλειδιά πρέπει να είναι αντικείμενο κλειδί → raw string'])
+  const errors = []
   for (const [key, raw] of Object.entries(entries)) if (typeof raw !== 'string') errors.push(`${key}: η τιμή πρέπει να είναι raw string`)
-  if (errors.length) return { ok: false, errors, warnings }
+  if (errors.length) return fail(errors)
 
+  const strict = mode !== 'runtime'
   const { courseId } = content
   const decoded = content.legacy.decode(entries)
   errors.push(...decoded.errors)
-  const parts = legacyStudyParts(decoded.study, { courseId, content, strict: true, where: 'study' }, errors, warnings)
+  for (const u of decoded.unknown ?? []) contentIssue(strict, u, errors, warnings)
+  const parts = legacyStudyParts(decoded.study, { courseId, content, strict, where: 'study' }, errors, warnings)
 
   const checklists = {}
   for (const { key, topicId, items } of decoded.checklists) {
-    if (topicId === null) {
-      errors.push(`${key}: δεν αντιστοιχεί σε θέμα του μαθήματος`)
-      continue
-    }
-    if (!content.hasTopic(topicId)) {
-      errors.push(`${key}: άγνωστο θέμα «${topicId}»`)
+    if (topicId === null || !content.hasTopic(topicId)) {
+      contentIssue(strict, `${key}: δεν αντιστοιχεί σε θέμα του μαθήματος`, errors, warnings)
       continue
     }
     if (checklists[topicId]) {
@@ -286,8 +291,14 @@ export function legacyToSnapshot(entries, { content }) {
     }
     if (checkChecklistItems(items, key, errors)) checklists[topicId] = { items: [...items] }
   }
-  if (errors.length) return { ok: false, errors, warnings }
-  return { ok: true, snapshot: { ...emptySnapshot(courseId), ...parts, checklists }, settings: [...decoded.settings].sort(), warnings }
+  if (errors.length) return { ...fail(errors), warnings }
+  return {
+    ok: true,
+    status: 'ready',
+    snapshot: { ...emptySnapshot(courseId), ...parts, checklists },
+    settings: [...decoded.settings].sort(),
+    warnings,
+  }
 }
 
 /**
@@ -422,10 +433,11 @@ export function validateSnapshot(snapshot, { content } = {}) {
 
 /**
  * Snapshot → παλιά κλειδιά (projection). Χάνεται μόνο ό,τι το παλιό σχήμα δεν έχει θέση να κρατήσει (`t` του
- * wrongBook)· θέματα χωρίς legacy κλειδί επιστρέφονται στο `unprojected`.
+ * wrongBook)· θέματα χωρίς legacy κλειδί επιστρέφονται στο `unprojected`. `previous` = οι τρέχουσες raw τιμές, ώστε
+ * ό,τι δεν ανήκει στο snapshot (π.χ. orphan μέσα σε κοινό κλειδί) να διατηρείται.
  * @returns {{ ok: true, entries: Record<string, string>, unprojected: string[] } | { ok: false, errors: string[] }}
  */
-export function snapshotToLegacy(snapshot, { content }) {
+export function snapshotToLegacy(snapshot, { content, previous = {} }) {
   const errors = checkContentAdapter(content, snapshot?.courseId)
   if (errors.length) return { ok: false, errors }
   if (!content.legacy) return { ok: false, errors: [`το «${content.courseId}» δεν έχει παλιά (legacy) αποθήκευση`] }
@@ -455,7 +467,7 @@ export function snapshotToLegacy(snapshot, { content }) {
     wrongBook,
   }
   const checklists = Object.fromEntries(Object.entries(snapshot.checklists).map(([topicId, c]) => [topicId, [...c.items]]))
-  const { entries, unprojected } = content.legacy.encode({ study, checklists })
+  const { entries, unprojected } = content.legacy.encode({ study, checklists }, { previous })
   return { ok: true, entries, unprojected: [...unprojected].sort() }
 }
 

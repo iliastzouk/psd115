@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
 import { thorndikeLesson, thorndikeExamQuestions, thorndikeLessonQuizIds } from '../../content/courses/psd115/units/k1/thorndike.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadThorndikeChecklist, saveThorndikeChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-thorndike-1', 'fc-thorndike-2', 'fc-thorndike-3']
@@ -54,13 +54,9 @@ function LessonQuizItem({ q: original }) {
 export default function ThorndikeLesson({ thorndikeFlashcards, onMarkFlashSeen }) {
   const L = thorndikeLesson
   const catLabel = getCategoryLabel('thorndike')
-  const [checklist, setChecklist] = useState(() => loadThorndikeChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveThorndikeChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

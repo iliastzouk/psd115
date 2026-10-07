@@ -4,25 +4,15 @@ import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
 import { recordFlashcardSeen, recordQuizAnswer } from '../utils/progressShadow.js'
 import { flashcards, quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
-import {
-  defaultProgress,
-  loadProgress,
-  loadTheme,
-  resetProgress,
-  saveProgress,
-  saveTheme,
-} from '../utils/storage.js'
+import { getProgressService, useProgress } from './useProgress.js'
+import { getTheme, setTheme, useTheme } from '../utils/settings.js'
+
+/** Το μάθημα του οποίου την πρόοδο κρατά αυτή η συνεδρία (legacy UI του PSD115). */
+const COURSE_ID = 'psd115'
 
 function filterByCategories(items, selectedIds) {
   if (!selectedIds.length) return items
   return items.filter((item) => selectedIds.includes(item.categoryId))
-}
-
-function newUid() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 export function useStudySession() {
@@ -32,8 +22,16 @@ export function useStudySession() {
   const scopedQuizQuestions = material.quizQuestions
   const scopeCategories = material.categories
 
-  const [dark, setDark] = useState(false)
-  const [progress, setProgress] = useState(defaultProgress)
+  // Πρόοδος: ΜΟΝΟ από το ProgressService (ένα snapshot, φορτωμένο πριν από το πρώτο render). Καμία εγγραφή εδώ.
+  const progressState = useProgress('study-session')
+  const progress = progressState.courses[COURSE_ID]
+  const progressStatus = progressState.status
+  // Ρυθμίσεις: από το settings module (διαβάστηκαν πριν από το render· εγγραφή μόνο σε αλλαγή του χρήστη).
+  const dark = useTheme() === 'dark'
+  const setDark = useCallback((next) => {
+    const value = typeof next === 'function' ? next(getTheme() === 'dark') : next
+    setTheme(value ? 'dark' : 'light')
+  }, [])
   const [selectedIds, setSelectedIds] = useState([])
 
   const [cardOrder, setCardOrder] = useState([])
@@ -47,20 +45,6 @@ export function useStudySession() {
   const [sessionCorrect, setSessionCorrect] = useState(0)
   const [quizResult, setQuizResult] = useState(null)
   const [lessonResetKey, setLessonResetKey] = useState(0)
-
-  useEffect(() => {
-    setProgress(loadProgress())
-    setDark(loadTheme() === 'dark')
-  }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark)
-    saveTheme(dark ? 'dark' : 'light')
-  }, [dark])
-
-  useEffect(() => {
-    saveProgress(progress)
-  }, [progress])
 
   const filteredCards = useMemo(
     () => filterByCategories(scopedFlashcards, selectedIds),
@@ -196,10 +180,7 @@ export function useStudySession() {
   const markFlashSeen = useCallback((id) => {
     // Shadow (1E-3): στον handler, όχι στον updater (το StrictMode τρέχει τους updaters δύο φορές).
     recordFlashcardSeen({ cardId: id })
-    setProgress((p) => {
-      if (p.flashcardSeenIds.includes(id)) return p
-      return { ...p, flashcardSeenIds: [...p.flashcardSeenIds, id] }
-    })
+    getProgressService().markCardSeen(id)
   }, [])
 
   const goNextCard = useCallback(() => {
@@ -255,34 +236,18 @@ export function useStudySession() {
       // Shadow (1E-3): ένα event ανά απάντηση, στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
       recordQuizAnswer({ questionId: currentQuestion.id, ok: correct })
 
-      setProgress((p) => {
-        const cat = currentQuestion.categoryId
-        const prev = p.byCategory[cat] || { correct: 0, wrong: 0 }
-        const nextCat = {
-          ...prev,
-          correct: prev.correct + (correct ? 1 : 0),
-          wrong: prev.wrong + (correct ? 0 : 1),
-        }
-        const wrongBook = [...p.wrongBook]
-        if (!correct) {
-          wrongBook.push({
-            uid: newUid(),
-            id: currentQuestion.id,
-            categoryId: cat,
-            question: currentQuestion.question,
-            explanation: currentQuestion.explanation,
-            userLabel: currentQuestion.options[idx],
-            correctLabel: currentQuestion.options[currentQuestion.correctIndex],
-          })
-          while (wrongBook.length > 60) wrongBook.shift()
-        }
-        return {
-          ...p,
-          quizAnswered: p.quizAnswered + 1,
-          quizCorrect: p.quizCorrect + (correct ? 1 : 0),
-          byCategory: { ...p.byCategory, [cat]: nextCat },
-          wrongBook,
-        }
+      // Μετά το event (shadow), η πρόοδος: ΜΙΑ σύγχρονη αλλαγή στο ProgressService (όχι σε updater/effect).
+      getProgressService().answerQuestion({
+        questionId: currentQuestion.id,
+        ok: correct,
+        wrong: correct
+          ? undefined
+          : {
+              question: currentQuestion.question,
+              explanation: currentQuestion.explanation,
+              userLabel: currentQuestion.options[idx],
+              correctLabel: currentQuestion.options[currentQuestion.correctIndex],
+            },
       })
     },
     [currentQuestion, quizRevealed],
@@ -299,22 +264,19 @@ export function useStudySession() {
     setQuizRevealed(false)
   }, [quizDeck.length, quizIndex, sessionCorrect])
 
+  /** Μετά το resetProgressSafely (υποδομή): η μνήμη ξαναδιαβάζει το storage — μία πηγή, κανένα δεύτερο «default». */
   const resetAllStudyProgress = useCallback(() => {
-    resetProgress()
-    setProgress(defaultProgress())
+    getProgressService().resync()
     setQuizActive(false)
     setLessonResetKey((k) => k + 1)
   }, [])
 
   const clearWrongBook = useCallback(() => {
-    setProgress((p) => ({ ...p, wrongBook: [] }))
+    getProgressService().clearWrongBook()
   }, [])
 
   const removeWrongOne = useCallback((uid) => {
-    setProgress((p) => ({
-      ...p,
-      wrongBook: p.wrongBook.filter((w) => w.uid !== uid),
-    }))
+    getProgressService().removeWrong(uid)
   }, [])
 
   const resultPct =
@@ -325,7 +287,7 @@ export function useStudySession() {
     dark,
     setDark,
     progress,
-    setProgress,
+    progressStatus,
     selectedIds,
     toggleCategory,
     filteredCards,

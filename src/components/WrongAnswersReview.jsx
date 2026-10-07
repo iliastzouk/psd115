@@ -40,7 +40,7 @@ export default function WrongAnswersReview({ items, onClear, onClearOne }) {
               >
                 <div>
                   <p className="text-[11px] uppercase text-slate-500 dark:text-slate-400">
-                    {getCategoryLabel(w.categoryId)}
+                    {getCategoryLabel(w.group)}
                   </p>
                   <p className="text-sm text-slate-900 dark:text-slate-100 line-clamp-2">{w.question}</p>
                 </div>

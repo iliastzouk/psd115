@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import { pavlovLesson, pavlovExamQuestions, pavlovLessonQuizIds } from '../../content/courses/psd115/units/k1/pavlov.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadPavlovChecklist, savePavlovChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-pavlov-1', 'fc-pavlov-2', 'fc-pavlov-3', 'fc-pavlov-4', 'fc-pavlov-5', 'fc-pavlov-8', 'fc-pavlov-6', 'fc-pavlov-7']
@@ -51,14 +51,10 @@ function LessonQuizItem({ q: original }) {
 export default function PavlovLesson({ pavlovFlashcards, onMarkFlashSeen }) {
   const L = pavlovLesson
   const pavlovCategoryLabel = getCategoryLabel('pavlov')
-  const [checklist, setChecklist] = useState(() => loadPavlovChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
   const [activeTermId, setActiveTermId] = useState(() => L.visualTerms?.[0]?.id ?? null)
-
-  useEffect(() => {
-    savePavlovChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

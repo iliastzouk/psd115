@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
@@ -8,7 +8,7 @@ import {
   educationalPsychologyLessonQuizIds,
 } from '../../content/courses/psd115/units/k1/educationalPsychology.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadEducationalPsychologyChecklist, saveEducationalPsychologyChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = [
@@ -63,13 +63,9 @@ function LessonQuizItem({ q: original }) {
 export default function EducationalPsychologyLesson({ educationalPsychologyFlashcards, onMarkFlashSeen }) {
   const L = educationalPsychologyLesson
   const catLabel = getCategoryLabel('educationalPsychology')
-  const [checklist, setChecklist] = useState(() => loadEducationalPsychologyChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveEducationalPsychologyChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

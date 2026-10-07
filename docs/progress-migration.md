@@ -57,7 +57,7 @@ events με `t` = χρόνος του migration **απορρίφθηκε**: θα
 
 - Checklists ανά θέμα, με κλειδί το canonical `topicId` (στο baseline: `progress.checklists[topicId]`).
 - `wrongBook` (το event schema δεν κρατά την επιλεγμένη απάντηση).
-- Reset marker `progress-reset:psd115` (όταν ενεργοποιηθεί ο νέος reader/writer).
+- Reset marker `progress:reset:psd115` (ένα κλειδί για writer και reader από το 1E-4b).
 - Θέμα (theme) και αποδοχή disclaimer μένουν στα legacy κλειδιά (δεν είναι πρόοδος).
 
 ## 5. Πώς μεταφέρεται η πρόοδος (Phase 1E-2: υλοποιημένο, ανενεργό)
@@ -213,7 +213,7 @@ checklist slug που δεν αντιστοιχεί σε θέμα → απόρρ
 κάρτες: νέες legacy κάρτες == νέα flip items. Το `wrongBook` δεν συγκρίνεται. Με reset marker: από το μηδέν, events από το reset.
 
 **Reset σε shadow mode:** όπως στο 1E-1 (backup v2, legacy διαγραφή) και επιπλέον, αν υπάρχει σημάδι migration, γράφεται
-`progress-reset:psd115 = { at, reason }` στην ίδια συναλλαγή. Events και baseline δεν σβήνονται.
+`progress:reset:psd115 = { at, reason }` (1E-4b· αρχικά `progress-reset:psd115`, δεν γράφτηκε ποτέ στο production) στην ίδια συναλλαγή. Events και baseline δεν σβήνονται.
 
 **Πολλά tabs:** το legacy μένει last-write-wins — γνωστός περιορισμός, δεν λύνεται εδώ. Για το νέο store, το test δείχνει μόνο ότι
 **διαδοχικά** appends από ανεξάρτητους recorders διατηρούνται (κάθε `append` ξαναδιαβάζει το log από το storage). Δεν αποδεικνύει
@@ -260,10 +260,37 @@ byGroup, flashcardSeenIds (global IDs), wrongBook, checklists ({ [topicId]: { it
 
 **Namespaces (απόφαση C):** τα `progress:<kind>:<courseId>` είναι **λογικά κλειδιά μέσα στο ένα αντικείμενο state**
 (`study-progress-state-v1`), όχι ξεχωριστά κλειδιά localStorage. Τα ιστορικά artifacts (`legacy-baseline:psd115`,
-`migration:psd115-v1`, `shadow:psd115`) μένουν αμετάβλητα. Το reset writer του 1E-3 γράφει ακόμα `progress-reset:psd115`
-(ποτέ στο production)· η μετάβασή του στο `progress:reset:<courseId>` ανήκει στο 1E-4c.
+`migration:psd115-v1`, `shadow:psd115`) μένουν αμετάβλητα. Το reset γράφεται και διαβάζεται πλέον από ΕΝΑ κλειδί,
+`progress:reset:psd115` (1E-4b, βλ. §12).
 
 **Content adapter** (`contentAdapter.js`): η μόνη εξάρτηση από περιεχόμενο — `hasGroup`, `groupOf`, `isQuestion`,
 `isCard`, `hasTopic` (τοπικά IDs) και προαιρετικό `legacy` codec (`decode` / `encode` των παλιών κλειδιών). Το PSD115
 adapter (`adapters/psd115.js`) είναι το μόνο σημείο που ξέρει categories, topics.js και τα κλειδιά `psd115-w*`· το
 `unknownCourseAdapter(courseId)` δεν επινοεί ομάδες/θέματα. Ο engine δεν ξέρει κανένα μάθημα (έλεγχος στα tests).
+
+## 12. ProgressService — ένα snapshot στη μνήμη (Phase 1E-4b, legacy mode)
+
+```text
+main.jsx: recoverInterrupted → initSettings (theme πριν από το paint) → createProgressService → installProgressService → render
+UI → useProgress / useCourseProgress / useTopicChecklist (useSyncExternalStore) → ΕΝΑ ProgressState
+ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy → legacy backend → ίδια κλειδιά psd115-*
+```
+
+- **Ένα instance**, δημιουργείται μόνο στο `main.jsx` πριν από το render (εκτός React → το StrictMode δεν φτιάχνει δεύτερο).
+  `ProgressState = { version, status: 'ready' | 'degraded', issues, courses: { psd115: Snapshot } }`, immutable· ίδιο
+  αντικείμενο για όλους μέχρι την επόμενη πραγματική αλλαγή.
+- **Boot χωρίς εγγραφές:** η πρόοδος υπάρχει ήδη στο πρώτο render (τέλος στο «0 και μετά hydration» και στο παλιό
+  `saveProgress(default)` που έγραφε μηδενικά πάνω στην πρόοδο). Τα checklists γράφονται μόνο σε αλλαγή του χρήστη
+  (απόν κλειδί ≡ όλα false). Theme/disclaimer: `utils/settings.js`, εκτός progress snapshot, εγγραφή μόνο σε αλλαγή.
+- **Εγγραφές:** μόνο από το service (ανά ενέργεια, μόνο τα κλειδιά που άλλαξαν· >1 κλειδί → `runTransaction`) και από
+  τις ρητές ενέργειες υποδομής (export/import/reset, `progressBackup`). Μετά το reset: `resync()`.
+- **Degraded:** δομικά κατεστραμμένα legacy δεδομένα ή αμφίβολη ανάκτηση συναλλαγής → μήνυμα, **καμία εγγραφή**, η μελέτη
+  συνεχίζει χωρίς αποθήκευση. Άγνωστα `psd115-*` κλειδιά και IDs που δεν υπάρχουν πια στο περιεχόμενο κρατιούνται ανέγγιχτα.
+- **Shadow:** ο recorder μένει στους handlers του `useStudySession`, ΠΡΙΝ από την αλλαγή στο service· το service δεν
+  ξέρει τίποτα για events/baseline. Το νέο store παραμένει shadow infrastructure (off).
+- **Gates:** `tests/progressService.test.mjs` (ταυτότητα, immutability, ισοδυναμία με τον παλιό reducer, degraded,
+  reset key, guards) και `npm run smoke:progress` (0 εγγραφές στο boot, πρώτο DOM με τις τιμές του fixture,
+  mutation builds M1/M2 που πρέπει να αποτύχουν, ένα snapshot σε όλους τους consumers, μνήμη ≡ storage,
+  `--differential=<παλιό dist>` για σύγκριση με το παλιό build).
+- **Εκτός 1E-4b:** συγχρονισμός πολλών tabs, εμφάνιση αποτυχίας εγγραφής, new reader / `commit({events,state})`,
+  αποσύνδεση `legacyBaseline`/`reconcile`/`progressShadow` από το PSD115, cleanup των load/save του `storage.js`, F2/F3.
