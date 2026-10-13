@@ -7,7 +7,7 @@
  * Τα `psd115-*` ΔΕΝ αλλάζουν. Το `study-progress-events-v1` ΔΕΝ γράφεται (μηδέν events).
  */
 import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
-import { RESET_MARKER_KEY, SHADOW_STATE_KEY } from '../core/progress/keys.js'
+import { SHADOW_STATE_KEY } from '../core/progress/keys.js'
 import { reconcileShadow } from '../core/progress/reconcile.js'
 import {
   BASELINE_FORMAT,
@@ -25,7 +25,9 @@ import { validateStoreEntries } from './progressValidate.js'
 export const LEGACY_BASELINE_MIGRATION_ENABLED = false
 
 /**
- * @param {{ storage?: Storage, now?: () => number, enabled?: boolean, backup?: (storage: Storage) => void }} [opts]
+ * Το μάθημα (content adapter με legacy codec) δίνεται ως παράμετρος· το module δεν ξέρει κανένα μάθημα.
+ * @param {{ storage?: Storage, now?: () => number, enabled?: boolean, backup?: (storage: Storage) => void,
+ *           content: import('../core/progress/contentAdapter.js').ContentAdapter }} opts
  * @returns {Promise<{ status: 'disabled' | 'migrated' | 'already-migrated' | 'conflict' | 'rejected', errors?: string[], warnings?: string[], sourceHash?: string }>}
  */
 export async function migrateLegacyBaseline({
@@ -33,15 +35,17 @@ export async function migrateLegacyBaseline({
   now = () => Date.now(),
   enabled = LEGACY_BASELINE_MIGRATION_ENABLED,
   backup = (s) => createSafetyBackup('migration', { storage: s }),
+  content,
 } = {}) {
   if (!enabled) return { status: 'disabled' }
+  if (!content?.legacy) return { status: 'rejected', errors: ['λείπει το content adapter (με legacy codec) του μαθήματος'] }
 
   const store = validateStoreEntries(readStoreEntries(storage))
   if (!store.ok) return { status: 'rejected', errors: store.errors.map((e) => `νέο store: ${e}`) }
   const stateRaw = storage.getItem(STATE_KEY)
   const state = stateRaw === null ? {} : JSON.parse(stateRaw)
 
-  const built = buildLegacyBaseline(readProgressEntries(storage), { now })
+  const built = buildLegacyBaseline(readProgressEntries(storage), { now, content })
   if (!built.ok) return { status: 'rejected', errors: built.errors, warnings: built.warnings }
   const { sourceHash } = built.marker
 
@@ -76,7 +80,7 @@ export async function migrateLegacyBaseline({
 
   backup(storage)
   const next = { ...state, [LEGACY_BASELINE_KEY]: built.baseline, [MIGRATION_MARKER_KEY]: built.marker }
-  runTransaction(storage, { op: 'migration:psd115-v1', targets: { [STATE_KEY]: JSON.stringify(next) }, now })
+  runTransaction(storage, { op: MIGRATION_MARKER_KEY, targets: { [STATE_KEY]: JSON.stringify(next) }, now })
   return { status: 'migrated', sourceHash, warnings: built.warnings }
 }
 
@@ -103,7 +107,7 @@ function baselineIntegrity(baseline, marker) {
  *    reconciliation είναι in-sync· αλλιώς άρνηση χωρίς καμία εγγραφή (π.χ. αλλαγές legacy όσο ήταν off).
  * @returns {Promise<{ status: 'active' | 'not-activated', mode?: 'initial' | 'reactivation', reason?: string, migration?: object, report?: object, errors?: string[] }>}
  */
-export async function activateShadow({ storage = globalThis.localStorage, now = () => Date.now(), backup } = {}) {
+export async function activateShadow({ storage = globalThis.localStorage, now = () => Date.now(), backup, content } = {}) {
   const store = createProgressStore({ storage, now })
   const current = validateStoreEntries(readStoreEntries(storage))
   if (!current.ok) return { status: 'not-activated', reason: 'corrupt-store', errors: current.errors }
@@ -114,13 +118,13 @@ export async function activateShadow({ storage = globalThis.localStorage, now = 
   let migration
   if (marker === undefined && baseline === undefined) {
     mode = 'initial'
-    migration = await migrateLegacyBaseline({ storage, now, enabled: true, ...(backup ? { backup } : {}) })
+    migration = await migrateLegacyBaseline({ storage, now, enabled: true, content, ...(backup ? { backup } : {}) })
     if (migration.status !== 'migrated') return { status: 'not-activated', mode, reason: 'migration', migration }
   } else {
     mode = 'reactivation'
     const errors = baselineIntegrity(baseline, marker)
     if (errors.length) return { status: 'not-activated', mode, reason: 'integrity', errors }
-    const rec = await shadowReconciliation({ storage })
+    const rec = await shadowReconciliation({ storage, content })
     if (rec.status !== 'in-sync') return { status: 'not-activated', mode, reason: 'diverged', report: rec.report }
   }
 
@@ -138,13 +142,15 @@ export async function deactivateShadow({ storage = globalThis.localStorage, now 
   await store.setState(SHADOW_STATE_KEY, { ...prev, enabled: false })
 }
 
-/** Reconciliation από το storage (shadow ↔ legacy). Μόνο ανάγνωση. */
-export async function shadowReconciliation({ storage = globalThis.localStorage } = {}) {
+/**
+ * Reconciliation από το storage (shadow ↔ legacy): ΠΛΗΡΗΣ σύγκριση snapshot (κουίζ, κάρτες, wrongBook, checklists).
+ * Μόνο ανάγνωση. Τα legacy κλειδιά διαβάζονται όλα (ο adapter του μαθήματος ξέρει ποια είναι πρόοδος).
+ */
+export async function shadowReconciliation({ storage = globalThis.localStorage, content } = {}) {
   const store = createProgressStore({ storage })
   const baseline = await store.getState(LEGACY_BASELINE_KEY)
   if (!baseline) return { status: 'no-baseline' }
-  const legacyRaw = storage.getItem('psd115-w1-study')
-  const legacy = legacyRaw ? JSON.parse(legacyRaw) : {}
-  const report = reconcileShadow({ baseline, legacy, events: await store.query(), reset: (await store.getState(RESET_MARKER_KEY)) ?? null })
-  return { status: report.ok ? 'in-sync' : 'diverged', report, shadow: (await store.getState(SHADOW_STATE_KEY)) ?? null }
+  const state = JSON.parse(storage.getItem(STATE_KEY) ?? '{}')
+  const report = reconcileShadow({ content, baseline, legacyEntries: readProgressEntries(storage), events: await store.query(), state })
+  return { status: report.ok ? 'in-sync' : 'diverged', report, shadow: state[SHADOW_STATE_KEY] ?? null }
 }

@@ -32,7 +32,7 @@ const SETTINGS = new Set(['psd115-w1-theme', 'psd115-disclaimer-v1'])
 
 const CAPTURED = Date.parse('2026-10-06T10:00:00.000Z')
 const baselineOf = (keys) => {
-  const b = buildLegacyBaseline(keys, { now: () => CAPTURED })
+  const b = buildLegacyBaseline(keys, { now: () => CAPTURED, content })
   assert.ok(b.ok, JSON.stringify(b.errors))
   return b.baseline
 }

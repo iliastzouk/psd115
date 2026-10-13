@@ -307,3 +307,22 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
 - **Συναλλαγή:** αποτυχία στη μέση → rollback στα αρχικά raw (και αλλοιωμένα)· αποτυχία και του rollback → το σημάδι
   μένει και το boot επαναφέρει (το service ξεκινά σε degraded).
 - Tests: `tests/progressRecovery.test.mjs` (T1–T5) και `smoke:progress` (degraded → reset με/χωρίς επαληθευμένο backup).
+
+## 13. Αποσύνδεση από το PSD115 και πλήρες reconciliation (Phase 1E-4c-1)
+
+Καθαρό refactor, χωρίς αλλαγή στη συμπεριφορά της εφαρμογής. Ο **content adapter** είναι το μόνο σημείο σύνδεσης με
+μάθημα/περιεχόμενο/παλιά κλειδιά· η σύνδεση γίνεται στο `main.jsx` (service + shadow recorder).
+
+- `buildLegacyBaseline(entries, { now, content })`: επικύρωση και αποκωδικοποίηση μόνο μέσω `legacyToSnapshot` (strict) και
+  του adapter (+ `checkSettings` για τις τιμές theme/disclaimer). Το baseline (v1) είναι **byte-identical** με το 1E-2
+  (golden SHA-256 στα 3 fixtures, `tests/progressDecoupling.test.mjs`). Το `visibleProgress` αντικαταστάθηκε από το
+  `buildProgressSnapshot`.
+- `reconcileShadow({ content, baseline, legacyEntries, events, state })`: **πλήρης** σύγκριση
+  `legacyToSnapshot(legacy)` ≡ `buildProgressSnapshot(baseline, events, state)` σε κουίζ, ομάδες, κάρτες, wrongBook,
+  checklists. Κανονικοποιήσεις (οι μόνες): wrongBook χωρίς `t`· κάρτες ως σύνολο· αντικείμενα χωρίς σημασία στη σειρά
+  των κλειδιών. Το report δίνει διαφορά ανά πεδίο (`diff`).
+- `createShadowRecorder({ courseId, content, … })` / `installShadowRecorder` (main.jsx)·
+  `migrateLegacyBaseline` / `activateShadow` / `shadowReconciliation` παίρνουν `content`.
+
+**Συνέπεια (σκόπιμη):** μέχρι το 1E-4c-2 (mirror του wrongBook/checklists στο state), κάθε αλλαγή στο legacy wrongBook ή
+στα checklists εμφανίζεται ως `diverged` — το παλιό reconciliation τις αγνοούσε και έλεγε λανθασμένα `in-sync`.

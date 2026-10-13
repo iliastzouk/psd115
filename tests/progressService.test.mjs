@@ -290,7 +290,7 @@ describe('1E-4b · reset (D6: ένα κλειδί)', () => {
 
   test('το reset που γράφει το resetProgressSafely εφαρμόζεται από τον reader', () => {
     const at = Date.parse('2026-10-06T10:00:00Z')
-    const { baseline, marker } = buildLegacyBaseline(PROD, { now: () => at })
+    const { baseline, marker } = buildLegacyBaseline(PROD, { now: () => at, content })
     const storage = fakeStorage({ ...PROD, [STATE_KEY]: JSON.stringify({ [MIGRATION_MARKER_KEY]: marker }) })
     resetProgressSafely({ storage, download: () => {}, now: () => at + 5000 })
     const state = JSON.parse(storage.getItem(STATE_KEY))
@@ -302,7 +302,7 @@ describe('1E-4b · reset (D6: ένα κλειδί)', () => {
   })
 
   test('το παλιό κλειδί (progress-reset:psd115) ΔΕΝ γίνεται δεκτό', () => {
-    const { baseline } = buildLegacyBaseline(PROD, { now: () => Date.parse('2026-10-06T10:00:00Z') })
+    const { baseline } = buildLegacyBaseline(PROD, { now: () => Date.parse('2026-10-06T10:00:00Z'), content })
     const r = buildProgressSnapshot({ courseId: 'psd115', content, baseline, state: { 'progress-reset:psd115': { at: '2026-10-07T00:00:00.000Z' } } })
     assert.equal(r.snapshot.quizAnswered, 1)
   })

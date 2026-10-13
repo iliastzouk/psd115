@@ -11,6 +11,7 @@ import { initSettings } from './utils/settings.js'
 import { createProgressService } from './core/progress/progressService.js'
 import { psd115ProgressAdapter } from './core/progress/adapters/psd115.js'
 import { installProgressService } from './hooks/useProgress.js'
+import { createShadowRecorder, installShadowRecorder } from './utils/progressShadow.js'
 
 const storage = (() => {
   try {
@@ -42,6 +43,8 @@ const progressService = createProgressService({
   warn: (...a) => console.warn(...a),
 })
 installProgressService(progressService)
+// Shadow recorder (1E-3· με content adapter από το 1E-4c-1): ΕΝΑ instance. Ανενεργός εκτός αν ανοίξουν και οι 3 πύλες.
+installShadowRecorder(createShadowRecorder({ courseId: 'psd115', content: psd115ProgressAdapter }))
 if (progressService.getSnapshot().status !== 'ready') console.warn('[progress] ασφαλής λειτουργία:', progressService.getSnapshot().issues)
 
 // Μόνο σε `npm run dev`: στην κονσόλα `psd115Progress.validate()` για έλεγχο της αποθηκευμένης προόδου,

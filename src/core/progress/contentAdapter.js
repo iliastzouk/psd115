@@ -18,6 +18,7 @@
  * ο έλεγχος περιεχομένου (counts, κάρτες, ερωτήσεις, topics) γίνεται στον engine.
  *
  * @typedef {{
+ *   checkSettings?: (entries: Record<string, string>) => string[],   // τιμές ρυθμίσεων (μόνο για το baseline)
  *   decode: (entries: Record<string, string>) => {
  *     study: unknown,                                // parsed αντικείμενο προόδου μελέτης· undefined αν δεν υπάρχει
  *     checklists: { key: string, topicId: string | null, items: unknown }[],  // topicId null = άγνωστο θέμα
