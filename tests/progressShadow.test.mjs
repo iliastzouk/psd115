@@ -14,6 +14,7 @@ import { reconcileShadow } from '../src/core/progress/reconcile.js'
 import { applyImport, resetProgressSafely } from '../src/utils/progressBackup.js'
 import { activateShadow, deactivateShadow, shadowReconciliation } from '../src/utils/progressMigration.js'
 import { createShadowRecorder, LEGACY_PROGRESS_SHADOW_ENABLED, SHADOW_BUILD_ENABLED } from '../src/utils/progressShadow.js'
+import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
 import { validateExport } from '../src/utils/progressValidate.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -59,11 +60,11 @@ const ev = (t, extra = {}) => ({ id: newEventId(), t, item: 'psd115/q-w2-var-1',
 /** Storage μετά από ενεργοποίηση: production fixture + baseline/marker στο T0 + shadow enabled. */
 async function activated() {
   const s = fakeStorage({ ...PROD.keys })
-  const r = await activateShadow({ storage: s, now: fixed(T0), backup: noBackup })
+  const r = await activateShadow({ storage: s, now: fixed(T0), backup: noBackup, content })
   assert.equal(r.status, 'active')
   return s
 }
-const recorder = (s, t = T0 + 1000, extra = {}) => createShadowRecorder({ storage: s, now: fixed(t), enabled: true, warn: () => {}, ...extra })
+const recorder = (s, t = T0 + 1000, extra = {}) => createShadowRecorder({ courseId: 'psd115', content, storage: s, now: fixed(t), enabled: true, warn: () => {}, ...extra })
 
 describe('όριο migration: event με t πριν από το marker.at απορρίπτεται σε ΚΑΘΕ δρόμο', () => {
   test('append: T0 − 1 → απόρριψη χωρίς καμία εγγραφή· T0 και T0 + 1 → δεκτά', async () => {
@@ -141,7 +142,7 @@ describe('πύλες του shadow mode', () => {
     const s = await activated()
     const before = s.dump()
     const reads = s.reads()
-    const r = createShadowRecorder({ storage: s })
+    const r = createShadowRecorder({ courseId: 'psd115', content, storage: s })
     assert.deepEqual(await r.recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true }), { status: 'disabled' })
     assert.deepEqual(await r.recordFlashcardSeen({ cardId: 'fc-def-1' }), { status: 'disabled' })
     assert.equal(s.reads(), reads, 'ούτε καν ανάγνωση')
@@ -156,14 +157,14 @@ describe('πύλες του shadow mode', () => {
   test('με σημάδι αλλά χωρίς runtime ενεργοποίηση → inactive', async () => {
     const s = fakeStorage({ ...PROD.keys })
     const { migrateLegacyBaseline } = await import('../src/utils/progressMigration.js')
-    await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: noBackup })
+    await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: noBackup, content })
     const before = s.dump()
     assert.equal((await recorder(s).recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true })).status, 'inactive')
     assert.deepEqual(s.dump(), before)
   })
   test('activateShadow δεν ενεργοποιεί αν το migration απορριφθεί· deactivate σταματά τα writes', async () => {
     const bad = fakeStorage({ ...PROD.keys, 'psd115-w1-study': '{oops' })
-    assert.equal((await activateShadow({ storage: bad, now: fixed(T0), backup: noBackup })).status, 'not-activated')
+    assert.equal((await activateShadow({ storage: bad, now: fixed(T0), backup: noBackup, content })).status, 'not-activated')
     assert.equal(bad.getItem(STATE_KEY), null)
     const s = await activated()
     await recorder(s).recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true })
@@ -291,42 +292,67 @@ describe('reconciliation', () => {
     return { s, baseline, legacy }
   }
 
+  /** Τα legacy κλειδιά όπως θα ήταν: τα κλειδιά του baseline με το τρέχον study (1E-4c-1: reconcile από κλειδιά). */
+  const entriesOf = (baseline, study) => ({ ...baseline.raw, 'psd115-w1-study': JSON.stringify(study) })
+  const rec = (baseline, study, s, extra = {}) => reconcileShadow({ content, baseline, legacyEntries: entriesOf(baseline, study), events: events(s), state: state(s), ...extra })
+
   test('10 απαντήσεις (5 σωστές / 5 λάθος) + 10 events → legacy delta == event delta', async () => {
     const { s, baseline, legacy } = await scenario()
     assert.equal(events(s).length, 10)
-    const r = reconcileShadow({ baseline, legacy, events: events(s) })
-    assert.equal(r.ok, true, JSON.stringify(r))
-    assert.deepEqual(r.quiz.legacy.answered, 10)
-    assert.deepEqual(r.quiz.legacy.correct, 5)
-    assert.deepEqual(r.quiz.events.byCategory, r.quiz.legacy.byCategory)
+    const r = rec(baseline, legacy, s)
+    assert.equal(r.ok, true, JSON.stringify(r.diff))
+    assert.equal(r.legacy.quizAnswered - baseline.progress.quizAnswered, 10)
+    assert.equal(r.legacy.quizCorrect - baseline.progress.quizCorrect, 5)
+    assert.deepEqual(r.shadow.byGroup, r.legacy.byGroup)
   })
   test('ένα χαμένο event εντοπίζεται (απόκλιση, όχι σιωπηλή απώλεια)', async () => {
     const { s, baseline, legacy } = await scenario({ dropEvent: true })
-    const r = reconcileShadow({ baseline, legacy, events: events(s) })
+    const r = rec(baseline, legacy, s)
     assert.equal(r.ok, false)
-    assert.equal(r.quiz.legacy.answered - r.quiz.events.answered, 1)
-    assert.equal(r.quiz.byCategoryMismatch.length, 1)
+    assert.equal(r.diff.quizAnswered.legacy - r.diff.quizAnswered.shadow, 1)
+    assert.ok(r.diff.byGroup, 'η ομάδα της χαμένης απάντησης διαφέρει')
   })
   test('κάρτες: νέες κάρτες legacy == νέα flip events· κάρτα του baseline που ξαναπατήθηκε δεν μετράει', async () => {
     const s = await activated()
     const baseline = state(s)[LEGACY_BASELINE_KEY]
-    const legacy = { ...structuredClone(baseline.progress), flashcardSeenIds: [...baseline.progress.flashcardSeenIds, 'fc-pavlov-1', 'fc-pavlov-2'] }
+    const { checklists, ...study } = structuredClone(baseline.progress)
+    const legacy = { ...study, flashcardSeenIds: [...baseline.progress.flashcardSeenIds, 'fc-pavlov-1', 'fc-pavlov-2'] }
     for (const id of ['fc-def-1', 'fc-pavlov-1', 'fc-pavlov-2', 'fc-pavlov-1']) await recorder(s).recordFlashcardSeen({ cardId: id })
     assert.equal(events(s).length, 4, 'ένα event ανά πάτημα')
-    assert.equal(reconcileShadow({ baseline, legacy, events: events(s) }).ok, true)
-    const missing = reconcileShadow({ baseline, legacy: { ...legacy, flashcardSeenIds: [...legacy.flashcardSeenIds, 'fc-pavlov-3'] }, events: events(s) })
-    assert.deepEqual(missing.cards.missingEvents, ['fc-pavlov-3'])
+    assert.equal(rec(baseline, legacy, s).ok, true)
+    const missing = rec(baseline, { ...legacy, flashcardSeenIds: [...legacy.flashcardSeenIds, 'fc-pavlov-3'] }, s)
+    assert.deepEqual(Object.keys(missing.diff), ['flashcardSeenIds'])
+    assert.ok(missing.diff.flashcardSeenIds.legacy.includes('psd115/fc-pavlov-3') && !missing.diff.flashcardSeenIds.shadow.includes('psd115/fc-pavlov-3'))
   })
-  test('το wrongBook δεν συμμετέχει· το quizCorrect ναι', async () => {
+  test('1E-4c-1: το wrongBook ΣΥΜΜΕΤΕΧΕΙ (πριν αγνοούνταν)· το quizCorrect επίσης', async () => {
     const { s, baseline, legacy } = await scenario()
-    assert.equal(reconcileShadow({ baseline, legacy: { ...legacy, wrongBook: [] }, events: events(s) }).ok, true)
-    assert.equal(reconcileShadow({ baseline, legacy: { ...legacy, quizCorrect: legacy.quizCorrect + 1 }, events: events(s) }).ok, false)
+    const wb = rec(baseline, { ...legacy, wrongBook: [] }, s)
+    assert.equal(wb.ok, false)
+    assert.deepEqual(Object.keys(wb.diff), ['wrongBook'])
+    assert.equal(rec(baseline, { ...legacy, quizCorrect: legacy.quizCorrect + 1 }, s).ok, false)
   })
-  test('legacy «πίσω» από το baseline χωρίς reset marker → issue', () => {
-    const baseline = { courseId: 'psd115', progress: { quizAnswered: 5, quizCorrect: 2, byCategory: {}, flashcardSeenIds: [] } }
-    const r = reconcileShadow({ baseline, legacy: { quizAnswered: 0, quizCorrect: 0 }, events: [] })
+  test('legacy «πίσω» από το baseline χωρίς reset marker → απόκλιση', async () => {
+    const s = await activated()
+    const baseline = state(s)[LEGACY_BASELINE_KEY]
+    const r = rec(baseline, { quizAnswered: 0, quizCorrect: 0, byCategory: {}, flashcardSeenIds: [], wrongBook: [] }, s)
     assert.equal(r.ok, false)
-    assert.equal(r.issues.length, 1)
+    assert.deepEqual(r.diff.quizAnswered, { legacy: 0, shadow: baseline.progress.quizAnswered })
+  })
+  test('regression (inspection 1E-4c): wrongBook με ίδιο πλήθος αλλά άλλη εγγραφή + checklist → diverged (το παλιό έλεγε in-sync)', async () => {
+    const s = await activated()
+    const baseline = state(s)[LEGACY_BASELINE_KEY]
+    const q = quizQuestions.find((x) => x.categoryId === 'pavlov')
+    await recorder(s).recordQuizAnswer({ questionId: q.id, ok: false })
+    const { checklists, ...study } = structuredClone(baseline.progress)
+    study.quizAnswered += 1
+    study.byCategory.pavlov = { correct: 0, wrong: 1 }
+    // Το παλιό λάθος αφαιρέθηκε και μπήκε το νέο: ίδιο πλήθος (1), άλλη εγγραφή.
+    study.wrongBook = [{ uid: 'u-new', id: q.id, categoryId: 'pavlov', question: q.question, explanation: q.explanation, userLabel: q.options[q.correctIndex === 0 ? 1 : 0], correctLabel: q.options[q.correctIndex] }]
+    const entries = { ...entriesOf(baseline, study), 'psd115-w1-pavlov-checklist': JSON.stringify([true, false, false, false, false, false, false, false, false]) }
+    const r = reconcileShadow({ content, baseline, legacyEntries: entries, events: events(s), state: state(s) })
+    assert.equal(r.ok, false)
+    assert.deepEqual(Object.keys(r.diff).sort(), ['checklists', 'wrongBook'])
+    assert.equal(r.diff.wrongBook.legacy.length, r.diff.wrongBook.shadow.length, 'ίδιο πλήθος — το παλιό reconciliation δεν το έπιανε')
   })
   test('shadowReconciliation από το storage: in-sync μετά από πραγματικά writes', async () => {
     const s = await activated()
@@ -336,7 +362,7 @@ describe('reconciliation', () => {
     study.quizCorrect += 1
     study.byCategory['w2-variables'].correct += 1
     s.setItem('psd115-w1-study', JSON.stringify(study))
-    const r = await shadowReconciliation({ storage: s })
+    const r = await shadowReconciliation({ storage: s, content })
     assert.equal(r.status, 'in-sync', JSON.stringify(r.report))
   })
 })
@@ -362,7 +388,7 @@ describe('reset μετά το migration', () => {
     await recorder(s, T0 + 200).recordQuizAnswer({ questionId: 'q-w2-var-2', ok: false })
     const cat = quizQuestions.find((q) => q.id === 'q-w2-var-2').categoryId
     s.setItem('psd115-w1-study', JSON.stringify({ quizAnswered: 1, quizCorrect: 0, byCategory: { [cat]: { correct: 0, wrong: 1 } }, flashcardSeenIds: [], wrongBook: [] }))
-    const r = await shadowReconciliation({ storage: s })
+    const r = await shadowReconciliation({ storage: s, content })
     assert.equal(r.status, 'in-sync', JSON.stringify(r.report))
   })
 })
@@ -399,6 +425,7 @@ describe('επανενεργοποίηση (activateShadow idempotent)', () => {
     await answerBoth(s, T0 + 2000, 'q-w2-var-2', false)
     const r = await activateShadow({
       storage: s,
+      content,
       now: fixed(T0 + 86_400_000),
       backup: () => {
         throw new Error('η επανενεργοποίηση δεν πρέπει να ξανατρέχει migration/backup')
@@ -420,11 +447,11 @@ describe('επανενεργοποίηση (activateShadow idempotent)', () => {
     study.byCategory['w2-variables'].wrong += 1
     s.setItem('psd115-w1-study', JSON.stringify(study))
     const before = s.dump()
-    const r = await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup })
+    const r = await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup, content })
     assert.equal(r.status, 'not-activated')
     assert.equal(r.mode, 'reactivation')
     assert.equal(r.reason, 'diverged')
-    assert.equal(r.report.quiz.legacy.answered - r.report.quiz.events.answered, 1)
+    assert.equal(r.report.diff.quizAnswered.legacy - r.report.diff.quizAnswered.shadow, 1)
     assert.deepEqual(s.dump(), before)
     assert.equal(state(s)[SHADOW_STATE_KEY].enabled, false)
   })
@@ -432,7 +459,7 @@ describe('επανενεργοποίηση (activateShadow idempotent)', () => {
   test('απενεργοποίηση χωρίς αλλαγές στο legacy → επανενεργοποίηση επιτρέπεται', async () => {
     const s = await activated()
     await deactivateShadow({ storage: s })
-    assert.equal((await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup })).status, 'active')
+    assert.equal((await activateShadow({ storage: s, now: fixed(T0 + 5000), backup: noBackup, content })).status, 'active')
     assert.equal(state(s)[SHADOW_STATE_KEY].enabled, true)
   })
 
@@ -443,7 +470,7 @@ describe('επανενεργοποίηση (activateShadow idempotent)', () => {
     st[SHADOW_STATE_KEY].enabled = false
     s.setItem(STATE_KEY, JSON.stringify(st))
     const before = s.dump()
-    const r = await activateShadow({ storage: s, now: fixed(T0 + 1), backup: noBackup })
+    const r = await activateShadow({ storage: s, now: fixed(T0 + 1), backup: noBackup, content })
     assert.equal(r.reason, 'integrity')
     assert.deepEqual(s.dump(), before)
 
@@ -451,6 +478,6 @@ describe('επανενεργοποίηση (activateShadow idempotent)', () => {
     const st2 = state(s2)
     delete st2[LEGACY_BASELINE_KEY]
     s2.setItem(STATE_KEY, JSON.stringify(st2))
-    assert.equal((await activateShadow({ storage: s2, now: fixed(T0 + 1), backup: noBackup })).reason, 'integrity')
+    assert.equal((await activateShadow({ storage: s2, now: fixed(T0 + 1), backup: noBackup, content })).reason, 'integrity')
   })
 })

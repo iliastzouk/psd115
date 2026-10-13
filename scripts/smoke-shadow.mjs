@@ -40,13 +40,14 @@ if (build.status !== 0) process.exit(build.status ?? 1)
 const { quizQuestions, flashcards } = await imp('content/courses/psd115/questions.js')
 const { buildLegacyBaseline } = await imp('src/core/progress/legacyBaseline.js')
 const { reconcileShadow } = await imp('src/core/progress/reconcile.js')
+const { psd115ProgressAdapter: content } = await imp('src/core/progress/adapters/psd115.js')
 const K = await imp('src/core/progress/keys.js')
 const fixture = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8'))
 
 const EVENTS = 'study-progress-events-v1'
 const STATE = 'study-progress-state-v1'
 const migratedAt = Date.now() - 60_000
-const built = buildLegacyBaseline(fixture.keys, { now: () => migratedAt })
+const built = buildLegacyBaseline(fixture.keys, { now: () => migratedAt, content })
 if (!built.ok) throw new Error(built.errors.join('; '))
 const seed = {
   ...fixture.keys,
@@ -112,19 +113,25 @@ async function newPage(browser) {
 
 const read = (page) =>
   page.evaluate(([E, S]) => ({
+    legacyEntries: Object.fromEntries(Object.keys(localStorage).filter((k) => k.startsWith('psd115-') && !k.startsWith('psd115-backup-')).map((k) => [k, localStorage.getItem(k)])),
     study: JSON.parse(localStorage.getItem('psd115-w1-study') ?? '{}'),
     events: localStorage.getItem(E) === null ? null : JSON.parse(localStorage.getItem(E)),
     state: JSON.parse(localStorage.getItem(S) ?? '{}'),
   }), [EVENTS, STATE])
 
-async function answerOneQuizQuestion(page, base) {
+/** Μία απάντηση στο κουίζ της Εβδ. 2: σωστή ή λάθος (ντετερμινιστικά, από το κείμενο της ερώτησης/επιλογών). */
+async function answerOneQuizQuestion(page, base, correct = true) {
   await page.goto(`${base}/study/quiz?scope=unit:psd115/k2`, { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
   const text = ((await page.locator('main h2').first().textContent()) ?? '').trim()
-  await page.locator('main ul li button').first().click()
+  const labels = (await page.locator('main ul li button').allTextContents()).map((t) => t.trim())
+  const matches = quizQuestions.filter((q) => q.question.trim() === text && [...q.options].sort().join('|') === [...labels].sort().join('|'))
+  const right = matches[0]?.options[matches[0].correctIndex]
+  await page.locator('main ul li button').nth(correct ? labels.indexOf(right) : labels.findIndex((l) => l !== right)).click()
   await page.waitForTimeout(300)
-  return quizQuestions.filter((q) => q.question.trim() === text).map((q) => q.id)
+  return matches.map((q) => q.id)
 }
+const reconcile = (s) => reconcileShadow({ content, baseline: built.baseline, legacyEntries: s.legacyEntries, events: s.events ?? [], state: s.state })
 
 const browser = await launch()
 let server
@@ -160,8 +167,16 @@ let server
   const c = s.events?.[1]
   if (c) check(c.item === `psd115/${cardId}` && c.kind === 'flip' && c.ctx === 'flash', `A: λάθος card event ${JSON.stringify(c)}`)
   check(new Set(s.events.map((e) => e.id)).size === s.events.length, 'A: διπλά event ids')
-  const rec = reconcileShadow({ baseline: built.baseline, legacy: s.study, events: s.events })
-  check(rec.ok, `A: reconciliation όχι in-sync: ${JSON.stringify(rec)}`)
+  const rec = reconcile(s)
+  check(rec.ok, `A: reconciliation όχι in-sync: ${JSON.stringify(rec.diff)}`)
+
+  // 1E-4c-1: λάθος απάντηση → το legacy wrongBook αλλάζει, το νέο store ΔΕΝ το έχει ακόμα (mirror = 1E-4c-2).
+  // Το πλήρες reconciliation το δείχνει ρητά — απόκλιση ΜΟΝΟ στο wrongBook (οι μετρητές συμφωνούν).
+  await answerOneQuizQuestion(page, base, false)
+  s = await read(page)
+  check(s.events?.length === 3, `A: ${s.events?.length} events μετά τη λάθος απάντηση (αναμενόταν 3)`)
+  const recWrong = reconcile(s)
+  check(!recWrong.ok && JSON.stringify(Object.keys(recWrong.diff)) === '["wrongBook"]', `A: λάθος απάντηση: αναμενόταν απόκλιση μόνο στο wrongBook, βρέθηκε ${JSON.stringify(Object.keys(recWrong.diff))}`)
 
   // Απενεργοποίηση (runtime) → καμία νέα εγγραφή.
   await page.evaluate(([S, KEY]) => {
@@ -171,9 +186,9 @@ let server
   }, [STATE, K.SHADOW_STATE_KEY])
   await answerOneQuizQuestion(page, base)
   s = await read(page)
-  check(s.study.quizAnswered === 3, `A: μετά την απενεργοποίηση legacy quizAnswered ${s.study.quizAnswered} (αναμενόταν 3)`)
-  check(s.events?.length === 2, `A: μετά την απενεργοποίηση ${s.events?.length} events (αναμενόταν 2)`)
-  check(!reconcileShadow({ baseline: built.baseline, legacy: s.study, events: s.events }).ok, 'A: η απόκλιση μετά την απενεργοποίηση δεν εντοπίστηκε')
+  check(s.study.quizAnswered === 4, `A: μετά την απενεργοποίηση legacy quizAnswered ${s.study.quizAnswered} (αναμενόταν 4)`)
+  check(s.events?.length === 3, `A: μετά την απενεργοποίηση ${s.events?.length} events (αναμενόταν 3)`)
+  check(reconcile(s).diff.quizAnswered, 'A: η απόκλιση μετά την απενεργοποίηση δεν εντοπίστηκε')
 
   // Import αρχείου με event πριν από το όριο migration → απόρριψη.
   const oldEvent = { id: '00000000-0000-4000-8000-0000000000aa', t: migratedAt - 1, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 1, ctx: 'quiz' }
@@ -189,7 +204,7 @@ let server
 
   await context.close()
   server.kill()
-  console.log(`${failures.length ? '✗' : '✓'} Shadow build: 1 απάντηση + 1 κάρτα → 2 events · in-sync · απενεργοποίηση → 0 νέα · παλιό event → απόρριψη`)
+  console.log(`${failures.length ? '✗' : '✓'} Shadow build: σωστή απάντηση + κάρτα → 2 events · πλήρες in-sync · λάθος απάντηση → diverged μόνο στο wrongBook (mirror: 1E-4c-2) · απενεργοποίηση → 0 νέα · παλιό event → απόρριψη`)
 }
 
 // ---------- A2. Integration: handleSelectOption → recorder → legacy ----------

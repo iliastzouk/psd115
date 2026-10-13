@@ -19,8 +19,10 @@ import {
   LEGACY_BASELINE_KEY,
   legacySourceHash,
   MIGRATION_MARKER_KEY,
-  visibleProgress,
+  RESET_MARKER_KEY,
 } from '../src/core/progress/legacyBaseline.js'
+import { buildProgressSnapshot } from '../src/core/progress/snapshot.js'
+import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
 import { sha256Hex } from '../src/core/progress/sha256.js'
 import { LEGACY_BASELINE_MIGRATION_ENABLED, migrateLegacyBaseline } from '../src/utils/progressMigration.js'
 import { TXN_KEY } from '../src/utils/progressTransaction.js'
@@ -55,7 +57,26 @@ function fakeStorage(init = {}) {
   }
 }
 const legacyOnly = (dump) => Object.fromEntries(Object.entries(dump).filter(([k]) => k.startsWith('psd115-')))
-const migrate = (storage, now = T0) => migrateLegacyBaseline({ storage, now: fixed(now), enabled: true, backup: noBackup })
+const migrate = (storage, now = T0) => migrateLegacyBaseline({ storage, now: fixed(now), enabled: true, backup: noBackup, content })
+
+/**
+ * Ό,τι βλέπει ο χρήστης από baseline + events (+ reset), μέσω του snapshot engine (1E-4c-1: αντικατέστησε το
+ * visibleProgress), σε legacy σχήμα για σύγκριση με το legacy σύστημα.
+ */
+function visibleProgress({ baseline, events = [], reset = null }) {
+  const r = buildProgressSnapshot({ courseId: baseline.courseId, content, baseline, events, state: reset ? { [RESET_MARKER_KEY]: reset } : {} })
+  assert.ok(r.ok, JSON.stringify(r.errors))
+  const s = r.snapshot
+  const local = (item) => item.slice(item.indexOf('/') + 1)
+  return {
+    quizAnswered: s.quizAnswered,
+    quizCorrect: s.quizCorrect,
+    byCategory: s.byGroup,
+    flashcardSeenIds: s.flashcardSeenIds.map(local),
+    wrongBook: s.wrongBook.map((w) => ({ uid: w.uid, id: local(w.item), categoryId: w.group, question: w.question, explanation: w.explanation, userLabel: w.userLabel, correctLabel: w.correctLabel })),
+    checklists: Object.fromEntries(Object.entries(s.checklists).map(([topicId, c]) => [topicId, { items: c.items, legacyKey: baseline.progress.checklists[topicId]?.legacyKey }])),
+  }
+}
 
 /** Ό,τι δείχνει ΣΗΜΕΡΑ το legacy σύστημα (ίδια λογική με storage.loadProgress + τα checklists ανά κλειδί). */
 function legacyVisible(keys) {
@@ -111,7 +132,7 @@ describe('source hash', () => {
 
 describe('baseline του production fixture', () => {
   const data = readFixture(PROD)
-  const r = buildLegacyBaseline(data.keys, { now: fixed(T0) })
+  const r = buildLegacyBaseline(data.keys, { now: fixed(T0), content })
   const study = JSON.parse(data.keys['psd115-w1-study'])
 
   test('έγκυρο, χωρίς προειδοποιήσεις', () => {
@@ -182,7 +203,7 @@ describe('conservation: legacy visible == baseline visible', () => {
   for (const name of [PROD, HISTORICAL, SAMPLE]) {
     test(name, () => {
       const keys = readFixture(name).keys
-      const r = buildLegacyBaseline(keys, { now: fixed(T0) })
+      const r = buildLegacyBaseline(keys, { now: fixed(T0), content })
       assert.equal(r.ok, true, JSON.stringify(r.errors))
       const v = visibleProgress({ baseline: r.baseline })
       const l = legacyVisible(keys)
@@ -199,7 +220,7 @@ describe('conservation: legacy visible == baseline visible', () => {
     })
   }
   test('production fixture: συγκεκριμένες τιμές', () => {
-    const v = visibleProgress({ baseline: buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0) }).baseline })
+    const v = visibleProgress({ baseline: buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0), content }).baseline })
     assert.equal(v.quizAnswered, 1)
     assert.equal(v.quizCorrect, 0)
     assert.equal(v.wrongBook.length, 1)
@@ -222,7 +243,7 @@ describe('migration πάνω σε storage (fake)', () => {
   test('migrated: legacy αμετάβλητο, μηδέν events, state = baseline + marker μόνο', async () => {
     const s = fakeStorage({ ...keys })
     let backups = 0
-    const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1) })
+    const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1), content })
     assert.equal(r.status, 'migrated')
     assert.equal(r.sourceHash, PROD_SOURCE_HASH)
     assert.equal(backups, 1, 'safety backup πριν από την εγγραφή')
@@ -233,7 +254,7 @@ describe('migration πάνω σε storage (fake)', () => {
     const state = JSON.parse(d[STATE_KEY])
     assert.deepEqual(Object.keys(state).sort(), [LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY].sort())
     assert.equal(state[MIGRATION_MARKER_KEY].sourceHash, PROD_SOURCE_HASH)
-    assert.deepEqual(state[LEGACY_BASELINE_KEY], buildLegacyBaseline(keys, { now: fixed(T0) }).baseline)
+    assert.deepEqual(state[LEGACY_BASELINE_KEY], buildLegacyBaseline(keys, { now: fixed(T0), content }).baseline)
   })
 
   test('no fake history: query() = [] και το μόνο timestamp είναι του migration', async () => {
@@ -286,7 +307,7 @@ describe('migration πάνω σε storage (fake)', () => {
     const s = fakeStorage({ ...keys, [EVENTS_KEY]: JSON.stringify([ev]), [STATE_KEY]: JSON.stringify({ other: 1 }) })
     const before = s.dump()
     let backups = 0
-    const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1) })
+    const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1), content })
     assert.equal(r.status, 'conflict')
     assert.match(r.errors[0], /ήδη 1 events χωρίς σημάδι migration/)
     assert.deepEqual(s.dump(), before, 'legacy, events και state αμετάβλητα')
@@ -354,25 +375,25 @@ describe('baseline + πραγματικό μελλοντικό event (χωρίς
     assert.deepEqual(legacyOnly(s.dump()), keys)
   })
   test('λάθος απάντηση δεν προσθέτει στο wrongBook (state, όχι projection)', () => {
-    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0) }).baseline
+    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0), content }).baseline
     const ev = { id: newEventId(), t: T0 + 1, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 0, ctx: 'quiz' }
     const v = visibleProgress({ baseline, events: [ev] })
     assert.equal(v.quizAnswered, 2)
     assert.equal(v.wrongBook.length, 1)
   })
   test('κάρτες: ήδη μελετημένη δεν ξαναμετριέται· νέα προστίθεται (21 → 22)', () => {
-    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0) }).baseline
+    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0), content }).baseline
     const flip = (id) => ({ id: newEventId(), t: T0 + 1, item: `psd115/${id}`, kind: 'flip', ctx: 'flash' })
     assert.equal(visibleProgress({ baseline, events: [flip('fc-def-1')] }).flashcardSeenIds.length, 21)
     assert.equal(visibleProgress({ baseline, events: [flip('fc-def-1'), flip('fc-pavlov-1')] }).flashcardSeenIds.length, 22)
   })
   test('απαντήσεις mini κουίζ (ctx lesson) δεν μετρούν στο κουίζ (ίδιο εύρος με το legacy)', () => {
-    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0) }).baseline
+    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0), content }).baseline
     const ev = { id: newEventId(), t: T0 + 1, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 1, ctx: 'lesson' }
     assert.equal(visibleProgress({ baseline, events: [ev] }).quizAnswered, 1)
   })
   test('reset marker (σύμβαση): αγνοεί baseline και events πριν από το reset', () => {
-    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0) }).baseline
+    const baseline = buildLegacyBaseline(readFixture(PROD).keys, { now: fixed(T0), content }).baseline
     const at = new Date(T0 + 10).toISOString()
     const ev = (t) => ({ id: newEventId(), t, item: 'psd115/q-w2-var-1', kind: 'answer', ok: 1, ctx: 'quiz' })
     const v = visibleProgress({ baseline, events: [ev(T0 + 5), ev(T0 + 20)], reset: { at } })
@@ -391,12 +412,12 @@ describe('κατεστραμμένα / άκυρα legacy δεδομένα → α
     ['άγνωστο πεδίο study', withStudy({ extra: 1 }), /άγνωστο πεδίο «extra»/],
     ['quizCorrect > quizAnswered', withStudy({ quizCorrect: 5 }), /quizCorrect \(5\) > quizAnswered/],
     ['byCategory άκυρη δομή', withStudy({ byCategory: { 'w2-variables': { correct: -1, wrong: 1 } } }), /byCategory\.w2-variables/],
-    ['byCategory άγνωστη κατηγορία', withStudy({ byCategory: { nope: { correct: 0, wrong: 1 } } }), /άγνωστη κατηγορία «nope»/],
+    ['byCategory άγνωστη κατηγορία', withStudy({ byCategory: { nope: { correct: 0, wrong: 1 } } }), /άγνωστη ομάδα «nope»/],
     ['flashcardSeenIds άγνωστη κάρτα', withStudy({ flashcardSeenIds: ['fc-nope'] }), /άγνωστη κάρτα «fc-nope»/],
     ['flashcardSeenIds διπλή', withStudy({ flashcardSeenIds: ['fc-def-1', 'fc-def-1'] }), /διπλή κάρτα/],
     ['wrongBook λείπει πεδίο', withStudy({ wrongBook: [{ ...study.wrongBook[0], userLabel: undefined }] }), /userLabel: αναμενόταν string/],
     ['wrongBook άγνωστη ερώτηση', withStudy({ wrongBook: [{ ...study.wrongBook[0], id: 'q-nope' }] }), /άγνωστη ερώτηση «q-nope»/],
-    ['wrongBook άγνωστη κατηγορία', withStudy({ wrongBook: [{ ...study.wrongBook[0], categoryId: 'nope' }] }), /άγνωστη κατηγορία «nope»/],
+    ['wrongBook άγνωστη κατηγορία', withStudy({ wrongBook: [{ ...study.wrongBook[0], categoryId: 'nope' }] }), /άγνωστη ομάδα «nope»/],
     ['checklist όχι boolean[]', { ...base, 'psd115-w1-pavlov-checklist': '[1,0]' }, /πίνακας true\/false/],
     ['checklist άγνωστο slug (k1)', { ...base, 'psd115-w1-nope-checklist': '[true]' }, /δεν αντιστοιχεί σε θέμα/],
     ['checklist άγνωστο slug (k2)', { ...base, 'psd115-w2-checklists': '{"nope":[true]}' }, /δεν αντιστοιχεί σε θέμα/],
@@ -405,7 +426,7 @@ describe('κατεστραμμένα / άκυρα legacy δεδομένα → α
   ]
   for (const [label, entries, re] of cases) {
     test(label, async () => {
-      const r = buildLegacyBaseline(entries, { now: fixed(T0) })
+      const r = buildLegacyBaseline(entries, { now: fixed(T0), content })
       assert.equal(r.ok, false)
       assert.ok(r.errors.some((e) => re.test(e)), r.errors.join(' | '))
       const s = fakeStorage({ ...entries })

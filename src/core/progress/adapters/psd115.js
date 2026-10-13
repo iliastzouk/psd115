@@ -50,6 +50,16 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
   }
 
   const legacy = {
+    /** Τιμές ρυθμίσεων (μόνο για το frozen baseline· δεν επηρεάζουν την ανάγνωση της προόδου). */
+    checkSettings(entries) {
+      const errors = []
+      const theme = entries['psd115-w1-theme']
+      if (theme !== undefined && theme !== 'light' && theme !== 'dark') errors.push('psd115-w1-theme: αναμενόταν "light" ή "dark"')
+      const disclaimer = entries['psd115-disclaimer-v1']
+      if (disclaimer !== undefined && disclaimer !== '1') errors.push('psd115-disclaimer-v1: αναμενόταν "1"')
+      return errors
+    },
+
     decode(entries) {
       const errors = []
       const settings = []

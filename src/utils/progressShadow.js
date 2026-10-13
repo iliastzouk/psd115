@@ -12,7 +12,6 @@
  * χρήστη: καταγράφεται (best effort) στο `shadow:psd115` και φαίνεται στο reconciliation.
  * Καλείται από τον handler (όχι από setState updater/effect), ώστε το StrictMode να μη διπλασιάζει events.
  */
-import { flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
 import { progressItem } from '../core/progress/items.js'
 import { newEventId } from '../core/progress/events.js'
 import { MIGRATION_MARKER_KEY, SHADOW_STATE_KEY } from '../core/progress/keys.js'
@@ -24,15 +23,16 @@ export const LEGACY_PROGRESS_SHADOW_ENABLED = false
 const SMOKE_BUILD = import.meta.env?.VITE_PROGRESS_SHADOW_SMOKE === '1'
 export const SHADOW_BUILD_ENABLED = LEGACY_PROGRESS_SHADOW_ENABLED || SMOKE_BUILD
 
-const COURSE_ID = 'psd115'
 const MAX_RECENT_FAILURES = 20
-const questionIds = new Set(quizQuestions.map((q) => q.id))
-const cardIds = new Set(flashcards.map((c) => c.id))
 
 /**
- * @param {{ storage?: Storage, now?: () => number, enabled?: boolean, newId?: () => string, warn?: (...a: unknown[]) => void }} [opts]
+ * Το μάθημα και το περιεχόμενό του δίνονται ως παράμετροι (content adapter): ο recorder δεν ξέρει κανένα μάθημα.
+ * @param {{ courseId: string, content: import('../core/progress/contentAdapter.js').ContentAdapter, storage?: Storage,
+ *           now?: () => number, enabled?: boolean, newId?: () => string, warn?: (...a: unknown[]) => void }} opts
  */
 export function createShadowRecorder({
+  courseId,
+  content,
   storage,
   now = () => Date.now(),
   enabled = SHADOW_BUILD_ENABLED,
@@ -86,8 +86,8 @@ export function createShadowRecorder({
     /** Μία απάντηση στο κεντρικό κουίζ. `ok`: αν η απάντηση ήταν σωστή (όπως την υπολόγισε το legacy). */
     recordQuizAnswer({ questionId, ok }) {
       return record('quiz-answer', questionId, () => {
-        if (!questionIds.has(questionId)) throw new Error(`άγνωστη ερώτηση «${questionId}»`)
-        return { id: newId(), t: now(), item: progressItem(COURSE_ID, questionId), kind: 'answer', ok: ok ? 1 : 0, ctx: 'quiz' }
+        if (!content.isQuestion(questionId)) throw new Error(`άγνωστη ερώτηση «${questionId}»`)
+        return { id: newId(), t: now(), item: progressItem(courseId, questionId), kind: 'answer', ok: ok ? 1 : 0, ctx: 'quiz' }
       })
     },
     /**
@@ -97,14 +97,23 @@ export function createShadowRecorder({
      */
     recordFlashcardSeen({ cardId }) {
       return record('card-seen', cardId, () => {
-        if (!cardIds.has(cardId)) throw new Error(`άγνωστη κάρτα «${cardId}»`)
-        return { id: newId(), t: now(), item: progressItem(COURSE_ID, cardId), kind: 'flip', ctx: 'flash' }
+        if (!content.isCard(cardId)) throw new Error(`άγνωστη κάρτα «${cardId}»`)
+        return { id: newId(), t: now(), item: progressItem(courseId, cardId), kind: 'flip', ctx: 'flash' }
       })
     },
   }
 }
 
-const appRecorder = createShadowRecorder()
+// ---- Ο recorder της εφαρμογής: δημιουργείται και εγκαθίσταται ΜΙΑ φορά στο main.jsx (όπως το ProgressService). ----
+let installed = null
+
+/** Μόνο από το main.jsx, μία φορά. Δεύτερη κλήση → σφάλμα. */
+export function installShadowRecorder(recorder) {
+  if (installed) throw new Error('shadow recorder: έχει ήδη εγκατασταθεί')
+  installed = recorder
+}
+
+const notInstalled = () => Promise.resolve({ status: 'disabled' })
 /** Για την εφαρμογή (useStudySession). Με το build flag κλειστό: επιστρέφει αμέσως, χωρίς πρόσβαση στο storage. */
-export const recordQuizAnswer = (args) => appRecorder.recordQuizAnswer(args)
-export const recordFlashcardSeen = (args) => appRecorder.recordFlashcardSeen(args)
+export const recordQuizAnswer = (args) => (installed ? installed.recordQuizAnswer(args) : notInstalled())
+export const recordFlashcardSeen = (args) => (installed ? installed.recordFlashcardSeen(args) : notInstalled())

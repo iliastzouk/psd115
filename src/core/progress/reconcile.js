@@ -1,73 +1,54 @@
 /**
- * Reconciliation shadow ↔ legacy (Phase 1E-3) — pure.
+ * Reconciliation shadow ↔ legacy (1E-3· πλήρες από το 1E-4c-1) — pure, χωρίς γνώση μαθήματος.
  *
- * Όσο ο shadow mode είναι ενεργός από τη στιγμή του migration, κάθε αλλαγή στο legacy πρέπει να έχει
- * αντίστοιχα πραγματικά events:
- *   κουίζ:  legacy (answered, correct, byCategory) − baseline  ==  answer events (ctx 'quiz')
- *   κάρτες: legacy seen − baseline seen                         ==  flip items (ctx 'flash') − baseline seen
- * Το wrongBook ΔΕΝ συγκρίνεται (το event δεν κρατά την επιλεγμένη απάντηση).
- * Με reset marker, η σύγκριση ξεκινά από το μηδέν και μόνο με events από το reset και μετά.
+ *   legacy  = legacyToSnapshot(τρέχοντα legacy κλειδιά, runtime)
+ *   shadow  = buildProgressSnapshot(baseline, events, state)
+ *   in-sync ⟺ ίδιο snapshot σε ΟΛΑ τα πεδία: quizAnswered, quizCorrect, byGroup, flashcardSeenIds, wrongBook, checklists
+ *
+ * Κανονικοποιήσεις (ρητές, και οι μόνες):
+ *  - wrongBook: αγνοείται το `t` (το legacy δεν το αποθηκεύει)· όλα τα υπόλοιπα πεδία και η σειρά συγκρίνονται.
+ *  - flashcardSeenIds: σύνολο (η σημασιολογία των καρτών είναι set membership).
+ *  - αντικείμενα (byGroup, checklists): χωρίς σημασία η σειρά των κλειδιών· οι τιμές και οι πίνακες αυστηρά.
+ * Τα checklists συγκρίνονται αυστηρά (απόν ≠ πίνακας με false).
  */
-import { quizQuestions } from '../../../content/courses/psd115/questions.js'
-import { parseGlobalId } from '../academic/ids.js'
+import { buildProgressSnapshot, legacyToSnapshot } from './snapshot.js'
 
-const categoryOf = new Map(quizQuestions.map((q) => [q.id, q.categoryId]))
-const ZERO = { quizAnswered: 0, quizCorrect: 0, byCategory: {}, flashcardSeenIds: [] }
+const FIELDS = ['quizAnswered', 'quizCorrect', 'byGroup', 'flashcardSeenIds', 'wrongBook', 'checklists']
+
+/** JSON με ταξινομημένα κλειδιά αντικειμένων (οι πίνακες κρατούν τη σειρά τους). */
+function canonical(value) {
+  return JSON.stringify(value, (_, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v))
+}
+
+function normalize(snapshot) {
+  return {
+    quizAnswered: snapshot.quizAnswered,
+    quizCorrect: snapshot.quizCorrect,
+    byGroup: snapshot.byGroup,
+    flashcardSeenIds: [...snapshot.flashcardSeenIds].sort(),
+    wrongBook: snapshot.wrongBook.map(({ t, ...entry }) => entry),
+    checklists: snapshot.checklists,
+  }
+}
 
 /**
- * @param {{ baseline: { courseId: string, progress: object }, legacy: object, events: object[], reset?: { at: string } | null }} input
- *   legacy: το parsed `psd115-w1-study` τώρα
+ * @param {{
+ *   content: import('./contentAdapter.js').ContentAdapter,
+ *   baseline: object,                       // frozen legacy baseline
+ *   legacyEntries: Record<string, string>,  // τρέχοντα raw legacy κλειδιά
+ *   events?: object[],
+ *   state?: object,                         // ολόκληρο το state του store (reset, wrongbook, checklists namespaces)
+ * }} input
+ * @returns {{ ok: boolean, diff: Record<string, { legacy: unknown, shadow: unknown }>, errors: string[], legacy?: object, shadow?: object }}
  */
-export function reconcileShadow({ baseline, legacy, events, reset = null }) {
-  const resetAt = reset?.at ? Date.parse(reset.at) : null
-  const base = resetAt === null ? baseline.progress : ZERO
-  const relevant = events.filter((e) => (resetAt === null || e.t >= resetAt) && parseGlobalId(e.item)?.courseId === baseline.courseId)
-  const local = (e) => parseGlobalId(e.item).localId
-
-  const answers = relevant.filter((e) => e.kind === 'answer' && e.ctx === 'quiz')
-  const eventsDelta = { answered: answers.length, correct: answers.filter((e) => e.ok === 1).length, byCategory: {} }
-  for (const e of answers) {
-    const cat = categoryOf.get(local(e)) ?? '(άγνωστη)'
-    const s = (eventsDelta.byCategory[cat] ??= { correct: 0, wrong: 0 })
-    if (e.ok === 1) s.correct += 1
-    else s.wrong += 1
-  }
-
-  const legacyDelta = {
-    answered: (legacy.quizAnswered ?? 0) - base.quizAnswered,
-    correct: (legacy.quizCorrect ?? 0) - base.quizCorrect,
-    byCategory: {},
-  }
-  const cats = new Set([...Object.keys(legacy.byCategory ?? {}), ...Object.keys(base.byCategory)])
-  for (const cat of cats) {
-    const now = legacy.byCategory?.[cat] ?? { correct: 0, wrong: 0 }
-    const was = base.byCategory[cat] ?? { correct: 0, wrong: 0 }
-    const d = { correct: now.correct - was.correct, wrong: now.wrong - was.wrong }
-    if (d.correct || d.wrong) legacyDelta.byCategory[cat] = d
-  }
-
-  const issues = []
-  if (legacyDelta.answered < 0 || legacyDelta.correct < 0 || Object.values(legacyDelta.byCategory).some((d) => d.correct < 0 || d.wrong < 0)) {
-    issues.push('το legacy είναι «πίσω» από το baseline (reset χωρίς σημάδι ή overwrite από άλλο tab)')
-  }
-  const byCategoryMismatch = [...new Set([...Object.keys(legacyDelta.byCategory), ...Object.keys(eventsDelta.byCategory)])]
-    .filter((cat) => JSON.stringify(legacyDelta.byCategory[cat] ?? null) !== JSON.stringify(eventsDelta.byCategory[cat] ?? null))
-    .sort()
-
-  const baseSeen = new Set(base.flashcardSeenIds)
-  const legacyNew = new Set((legacy.flashcardSeenIds ?? []).filter((id) => !baseSeen.has(id)))
-  const eventNew = new Set(relevant.filter((e) => e.kind === 'flip' && e.ctx === 'flash').map(local).filter((id) => !baseSeen.has(id)))
-  const cards = {
-    missingEvents: [...legacyNew].filter((id) => !eventNew.has(id)).sort(),
-    extraEvents: [...eventNew].filter((id) => !legacyNew.has(id)).sort(),
-  }
-
-  const ok =
-    !issues.length &&
-    legacyDelta.answered === eventsDelta.answered &&
-    legacyDelta.correct === eventsDelta.correct &&
-    !byCategoryMismatch.length &&
-    !cards.missingEvents.length &&
-    !cards.extraEvents.length
-  return { ok, quiz: { legacy: legacyDelta, events: eventsDelta, byCategoryMismatch }, cards, issues }
+export function reconcileShadow({ content, baseline, legacyEntries, events = [], state = {} }) {
+  const legacy = legacyToSnapshot(legacyEntries, { content, mode: 'runtime' })
+  const shadow = buildProgressSnapshot({ courseId: baseline?.courseId, content, baseline, events, state })
+  const errors = [...(legacy.ok ? [] : legacy.errors.map((e) => `legacy: ${e}`)), ...(shadow.ok ? [] : shadow.errors.map((e) => `shadow: ${e}`))]
+  if (errors.length) return { ok: false, diff: {}, errors }
+  const a = normalize(legacy.snapshot)
+  const b = normalize(shadow.snapshot)
+  const diff = {}
+  for (const field of FIELDS) if (canonical(a[field]) !== canonical(b[field])) diff[field] = { legacy: a[field], shadow: b[field] }
+  return { ok: Object.keys(diff).length === 0, diff, errors, legacy: legacy.snapshot, shadow: shadow.snapshot }
 }
