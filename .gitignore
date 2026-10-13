@@ -13,3 +13,4 @@ dist/
 # Cursor
 .cursor/
 dist-shadow
+dist-progress*

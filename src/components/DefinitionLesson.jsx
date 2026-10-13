@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import { definitionLesson, definitionLessonQuizIds } from '../../content/courses/psd115/units/k1/definitionPsychology.js'
 import { quizQuestions } from '../../content/courses/psd115/questions.js'
-import { loadDefinitionChecklist, saveDefinitionChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function ExampleGrid({ items }) {
@@ -67,14 +67,10 @@ function LessonQuizItem({ q: original }) {
 
 export default function DefinitionLesson({ definitionFlashcards, onMarkFlashSeen }) {
   const L = definitionLesson
-  const [checklist, setChecklist] = useState(() => loadDefinitionChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [showIdealAnswer, setShowIdealAnswer] = useState(false)
   const [showExamAnswer, setShowExamAnswer] = useState(false)
   const [fcIndex, setFcIndex] = useState(0)
-
-  useEffect(() => {
-    saveDefinitionChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

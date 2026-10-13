@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
 import { evolutionaryLesson, evolutionaryExamQuestions, evolutionaryLessonQuizIds } from '../../content/courses/psd115/units/k1/evolutionary.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadEvolutionaryChecklist, saveEvolutionaryChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-evolutionary-1', 'fc-evolutionary-2', 'fc-evolutionary-3', 'fc-evolutionary-4', 'fc-evolutionary-5']
@@ -54,13 +54,9 @@ function LessonQuizItem({ q: original }) {
 export default function EvolutionaryLesson({ evolutionaryFlashcards, onMarkFlashSeen }) {
   const L = evolutionaryLesson
   const catLabel = getCategoryLabel('evolutionary')
-  const [checklist, setChecklist] = useState(() => loadEvolutionaryChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveEvolutionaryChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

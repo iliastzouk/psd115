@@ -8,7 +8,7 @@ function pct(part, total) {
 
 /**
  * @param {object} props
- * @param {object} props.progress — αποθηκευμένη πρόοδος (quiz, κάρτες, byCategory)
+ * @param {object} props.progress — snapshot προόδου του μαθήματος (quiz, κάρτες, byGroup)
  * @param {number} props.totalFlashcards
  * @param {number} props.totalQuiz
  * @param {boolean} [props.defaultExpanded] — false σελίδες ενότητας: συμπαγής μπάρα, ανοιχτό σε hub & εργαλεία
@@ -96,7 +96,7 @@ export default function Progress({ progress, totalFlashcards, totalQuiz, default
             {catOpen && (
               <ul className="space-y-2 max-h-[min(40vh,16rem)] overflow-y-auto pr-1 overscroll-contain mt-2 animate-[fadeIn_0.2s_ease-out]">
                 {categoryList.map((c) => {
-                  const s = progress.byCategory[c.id] || { correct: 0, wrong: 0 }
+                  const s = progress.byGroup[c.id] || { correct: 0, wrong: 0 }
                   const att = s.correct + s.wrong
                   const p = pct(s.correct, att)
                   return (

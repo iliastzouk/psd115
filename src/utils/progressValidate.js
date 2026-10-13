@@ -10,6 +10,8 @@
 import { validateEvent } from '../core/progress/events.js'
 import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { boundaryViolations, migrationBoundary } from '../core/progress/boundary.js'
+import { legacyToSnapshot } from '../core/progress/snapshot.js'
+import { psd115ProgressAdapter } from '../core/progress/adapters/psd115.js'
 
 export const STORAGE_PREFIX = 'psd115-'
 /** Αντίγραφα ασφαλείας μέσα στο localStorage· δεν είναι πρόοδος και δεν εξάγονται. */
@@ -254,7 +256,11 @@ export function validateExport(data) {
   if (Object.keys(data.keys).length === 0 && storeKeyCount === 0) return fail('Το αρχείο δεν περιέχει κανένα κλειδί προόδου.')
 
   const legacy = validateEntries(data.keys)
-  const errors = [...legacy.errors, ...store.errors]
+  // Ο ΙΔΙΟΣ reader με την εφαρμογή (ProgressService): ό,τι δεν μπορεί να διαβάσει με ασφάλεια δεν γίνεται δεκτό ως
+  // πρόοδος (π.χ. αλλοιωμένο backup από degraded mode — κρατιέται για χειροκίνητη ανάκτηση, όχι για import).
+  const runtime = legacyToSnapshot(data.keys, { content: psd115ProgressAdapter, mode: 'runtime' })
+  const runtimeErrors = runtime.ok ? [] : runtime.issues.map((e) => `Η εφαρμογή δεν μπορεί να διαβάσει με ασφάλεια: ${e}`)
+  const errors = [...legacy.errors, ...runtimeErrors, ...store.errors]
   return {
     ok: errors.length === 0,
     errors,

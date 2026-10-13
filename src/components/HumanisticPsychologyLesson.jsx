@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
@@ -9,7 +9,7 @@ import {
   humanisticLessonQuizIds,
 } from '../../content/courses/psd115/units/k1/humanisticPsychology.js'
 import { quizQuestions } from '../../content/courses/psd115/questions.js'
-import { loadHumanisticChecklist, saveHumanisticChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 function LessonQuizItem({ q: original }) {
@@ -52,13 +52,9 @@ function LessonQuizItem({ q: original }) {
 
 export default function HumanisticPsychologyLesson({ humanisticFlashcards, onMarkFlashSeen }) {
   const L = humanisticLesson
-  const [checklist, setChecklist] = useState(() => loadHumanisticChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveHumanisticChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Flashcard from './Flashcard.jsx'
 import SectionCard from './SectionCard.jsx'
 import MemoryHack from './MemoryHack.jsx'
 import { gestaltLesson, gestaltExamQuestions, gestaltLessonQuizIds } from '../../content/courses/psd115/units/k1/gestalt.js'
 import { quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
-import { loadGestaltChecklist, saveGestaltChecklist } from '../utils/storage.js'
+import { useTopicChecklist } from '../hooks/useProgress.js'
 import { shuffleQuestionOptions } from '../utils/shuffle.js'
 
 const FC_ORDER = ['fc-gestalt-1', 'fc-gestalt-2', 'fc-gestalt-3']
@@ -54,13 +54,9 @@ function LessonQuizItem({ q: original }) {
 export default function GestaltLesson({ gestaltFlashcards, onMarkFlashSeen }) {
   const L = gestaltLesson
   const catLabel = getCategoryLabel('gestalt')
-  const [checklist, setChecklist] = useState(() => loadGestaltChecklist(L.progressChecklist.length))
+  const [checklist, setChecklist] = useTopicChecklist(L.progressChecklist.length)
   const [fcIndex, setFcIndex] = useState(0)
   const [openExamIdx, setOpenExamIdx] = useState({})
-
-  useEffect(() => {
-    saveGestaltChecklist(checklist)
-  }, [checklist])
 
   const lessonQuizItems = useMemo(() => {
     const map = new Map(quizQuestions.map((q) => [q.id, q]))
