@@ -294,3 +294,16 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
   `--differential=<παλιό dist>` για σύγκριση με το παλιό build).
 - **Εκτός 1E-4b:** συγχρονισμός πολλών tabs, εμφάνιση αποτυχίας εγγραφής, new reader / `commit({events,state})`,
   αποσύνδεση `legacyBaseline`/`reconcile`/`progressShadow` από το PSD115, cleanup των load/save του `storage.js`, F2/F3.
+
+### Ανάκαμψη από degraded mode (PR #9)
+
+- **Επαληθευμένο safety backup:** πριν από reset ή import, το backup (raw, byte-identical ακόμα και όταν τα δεδομένα είναι
+  αλλοιωμένα) κατεβαίνει ως αρχείο ΚΑΙ γράφεται τοπικά· θεωρείται επιτυχές μόνο αν το τοπικό αντίγραφο ξαναδιαβαστεί
+  ίδιο. Αποτυχία λήψης, εγγραφής ή επαλήθευσης → `BackupError`, το reset/import ακυρώνεται χωρίς καμία αλλαγή στην πρόοδο.
+- **Import:** `importWithBackup` = πλήρης επικύρωση → επαληθευμένο backup → συναλλαγή. Η επικύρωση (`validateExport`)
+  περιλαμβάνει τον ΙΔΙΟ reader με την εφαρμογή (`legacyToSnapshot(..., { mode: 'runtime' })`)· ό,τι δεν μπορεί να διαβαστεί
+  με ασφάλεια απορρίπτεται ήδη στην επιλογή αρχείου. Ένα αλλοιωμένο backup από degraded mode κρατιέται για χειροκίνητη
+  ανάκτηση, δεν γίνεται δεκτό ως import.
+- **Συναλλαγή:** αποτυχία στη μέση → rollback στα αρχικά raw (και αλλοιωμένα)· αποτυχία και του rollback → το σημάδι
+  μένει και το boot επαναφέρει (το service ξεκινά σε degraded).
+- Tests: `tests/progressRecovery.test.mjs` (T1–T5) και `smoke:progress` (degraded → reset με/χωρίς επαληθευμένο backup).

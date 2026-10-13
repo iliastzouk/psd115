@@ -116,24 +116,58 @@ export function listLocalBackups(storage = defaultStorage()) {
     .sort()
 }
 
+/** Το safety backup δεν δημιουργήθηκε ή δεν επαληθεύτηκε· η ενέργεια που το χρειάζεται ΔΕΝ πρέπει να συνεχίσει. */
+export class BackupError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'BackupError'
+  }
+}
+
 /**
- * Αντίγραφο ασφαλείας (export v2: legacy + νέο store) πριν από import ή reset: κατεβαίνει ως αρχείο
- * ΚΑΙ κρατιέται στο localStorage (τα τελευταία 3). Αν το localStorage είναι γεμάτο, μένει μόνο το αρχείο.
- * @returns {{ data: object, storedLocally: boolean }}
+ * Αντίγραφο ασφαλείας (export v2: legacy + νέο store, raw — byte-identical ακόμα και αν είναι αλλοιωμένα) πριν από
+ * import ή reset: κατεβαίνει ως αρχείο ΚΑΙ γράφεται στο localStorage (τα τελευταία 3).
+ * Θεωρείται επιτυχές ΜΟΝΟ όταν το τοπικό αντίγραφο γραφτεί και ξαναδιαβαστεί ίδιο (η λήψη αρχείου δεν μπορεί να
+ * επιβεβαιωθεί από την εφαρμογή). Αλλιώς → BackupError, και ο καλών δεν αλλάζει τίποτα (reset/import ακυρώνονται).
+ * @returns {{ data: object, storedLocally: true, key: string }}
  */
 export function createSafetyBackup(reason, { storage = defaultStorage(), download = downloadJson } = {}) {
   const data = buildExport(reason, storage)
+  const serialized = JSON.stringify(data)
   download(data, `psd115-backup-before-${reason}-${stamp(data.exportedAt)}.json`)
-  let storedLocally = false
+  const key = `${BACKUP_KEY_PREFIX}${data.exportedAt}`
+  const existed = storage.getItem(key) !== null
+  const discard = () => {
+    if (existed) return
+    try {
+      storage.removeItem(key)
+    } catch {
+      /* best effort: ένα μη επαληθευμένο αντίγραφο δεν είναι πρόοδος */
+    }
+  }
   try {
-    storage.setItem(`${BACKUP_KEY_PREFIX}${data.exportedAt}`, JSON.stringify(data))
-    storedLocally = true
+    storage.setItem(key, serialized)
+  } catch (e) {
+    discard()
+    throw new BackupError(`Το αντίγραφο ασφαλείας δεν αποθηκεύτηκε (${e?.name ?? 'error'})· δεν άλλαξε τίποτα`)
+  }
+  let readBack = null
+  try {
+    readBack = storage.getItem(key)
+  } catch {
+    readBack = null
+  }
+  if (readBack !== serialized) {
+    discard()
+    throw new BackupError('Το αντίγραφο ασφαλείας δεν επαληθεύτηκε· δεν άλλαξε τίποτα')
+  }
+  try {
     const all = listLocalBackups(storage)
     for (const old of all.slice(0, Math.max(0, all.length - MAX_LOCAL_BACKUPS))) storage.removeItem(old)
   } catch {
-    /* quota: το αρχείο που κατέβηκε αρκεί */
+    /* η απομάκρυνση παλιών αντιγράφων δεν επηρεάζει το νέο */
   }
-  return { data, storedLocally }
+  return { data, storedLocally: true, key }
 }
 
 /**
@@ -260,6 +294,19 @@ export function applyImport(data, storage = defaultStorage()) {
   return { keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
 }
 
+/**
+ * Εισαγωγή από το UI, με τη σειρά: ΠΛΗΡΗΣ επικύρωση (ίδιος reader με την εφαρμογή) → επαληθευμένο safety backup →
+ * συναλλαγή. Άκυρο αρχείο → σφάλμα χωρίς backup και χωρίς εγγραφή· αποτυχία backup → BackupError, καμία εγγραφή.
+ * Ο καλών κάνει αμέσως reload.
+ */
+export function importWithBackup(data, { storage = defaultStorage(), download = downloadJson } = {}) {
+  const plan = planImport(data, storage)
+  if (!plan.ok) throw new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`)
+  const backup = createSafetyBackup('import', { storage, download })
+  const { changed } = runTransaction(storage, { op: `import-v${data.version}`, targets: plan.targets })
+  return { backup, keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
+}
+
 /** Τα κλειδιά που σβήνει το reset της legacy προόδου (ίδια με το storage.resetProgress). Theme/disclaimer μένουν. */
 export function legacyResetKeys(storage = defaultStorage()) {
   return Object.keys(readProgressEntries(storage)).filter((key) => {
@@ -286,7 +333,7 @@ export function describeReset(storage = defaultStorage()) {
 }
 
 /**
- * Reset με προστασία: safety backup (v2: legacy + νέο store) και διαγραφή των legacy κλειδιών μέσω
+ * Reset με προστασία: ΕΠΑΛΗΘΕΥΜΕΝΟ safety backup (αλλιώς BackupError, τίποτα δεν σβήνεται) και διαγραφή των legacy κλειδιών μέσω
  * συναλλαγής (επαληθευμένη, με rollback). Το νέο store ΔΕΝ αγγίζεται στο 1E-1.
  * Μετά ο καλών καθαρίζει τη μνήμη της εφαρμογής (useStudySession.resetAllStudyProgress).
  */

@@ -8,7 +8,8 @@
  *  G1-M. Mutation builds (προσωρινές αλλαγές κώδικα, αναιρούνται στο τέλος): το gate ΠΡΕΠΕΙ να αποτύχει.
  *      M1: εγγραφή στο mount (όπως το παλιό saveProgress effect) → αποτυγχάνει ο write detector.
  *      M2: άδειο service + hydration σε effect → αποτυγχάνει ο έλεγχος του πρώτου DOM.
- *  D.  Degraded: κατεστραμμένη πρόοδος → μήνυμα, καμία εγγραφή ούτε μετά από ενέργειες, κλειδιά byte-identical.
+ *  D.  Degraded: κατεστραμμένη πρόοδος → μήνυμα, καμία εγγραφή ούτε μετά από ενέργειες, κλειδιά byte-identical·
+ *      reset με αποτυχία τοπικού backup → ακύρωση· reset με backup → raw byte-identical στο αρχείο και τοπικά, resync.
  *  U.  Άγνωστο psd115-* κλειδί: δεν αγγίζεται ποτέ.
  *  G2. Smoke build (dist-progress, VITE_PROGRESS_SMOKE=1): 1 service· όλοι οι consumers ίδιο snapshot (===)·
  *      μετά από κάθε ενέργεια (checklist, κάρτα, σωστή, λάθος, αφαίρεση λάθους, reset) ίδιο ΝΕΟ snapshot (!== παλιό)
@@ -275,6 +276,40 @@ try {
     await page.waitForTimeout(300)
     check((await page.evaluate(() => window.__writes)).length === 0, 'D: εγγραφή σε degraded mode')
     check(sameKeys(await readKeys(page), corrupt), 'D: τα κατεστραμμένα κλειδιά άλλαξαν')
+
+    // D-R1: reset με αποτυχία του τοπικού backup (quota) → ακύρωση, μήνυμα, κλειδιά byte-identical, banner μένει.
+    await page.evaluate(() => {
+      const orig = Storage.prototype.setItem
+      window.__restoreSetItem = () => (Storage.prototype.setItem = orig)
+      Storage.prototype.setItem = function (k, v) {
+        if (this === localStorage && String(k).startsWith('psd115-backup-')) throw new DOMException('full', 'QuotaExceededError')
+        return orig.call(this, k, v)
+      }
+    })
+    let alertText = ''
+    page.once('dialog', async (d) => {
+      alertText = d.message()
+      await d.accept()
+    })
+    await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
+    await page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()
+    await page.waitForTimeout(400)
+    check(/επιβεβαιωμένο αντίγραφο ασφαλείας/.test(alertText), `D-R1: λάθος/κανένα μήνυμα («${alertText}»)`)
+    check(sameKeys(await readKeys(page), corrupt), 'D-R1: το reset προχώρησε χωρίς επαληθευμένο backup')
+    check(await page.getByTestId('progress-degraded').isVisible(), 'D-R1: χάθηκε το μήνυμα ασφαλούς λειτουργίας')
+
+    // D-R2: reset με επιτυχές backup → το backup (αρχείο + τοπικό) κρατά τα αλλοιωμένα raw, μετά διαγραφή + resync.
+    await page.evaluate(() => window.__restoreSetItem())
+    await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()])
+    const backup = JSON.parse(fs.readFileSync(await dl.path(), 'utf8'))
+    await page.waitForTimeout(400)
+    check(backup.keys['psd115-w1-study'] === '{oops', 'D-R2: το backup δεν κράτησε τα αλλοιωμένα raw')
+    const afterReset = await readKeys(page)
+    const localKey = Object.keys(afterReset).find((k) => k.startsWith('psd115-backup-'))
+    check(localKey && afterReset[localKey] === JSON.stringify(backup), 'D-R2: το τοπικό αντίγραφο δεν ταυτίζεται με το αρχείο')
+    check(!('psd115-w1-study' in afterReset), 'D-R2: το reset δεν ολοκληρώθηκε')
+    check(!(await page.getByTestId('progress-degraded').count()), 'D-R2: μετά το reset η εφαρμογή έμεινε σε degraded')
     await context.close()
     // U: άγνωστο κλειδί
     const unknown = { ...PROD, 'psd115-extra-unknown': 'keep-me' }
@@ -288,7 +323,7 @@ try {
     check(writes.length === 1 && writes[0].k === 'psd115-w1-pavlov-checklist', `U: εγγραφές ${JSON.stringify(writes)}`)
     check((await readKeys(page))['psd115-extra-unknown'] === 'keep-me', 'U: το άγνωστο κλειδί άλλαξε')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · κλειδιά byte-identical · άγνωστο κλειδί ανέγγιχτο`)
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)

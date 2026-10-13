@@ -241,9 +241,8 @@ export default function AppShell() {
             data-testid="progress-degraded"
             className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-100"
           >
-            Η αποθηκευμένη πρόοδος δεν μπόρεσε να διαβαστεί με ασφάλεια, οπότε <strong>δεν</strong> άλλαξε και{' '}
-            <strong>δεν θα αποθηκευτεί τίποτα</strong> σε αυτή τη συνεδρία. Μπορείς να συνεχίσεις τη μελέτη· για να
-            κρατήσεις τα δεδομένα σου, κάνε «Εξαγωγή προόδου».
+            Οι αλλαγές προόδου δεν αποθηκεύονται όσο η πρόοδος δεν μπορεί να διαβαστεί με ασφάλεια. Η εισαγωγή ή
+            επαναφορά είναι διαθέσιμη μόνο μετά από επιβεβαιωμένο αντίγραφο ασφαλείας.
           </div>
         ) : null}
         <Outlet context={study} />
@@ -287,9 +286,13 @@ export default function AppShell() {
           // Backup (legacy + νέο store) και διαγραφή μέσω επαληθευμένης συναλλαγής. Αν αποτύχει, δεν σβήνεται τίποτα.
           try {
             resetProgressSafely()
-          } catch {
+          } catch (e) {
             setResetConfirmOpen(false)
-            window.alert('Η επαναφορά δεν ολοκληρώθηκε· η πρόοδος δεν άλλαξε.')
+            window.alert(
+              e?.name === 'BackupError'
+                ? 'Δεν δημιουργήθηκε επιβεβαιωμένο αντίγραφο ασφαλείας· η επαναφορά ακυρώθηκε και η πρόοδος δεν άλλαξε.'
+                : 'Η επαναφορά δεν ολοκληρώθηκε· η πρόοδος δεν άλλαξε.',
+            )
             return
           }
           study.resetAllStudyProgress()
