@@ -12,7 +12,8 @@
 import { sameEvent } from '../core/progress/events.js'
 import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { boundaryViolations, importBoundary } from '../core/progress/boundary.js'
-import { MIGRATION_MARKER_KEY as MARKER_KEY, RESET_MARKER_KEY } from '../core/progress/keys.js'
+import { LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY as MARKER_KEY, RESET_MARKER_KEY } from '../core/progress/keys.js'
+import { CHECKLISTS_STATE_VERSION, checklistsStateKey, resetStateKey, WRONG_BOOK_STATE_VERSION, wrongBookStateKey } from '../core/progress/namespaces.js'
 import { runTransaction } from './progressTransaction.js'
 import {
   BACKUP_KEY_PREFIX,
@@ -350,8 +351,26 @@ export function resetProgressSafely({ storage = defaultStorage(), download = dow
   } catch {
     state = null
   }
+  // 1E-4c-2: στην ίδια συναλλαγή μηδενίζονται και τα namespaces wrongBook / checklists του μαθήματος (το mirror του legacy).
   if (state && typeof state === 'object' && !Array.isArray(state) && state[MARKER_KEY]) {
-    targets[STATE_KEY] = JSON.stringify({ ...state, [RESET_MARKER_KEY]: { at: new Date(now()).toISOString(), reason: 'legacy-reset' } })
+    const reset = { at: new Date(now()).toISOString(), reason: 'legacy-reset' }
+    const courseId = state[LEGACY_BASELINE_KEY]?.courseId
+    let known = false
+    try {
+      known = resetStateKey(courseId) === RESET_MARKER_KEY
+    } catch {
+      /* άκυρο courseId στο baseline: μόνο το σημάδι reset, όπως πριν */
+    }
+    targets[STATE_KEY] = JSON.stringify(
+      known
+        ? {
+            ...state,
+            [RESET_MARKER_KEY]: reset,
+            [wrongBookStateKey(courseId)]: { version: WRONG_BOOK_STATE_VERSION, entries: [] },
+            [checklistsStateKey(courseId)]: { version: CHECKLISTS_STATE_VERSION, topics: {} },
+          }
+        : { ...state, [RESET_MARKER_KEY]: reset },
+    )
   }
   const { changed } = runTransaction(storage, { op: 'reset', targets })
   return { backup, removed: changed, keptStoreKeys: Object.keys(readStoreEntries(storage)) }
