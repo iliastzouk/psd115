@@ -14,7 +14,7 @@ import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { boundaryViolations, importBoundary } from '../core/progress/boundary.js'
 import { LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY as MARKER_KEY, RESET_MARKER_KEY } from '../core/progress/keys.js'
 import { CHECKLISTS_STATE_VERSION, checklistsStateKey, resetStateKey, WRONG_BOOK_STATE_VERSION, wrongBookStateKey } from '../core/progress/namespaces.js'
-import { runTransaction } from './progressTransaction.js'
+import { runTransaction, TXN_KEY } from './progressTransaction.js'
 import {
   BACKUP_KEY_PREFIX,
   EXPORT_FORMAT,
@@ -117,6 +117,52 @@ export function listLocalBackups(storage = defaultStorage()) {
     .sort()
 }
 
+/**
+ * Κλειδί που ΔΕΝ υπάρχει ήδη: κανένα backup δεν αντικαθίσταται (π.χ. δύο backups στο ίδιο ms). Χωρίς σύγκρουση η μορφή
+ * μένει `psd115-backup-<ISO>`· με σύγκρουση `-001`, `-002`, … (σταθερό πλάτος, ώστε η ταξινόμηση να μένει χρονολογική).
+ * Το suffix είναι πάντα ΜΕΓΑΛΥΤΕΡΟ από κάθε υπάρχον της ίδιας βάσης (ποτέ επαναχρησιμοποίηση κλειδιού που κλαδεύτηκε),
+ * ώστε το νεότερο backup να ταξινομείται τελευταίο και να μην κλαδεύεται πρώτο.
+ */
+function uniqueBackupKey(storage, base) {
+  let max = -1
+  for (const key of listLocalBackups(storage)) {
+    if (key === base) max = Math.max(max, 0)
+    else if (key.startsWith(`${base}-`) && /^\d{3}$/.test(key.slice(base.length + 1))) max = Math.max(max, Number(key.slice(base.length + 1)))
+  }
+  if (max < 0) return base
+  if (max >= 999) throw new BackupError('Δεν βρέθηκε ελεύθερο κλειδί για το αντίγραφο ασφαλείας· δεν άλλαξε τίποτα')
+  return `${base}-${String(max + 1).padStart(3, '0')}`
+}
+
+/**
+ * Reset/import δεν ξεκινά (ούτε backup, ούτε λήψη, ούτε κλάδεμα παλιών backups):
+ *  - `pending`: εκκρεμεί σημάδι συναλλαγής (`progress-txn-v1`)· η ανάκτηση γίνεται στην επόμενη φόρτωση της σελίδας
+ *  - `unverifiable`: ο έλεγχος του σημαδιού απέτυχε (fail-closed)
+ */
+export class PendingTransactionError extends Error {
+  /** @param {'pending' | 'unverifiable'} reason */
+  constructor(reason) {
+    super(
+      reason === 'pending'
+        ? 'Εκκρεμεί ανάκτηση προηγούμενης αλλαγής· δεν άλλαξε τίποτα'
+        : 'Δεν ήταν δυνατός ο έλεγχος για μη ολοκληρωμένη αλλαγή· δεν άλλαξε τίποτα',
+    )
+    this.name = 'PendingTransactionError'
+    this.reason = reason
+  }
+}
+
+/** Πριν από ΚΑΘΕ backup reset/import (D1): όσο εκκρεμεί σημάδι, ένα νέο backup θα κρατούσε μισή κατάσταση και θα κλάδευε σωστό. */
+function assertNoPendingTransaction(storage) {
+  let marker
+  try {
+    marker = storage.getItem(TXN_KEY)
+  } catch {
+    throw new PendingTransactionError('unverifiable')
+  }
+  if (marker !== null) throw new PendingTransactionError('pending')
+}
+
 /** Το safety backup δεν δημιουργήθηκε ή δεν επαληθεύτηκε· η ενέργεια που το χρειάζεται ΔΕΝ πρέπει να συνεχίσει. */
 export class BackupError extends Error {
   constructor(message) {
@@ -127,7 +173,7 @@ export class BackupError extends Error {
 
 /**
  * Αντίγραφο ασφαλείας (export v2: legacy + νέο store, raw — byte-identical ακόμα και αν είναι αλλοιωμένα) πριν από
- * import ή reset: κατεβαίνει ως αρχείο ΚΑΙ γράφεται στο localStorage (τα τελευταία 3).
+ * import ή reset: κατεβαίνει ως αρχείο ΚΑΙ γράφεται στο localStorage (τα τελευταία 3, σε μοναδικό κλειδί).
  * Θεωρείται επιτυχές ΜΟΝΟ όταν το τοπικό αντίγραφο γραφτεί και ξαναδιαβαστεί ίδιο (η λήψη αρχείου δεν μπορεί να
  * επιβεβαιωθεί από την εφαρμογή). Αλλιώς → BackupError, και ο καλών δεν αλλάζει τίποτα (reset/import ακυρώνονται).
  * @returns {{ data: object, storedLocally: true, key: string }}
@@ -136,10 +182,8 @@ export function createSafetyBackup(reason, { storage = defaultStorage(), downloa
   const data = buildExport(reason, storage)
   const serialized = JSON.stringify(data)
   download(data, `psd115-backup-before-${reason}-${stamp(data.exportedAt)}.json`)
-  const key = `${BACKUP_KEY_PREFIX}${data.exportedAt}`
-  const existed = storage.getItem(key) !== null
+  const key = uniqueBackupKey(storage, `${BACKUP_KEY_PREFIX}${data.exportedAt}`)
   const discard = () => {
-    if (existed) return
     try {
       storage.removeItem(key)
     } catch {
@@ -290,19 +334,20 @@ export function planImport(data, storage = defaultStorage()) {
  */
 export function applyImport(data, storage = defaultStorage()) {
   const plan = planImport(data, storage)
-  if (!plan.ok) throw new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`)
+  if (!plan.ok) throw Object.assign(new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`), { outcome: 'not-started' })
   const { changed } = runTransaction(storage, { op: `import-v${data.version}`, targets: plan.targets })
   return { keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
 }
 
 /**
- * Εισαγωγή από το UI, με τη σειρά: ΠΛΗΡΗΣ επικύρωση (ίδιος reader με την εφαρμογή) → επαληθευμένο safety backup →
+ * Εισαγωγή από το UI, με τη σειρά: κανένα εκκρεμές σημάδι συναλλαγής (D1) → ΠΛΗΡΗΣ επικύρωση (ίδιος reader με την εφαρμογή) → επαληθευμένο safety backup →
  * συναλλαγή. Άκυρο αρχείο → σφάλμα χωρίς backup και χωρίς εγγραφή· αποτυχία backup → BackupError, καμία εγγραφή.
  * Ο καλών κάνει αμέσως reload.
  */
 export function importWithBackup(data, { storage = defaultStorage(), download = downloadJson } = {}) {
+  assertNoPendingTransaction(storage)
   const plan = planImport(data, storage)
-  if (!plan.ok) throw new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`)
+  if (!plan.ok) throw Object.assign(new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`), { outcome: 'not-started' })
   const backup = createSafetyBackup('import', { storage, download })
   const { changed } = runTransaction(storage, { op: `import-v${data.version}`, targets: plan.targets })
   return { backup, keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
@@ -339,6 +384,7 @@ export function describeReset(storage = defaultStorage()) {
  * Μετά ο καλών καθαρίζει τη μνήμη της εφαρμογής (useStudySession.resetAllStudyProgress).
  */
 export function resetProgressSafely({ storage = defaultStorage(), download = downloadJson, now = () => Date.now() } = {}) {
+  assertNoPendingTransaction(storage)
   const backup = createSafetyBackup('reset', { storage, download })
   const targets = Object.fromEntries(legacyResetKeys(storage).map((key) => [key, null]))
   // Μετά το migration (1E-3): το reset καταγράφεται και στο νέο store, στην ΙΔΙΑ συναλλαγή, ώστε
