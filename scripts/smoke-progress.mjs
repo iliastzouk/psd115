@@ -11,6 +11,9 @@
  *  D.  Degraded: κατεστραμμένη πρόοδος → μήνυμα, καμία εγγραφή ούτε μετά από ενέργειες, κλειδιά byte-identical·
  *      reset με αποτυχία τοπικού backup → ακύρωση· reset με backup → raw byte-identical στο αρχείο και τοπικά, resync.
  *  U.  Άγνωστο psd115-* κλειδί: δεν αγγίζεται ποτέ.
+ *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (μετά από αποτυχημένο rollback, review PR #11): κλικ σε checklist →
+ *      ΚΑΜΙΑ εγγραφή, μήνυμα ασφαλούς λειτουργίας, το checkbox δεν δείχνει «αποθηκευμένη» αλλαγή, σημάδι ανέγγιχτο·
+ *      reload → η υπάρχουσα ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
  *  G2. Smoke build (dist-progress, VITE_PROGRESS_SMOKE=1): 1 service· όλοι οι consumers ίδιο snapshot (===)·
  *      μετά από κάθε ενέργεια (checklist, κάρτα, σωστή, λάθος, αφαίρεση λάθους, reset) ίδιο ΝΕΟ snapshot (!== παλιό)
  *      και μνήμη ≡ storage (legacyToSnapshot των κλειδιών)· reset → resync, κανένα checklist ξανα-γράφεται.
@@ -323,7 +326,37 @@ try {
     check(writes.length === 1 && writes[0].k === 'psd115-w1-pavlov-checklist', `U: εγγραφές ${JSON.stringify(writes)}`)
     check((await readKeys(page))['psd115-extra-unknown'] === 'keep-me', 'U: το άγνωστο κλειδί άλλαξε')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο`)
+    // P: εκκρεμές σημάδι κατά τη λειτουργία. Μισή κατάσταση όπως την αφήνει ένα import με αποτυχημένο rollback:
+    //    το 1ο κλειδί έχει την τιμή «after», το 2ο την «before», το σημάδι μένει.
+    ;({ context, page } = await newContext(browser, PROD))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const PAV = 'psd115-w1-pavlov-checklist'
+    const W4 = 'psd115-w4-checklists'
+    const half = JSON.stringify(Array(9).fill(true))
+    const marker = JSON.stringify({ v: 1, op: 'import-v1', startedAt: new Date().toISOString(), before: { [PAV]: PROD[PAV], [W4]: PROD[W4] }, after: { [PAV]: half, [W4]: '{}' } })
+    await page.evaluate(([pav, h, m]) => {
+      localStorage.setItem(pav, h)
+      localStorage.setItem('progress-txn-v1', m)
+      window.__writes.length = 0
+    }, [PAV, half, marker])
+    const pendingKeys = await readKeys(page)
+    const box = page.locator('main input[type=checkbox]').nth(1)
+    const wasChecked = await box.isChecked()
+    await box.click()
+    await page.waitForTimeout(300)
+    check((await page.evaluate(() => window.__writes)).length === 0, `P: εγγραφές με εκκρεμές σημάδι ${JSON.stringify(await page.evaluate(() => window.__writes))}`)
+    check(sameKeys(await readKeys(page), pendingKeys), 'P: τα κλειδιά ή το σημάδι άλλαξαν')
+    check(await page.getByTestId('progress-degraded').isVisible(), 'P: δεν εμφανίστηκε μήνυμα ασφαλούς λειτουργίας')
+    check((await box.isChecked()) === wasChecked, 'P: το checkbox δείχνει την απορριφθείσα αλλαγή ως αποθηκευμένη')
+    await page.reload()
+    await settle(page)
+    const recovered = await readKeys(page)
+    check(recovered[PAV] === PROD[PAV] && recovered[W4] === PROD[W4], 'P: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
+    check(!('progress-txn-v1' in recovered), 'P: το σημάδι έμεινε μετά την ανάκτηση')
+    check(!(await page.getByTestId('progress-degraded').count()), 'P: μετά την ανάκτηση η εφαρμογή έμεινε σε degraded')
+    await context.close()
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)

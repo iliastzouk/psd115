@@ -5,10 +5,14 @@
  * Σειρά: έλεγχος τρέχοντος νέου store → buildLegacyBaseline (έλεγχος legacy) → idempotency/conflict με το
  * σημάδι → safety backup v2 → μία εγγραφή του `study-progress-state-v1` μέσω συναλλαγής (verify/rollback).
  * Τα `psd115-*` ΔΕΝ αλλάζουν. Το `study-progress-events-v1` ΔΕΝ γράφεται (μηδέν events).
+ * Υλοποίηση (1E-4c-2): στην ΙΔΙΑ εγγραφή γράφονται και τα state namespaces wrongBook / checklists του μαθήματος
+ * (stateFromSnapshot του legacy snapshot), ώστε ο recorder να τα ενημερώνει χωρίς να τα δημιουργεί ποτέ.
  */
 import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
 import { SHADOW_STATE_KEY } from '../core/progress/keys.js'
 import { reconcileShadow } from '../core/progress/reconcile.js'
+import { stateFromSnapshot } from '../core/progress/snapshot.js'
+import { checklistsStateKey, wrongBookStateKey } from '../core/progress/namespaces.js'
 import {
   BASELINE_FORMAT,
   BASELINE_VERSION,
@@ -79,7 +83,7 @@ export async function migrateLegacyBaseline({
   }
 
   backup(storage)
-  const next = { ...state, [LEGACY_BASELINE_KEY]: built.baseline, [MIGRATION_MARKER_KEY]: built.marker }
+  const next = { ...state, [LEGACY_BASELINE_KEY]: built.baseline, [MIGRATION_MARKER_KEY]: built.marker, ...stateFromSnapshot(built.snapshot) }
   runTransaction(storage, { op: MIGRATION_MARKER_KEY, targets: { [STATE_KEY]: JSON.stringify(next) }, now })
   return { status: 'migrated', sourceHash, warnings: built.warnings }
 }
@@ -105,6 +109,7 @@ function baselineIntegrity(baseline, marker) {
  *  - Επανενεργοποίηση (υπάρχει σημάδι/baseline): ΔΕΝ ξαναϋπολογίζεται hash από το τρέχον legacy
  *    (αλλάζει νόμιμα μαζί με τα events). Ελέγχεται η ακεραιότητα baseline/σημαδιού και ότι το
  *    reconciliation είναι in-sync· αλλιώς άρνηση χωρίς καμία εγγραφή (π.χ. αλλαγές legacy όσο ήταν off).
+ *    1E-4c-2: απαιτούνται ΕΠΙΣΗΣ τα υλοποιημένα namespaces wrongBook / checklists (αλλιώς `not-materialized`).
  * @returns {Promise<{ status: 'active' | 'not-activated', mode?: 'initial' | 'reactivation', reason?: string, migration?: object, report?: object, errors?: string[] }>}
  */
 export async function activateShadow({ storage = globalThis.localStorage, now = () => Date.now(), backup, content } = {}) {
@@ -124,6 +129,9 @@ export async function activateShadow({ storage = globalThis.localStorage, now = 
     mode = 'reactivation'
     const errors = baselineIntegrity(baseline, marker)
     if (errors.length) return { status: 'not-activated', mode, reason: 'integrity', errors }
+    const missing = []
+    for (const key of [wrongBookStateKey(baseline.courseId), checklistsStateKey(baseline.courseId)]) if ((await store.getState(key)) === undefined) missing.push(key)
+    if (missing.length) return { status: 'not-activated', mode, reason: 'not-materialized', errors: missing.map((k) => `λείπει το «${k}»`) }
     const rec = await shadowReconciliation({ storage, content })
     if (rec.status !== 'in-sync') return { status: 'not-activated', mode, reason: 'diverged', report: rec.report }
   }

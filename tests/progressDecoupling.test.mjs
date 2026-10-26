@@ -60,7 +60,43 @@ describe('1E-4c-1 · μόνο ο adapter ξέρει το μάθημα', () => {
   })
   test('η σύνδεση με το PSD115 γίνεται μόνο στο main.jsx (adapter → service + recorder)', () => {
     const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8')
-    assert.match(main, /createShadowRecorder\(\{ courseId: 'psd115', content: psd115ProgressAdapter \}\)/)
+    assert.match(main, /createShadowRecorder\(\{ courseId: 'psd115', content: psd115ProgressAdapter, isActive: /)
     assert.match(main, /installShadowRecorder\(/)
+  })
+})
+
+describe('1E-4c-2 · G10: legacy δεδομένα που το snapshot δεν αναπαριστά → ΟΧΙ in-sync', async () => {
+  const { reconcileShadow } = await import('../src/core/progress/reconcile.js')
+  const { legacyToSnapshot } = await import('../src/core/progress/snapshot.js')
+  const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
+  const { baseline } = buildLegacyBaseline(PROD, { now: () => T0, content })
+  const rec = (entries) => reconcileShadow({ content, baseline, legacyEntries: entries, events: [], state: {} })
+
+  test('χωρίς τέτοια δεδομένα → in-sync, κενή λίστα', () => {
+    const r = rec(PROD)
+    assert.equal(r.ok, true)
+    assert.deepEqual(r.unrepresented, [])
+  })
+  const CASES = {
+    'άγνωστο κλειδί psd115-*': [{ 'psd115-extra-unknown': 'x' }, 'psd115-extra-unknown'],
+    'orphan slug σε εβδομαδιαίο checklist': [{ 'psd115-w2-checklists': JSON.stringify({ ...JSON.parse(PROD['psd115-w2-checklists']), 'gone-topic': [true] }) }, 'psd115-w2-checklists#gone-topic'],
+    'checklist κλειδί άγνωστου θέματος (Εβδ. 1)': [{ 'psd115-w1-gone-checklist': '[true]' }, 'psd115-w1-gone-checklist'],
+  }
+  for (const [label, [patch, key]] of Object.entries(CASES)) {
+    test(`${label} → diverged (unrepresented), το diff κενό, το κλειδί ονομάζεται`, () => {
+      const r = rec({ ...PROD, ...patch })
+      assert.equal(r.ok, false)
+      assert.deepEqual(r.diff, {})
+      assert.deepEqual(r.unrepresented.map((u) => u.key), [key])
+      // ο runtime reader της εφαρμογής εξακολουθεί να διαβάζει την πρόοδο (τα δεδομένα μένουν ανέγγιχτα)
+      assert.equal(legacyToSnapshot({ ...PROD, ...patch }, { content, mode: 'runtime' }).ok, true)
+    })
+  }
+  test('κάρτα που δεν υπάρχει πια στο περιεχόμενο: αναπαρίσταται (κρατιέται) → φαίνεται στο diff, όχι στο unrepresented', () => {
+    const study = JSON.parse(PROD['psd115-w1-study'])
+    const r = rec({ ...PROD, 'psd115-w1-study': JSON.stringify({ ...study, flashcardSeenIds: [...study.flashcardSeenIds, 'fc-removed'] }) })
+    assert.equal(r.ok, false)
+    assert.deepEqual(Object.keys(r.diff), ['flashcardSeenIds'])
+    assert.deepEqual(r.unrepresented, [])
   })
 })

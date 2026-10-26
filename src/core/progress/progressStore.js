@@ -10,7 +10,8 @@
  * Παράγωγες τιμές (ακρίβεια, mastery, σύνολα…) δεν αποθηκεύονται ποτέ — υπολογίζονται από τα events.
  */
 import { sameEvent, validateEvent } from './events.js'
-import { boundaryViolations, importBoundary, migrationBoundary } from './boundary.js'
+import { boundaryViolations, importBoundary, migrationBoundary, resetViolations } from './boundary.js'
+import { ProgressTransactionError, runTransaction, TXN_KEY } from './transaction.js'
 
 export const EVENTS_KEY = 'study-progress-events-v1'
 export const STATE_KEY = 'study-progress-state-v1'
@@ -20,11 +21,15 @@ export const EXPORT_VERSION = 1
 const QUERY_FIELDS = new Set(['item', 'kind', 'ctx', 'session', 'from', 'to'])
 
 export class ProgressStoreError extends Error {
-  /** @param {string} message @param {string[]} [details] */
-  constructor(message, details = []) {
+  /**
+   * @param {string} message @param {string[]} [details]
+   * @param {'not-started' | 'rolled-back' | 'rollback-incomplete'} [outcome] μόνο για αποτυχίες εγγραφής (1E-4c-2)
+   */
+  constructor(message, details = [], outcome) {
     super(details.length ? `${message}: ${details.slice(0, 5).join('; ')}` : message)
     this.name = 'ProgressStoreError'
     this.details = details
+    if (outcome) this.outcome = outcome
   }
 }
 
@@ -66,26 +71,35 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
     return obj
   }
 
-  /** Γράφει events και/ή state· αν αποτύχει η δεύτερη εγγραφή, επαναφέρει την πρώτη (ατομικότητα). */
+  /**
+   * Γράφει events και/ή state. Το localStorage δεν έχει συναλλαγές· η εγγύηση είναι της εφαρμογής:
+   *  - ΕΝΑ κλειδί: ένα setItem (είτε γράφεται είτε μένει η παλιά τιμή) → αποτυχία = `not-started`.
+   *  - ΔΥΟ κλειδιά (commit event + state, importAll): μέσω runTransaction (σημάδι → εγγραφή → επαλήθευση → rollback με
+   *    επαλήθευση). Αν και το rollback δεν ολοκληρωθεί, το σφάλμα λέει ρητά `rollback-incomplete` (ΟΧΙ «δεν άλλαξε τίποτα»)
+   *    και το σημάδι μένει: το recoverInterrupted της εκκίνησης ολοκληρώνει ή επαναφέρει.
+   *  - Όσο υπάρχει σημάδι μη ολοκληρωμένης αλλαγής, ΚΑΜΙΑ εγγραφή του store (η ανάκτηση θα έσβηνε ό,τι γραφτεί ενδιάμεσα).
+   */
   function writeAtomic(nextEvents, nextState) {
-    const prevEvents = store.getItem(EVENTS_KEY)
-    const prevState = store.getItem(STATE_KEY)
-    try {
-      if (nextEvents) store.setItem(EVENTS_KEY, JSON.stringify(nextEvents))
-      if (nextState) store.setItem(STATE_KEY, JSON.stringify(nextState))
-    } catch (err) {
-      for (const [key, prev] of [
-        [EVENTS_KEY, prevEvents],
-        [STATE_KEY, prevState],
-      ]) {
-        try {
-          if (prev === null) store.removeItem(key)
-          else store.setItem(key, prev)
-        } catch {
-          /* best effort */
-        }
+    if (store.getItem(TXN_KEY) !== null) {
+      throw new ProgressStoreError('Υπάρχει μη ολοκληρωμένη προηγούμενη αλλαγή (ανάκτηση στην επόμενη εκκίνηση)· δεν άλλαξε τίποτα', [], 'not-started')
+    }
+    const targets = {}
+    if (nextEvents) targets[EVENTS_KEY] = JSON.stringify(nextEvents)
+    if (nextState) targets[STATE_KEY] = JSON.stringify(nextState)
+    const keys = Object.keys(targets)
+    if (keys.length === 1) {
+      try {
+        store.setItem(keys[0], targets[keys[0]])
+      } catch (err) {
+        throw new ProgressStoreError(`Η αποθήκευση απέτυχε (${err?.name ?? 'error'})· δεν άλλαξε τίποτα`, [], 'not-started')
       }
-      throw new ProgressStoreError(`Η αποθήκευση απέτυχε (${err?.name ?? 'error'})· δεν άλλαξε τίποτα`)
+      return
+    }
+    try {
+      runTransaction(store, { op: 'progress-store', targets, now })
+    } catch (err) {
+      if (err instanceof ProgressTransactionError) throw new ProgressStoreError(err.message, [], err.outcome)
+      throw err
     }
   }
 
@@ -102,23 +116,56 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
     if (!r.ok) throw new ProgressStoreError('Άκυρο event', r.errors)
   }
 
+  /**
+   * Ατομική εγγραφή events ΚΑΙ state (Phase 1E-4c-2): είτε γράφονται όλα, είτε τίποτα.
+   * Ίδιοι έλεγχοι με το παλιό append για κάθε event (schema, μοναδικό id στο log και στο batch, όριο migration)
+   * + όριο reset ανά μάθημα. `state`: patch ανά κλειδί (`undefined` = αφαίρεση· τα άλλα κλειδιά μένουν).
+   * @param {{ events?: import('./events.js').ProgressEvent[], state?: Record<string, unknown> }} change
+   */
+  async function commit({ events = [], state = {} } = {}) {
+    if (!Array.isArray(events)) throw new ProgressStoreError('commit: τα events πρέπει να είναι πίνακας')
+    if (!isPlainObject(state)) throw new ProgressStoreError('commit: το state πρέπει να είναι αντικείμενο')
+    for (const ev of events) checkEvent(ev)
+    const ids = new Set()
+    for (const ev of events) {
+      if (ids.has(ev.id)) throw new ProgressStoreError(`Διπλό id ${ev.id} μέσα στο ίδιο commit· δεν γράφτηκε τίποτα`)
+      ids.add(ev.id)
+    }
+    const current = readEvents()
+    const clash = current.find((e) => ids.has(e.id))
+    if (clash) throw new ProgressStoreError(`Υπάρχει ήδη event με id ${clash.id}· τα events δεν αντικαθίστανται`)
+
+    const currentState = readState()
+    const nextState = { ...currentState }
+    for (const [key, value] of Object.entries(state)) {
+      if (!key) throw new ProgressStoreError('Άκυρο κλειδί state')
+      if (value === undefined) delete nextState[key]
+      else {
+        const json = JSON.stringify(value)
+        if (json === undefined) throw new ProgressStoreError(`Η τιμή του «${key}» δεν αποθηκεύεται ως JSON`)
+        nextState[key] = JSON.parse(json)
+      }
+    }
+    // Όριο migration (1E-3) και όριο reset ανά μάθημα (1E-4c-2), με το state όπως θα είναι μετά το commit.
+    const late = [...boundaryViolations(events, boundaryOf(nextState)), ...resetViolations(events, nextState)]
+    if (late.length) throw new ProgressStoreError('Event πριν από το όριο migration/reset· δεν γράφτηκε τίποτα', late)
+
+    writeAtomic(events.length ? [...current, ...events.map((e) => ({ ...e }))] : null, Object.keys(state).length ? nextState : null)
+    return { events: events.length, stateKeys: Object.keys(state).length }
+  }
+
   return {
     /**
      * Προσθέτει ένα event στο τέλος του log. Απορρίπτει άκυρα events και ids που υπάρχουν ήδη.
      * @param {import('./events.js').ProgressEvent} event
      */
     async append(event) {
-      checkEvent(event)
-      const events = readEvents()
-      if (events.some((e) => e.id === event.id)) {
-        throw new ProgressStoreError(`Υπάρχει ήδη event με id ${event.id}· τα events δεν αντικαθίστανται`)
-      }
-      // Όριο migration (1E-3): μετά το σημάδι, κανένα event πριν από το `marker.at`.
-      const late = boundaryViolations([event], boundaryOf(readState()))
-      if (late.length) throw new ProgressStoreError('Event πριν από το όριο migration· δεν γράφτηκε', late)
-      writeAtomic([...events, { ...event }], null)
+      await commit({ events: [event] })
       return { ...event }
     },
+
+    commit,
+
 
     /**
      * Events με τη σειρά εισαγωγής. Φίλτρα (όλα προαιρετικά, συνδυάζονται με AND):

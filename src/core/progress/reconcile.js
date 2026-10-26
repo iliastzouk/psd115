@@ -10,6 +10,9 @@
  *  - flashcardSeenIds: σύνολο (η σημασιολογία των καρτών είναι set membership).
  *  - αντικείμενα (byGroup, checklists): χωρίς σημασία η σειρά των κλειδιών· οι τιμές και οι πίνακες αυστηρά.
  * Τα checklists συγκρίνονται αυστηρά (απόν ≠ πίνακας με false).
+ *
+ * Legacy δεδομένα που το snapshot ΔΕΝ αναπαριστά (άγνωστα κλειδιά, checklists χωρίς θέμα — 1E-4c-2, F3): το reconciliation
+ * ΔΕΝ βγάζει in-sync όσο υπάρχουν· επιστρέφονται στο `unrepresented`. in-sync ⟺ κενό diff ΚΑΙ κενό unrepresented.
  */
 import { buildProgressSnapshot, legacyToSnapshot } from './snapshot.js'
 
@@ -39,16 +42,18 @@ function normalize(snapshot) {
  *   events?: object[],
  *   state?: object,                         // ολόκληρο το state του store (reset, wrongbook, checklists namespaces)
  * }} input
- * @returns {{ ok: boolean, diff: Record<string, { legacy: unknown, shadow: unknown }>, errors: string[], legacy?: object, shadow?: object }}
+ * @returns {{ ok: boolean, diff: Record<string, { legacy: unknown, shadow: unknown }>, unrepresented: { key: string, reason: string }[],
+ *            errors: string[], legacy?: object, shadow?: object }}
  */
 export function reconcileShadow({ content, baseline, legacyEntries, events = [], state = {} }) {
   const legacy = legacyToSnapshot(legacyEntries, { content, mode: 'runtime' })
   const shadow = buildProgressSnapshot({ courseId: baseline?.courseId, content, baseline, events, state })
   const errors = [...(legacy.ok ? [] : legacy.errors.map((e) => `legacy: ${e}`)), ...(shadow.ok ? [] : shadow.errors.map((e) => `shadow: ${e}`))]
-  if (errors.length) return { ok: false, diff: {}, errors }
+  if (errors.length) return { ok: false, diff: {}, unrepresented: [], errors }
   const a = normalize(legacy.snapshot)
   const b = normalize(shadow.snapshot)
   const diff = {}
   for (const field of FIELDS) if (canonical(a[field]) !== canonical(b[field])) diff[field] = { legacy: a[field], shadow: b[field] }
-  return { ok: Object.keys(diff).length === 0, diff, errors, legacy: legacy.snapshot, shadow: shadow.snapshot }
+  const unrepresented = legacy.unrepresented ?? []
+  return { ok: Object.keys(diff).length === 0 && unrepresented.length === 0, diff, unrepresented, errors, legacy: legacy.snapshot, shadow: shadow.snapshot }
 }

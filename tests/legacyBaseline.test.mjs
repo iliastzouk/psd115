@@ -240,7 +240,7 @@ describe('migration πάνω σε storage (fake)', () => {
     assert.deepEqual(s.dump(), before)
   })
 
-  test('migrated: legacy αμετάβλητο, μηδέν events, state = baseline + marker μόνο', async () => {
+  test('migrated: legacy αμετάβλητο, μηδέν events, state = baseline + marker + υλοποιημένα namespaces (1E-4c-2)', async () => {
     const s = fakeStorage({ ...keys })
     let backups = 0
     const r = await migrateLegacyBaseline({ storage: s, now: fixed(T0), enabled: true, backup: () => (backups += 1), content })
@@ -252,7 +252,12 @@ describe('migration πάνω σε storage (fake)', () => {
     assert.equal(d[EVENTS_KEY], undefined, 'κανένα κλειδί events')
     assert.equal(d[TXN_KEY], undefined)
     const state = JSON.parse(d[STATE_KEY])
-    assert.deepEqual(Object.keys(state).sort(), [LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY].sort())
+    assert.deepEqual(Object.keys(state).sort(), [LEGACY_BASELINE_KEY, MIGRATION_MARKER_KEY, 'progress:checklists:psd115', 'progress:wrongbook:psd115'].sort())
+    const built = buildLegacyBaseline(keys, { now: fixed(T0), content })
+    assert.deepEqual({ wb: state['progress:wrongbook:psd115'], cl: state['progress:checklists:psd115'] }, {
+      wb: { version: 1, entries: built.snapshot.wrongBook },
+      cl: { version: 1, topics: built.snapshot.checklists },
+    })
     assert.equal(state[MIGRATION_MARKER_KEY].sourceHash, PROD_SOURCE_HASH)
     assert.deepEqual(state[LEGACY_BASELINE_KEY], buildLegacyBaseline(keys, { now: fixed(T0), content }).baseline)
   })

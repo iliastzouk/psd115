@@ -44,7 +44,7 @@ export function legacySourceHash(entries) {
  * Ελέγχει το legacy snapshot και φτιάχνει baseline + marker. Δεν γράφει τίποτα.
  * @param {Record<string, string>} entries raw legacy κλειδιά (όπως `export.keys` / localStorage, χωρίς backups)
  * @param {{ now: () => number, content: import('./contentAdapter.js').ContentAdapter }} opts
- * @returns {{ ok: true, baseline: object, marker: object, warnings: string[] } | { ok: false, errors: string[], warnings: string[] }}
+ * @returns {{ ok: true, baseline: object, marker: object, warnings: string[], snapshot: object } | { ok: false, errors: string[], warnings: string[] }}
  */
 export function buildLegacyBaseline(entries, { now, content }) {
   if (!isObj(entries)) return { ok: false, errors: ['το legacy snapshot πρέπει να είναι αντικείμενο κλειδί → raw string'], warnings: [] }
@@ -87,5 +87,6 @@ export function buildLegacyBaseline(entries, { now, content }) {
     },
   }
   const marker = { version: MIGRATION_VERSION, at: capturedAt, sourceHash, baselineKey: LEGACY_BASELINE_KEY, baselineVersion: BASELINE_VERSION }
-  return { ok: true, baseline, marker, warnings }
+  // `snapshot` (1E-4c-2): για την υλοποίηση των state namespaces στην ίδια εγγραφή με το baseline.
+  return { ok: true, baseline, marker, warnings, snapshot: s }
 }

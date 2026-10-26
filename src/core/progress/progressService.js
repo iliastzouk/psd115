@@ -14,6 +14,10 @@
  * - Αλλαγή που δεν αλλάζει τίποτα (π.χ. κάρτα που ήδη είδε) → καμία εγγραφή, κανένα notify.
  * - Degraded (κατεστραμμένα δεδομένα / αμφίβολη ανάκτηση): καμία εγγραφή, ποτέ «μηδενικά που αποθηκεύονται»·
  *   η μελέτη συνεχίζει χωρίς αποθήκευση.
+ * - Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (`backend.pending()`, μετά από αποτυχημένο rollback): η εγγραφή
+ *   απορρίπτεται και το service περνά σε degraded ΧΩΡΙΣ να εφαρμόσει την αλλαγή στη μνήμη (κανένα «αποθηκεύτηκε»).
+ *   Μένει το τελευταίο snapshot πριν από την ενέργεια — αυτό που θα επαναφέρει η ανάκτηση στην επόμενη εκκίνηση.
+ *   Fail-closed: αν ο ίδιος ο έλεγχος του σημαδιού αποτύχει, ισχύει το ίδιο (degraded), χωρίς εξαίρεση προς τον καλούντα.
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -24,6 +28,8 @@ export const PROGRESS_STATE_VERSION = 1
 export const WRONG_BOOK_LIMIT = 60
 /** Αποτελέσματα του recoverInterrupted που αφήνουν αμφίβολη κατάσταση → degraded. */
 const UNSAFE_RECOVERY = new Set(['failed', 'corrupt-marker'])
+const PENDING_ISSUE = 'μη ολοκληρωμένη αλλαγή αποθήκευσης· η ανάκτηση γίνεται στην επόμενη φόρτωση της σελίδας'
+const PENDING_UNKNOWN_ISSUE = 'δεν ήταν δυνατός ο έλεγχος για μη ολοκληρωμένη αλλαγή αποθήκευσης· καμία εγγραφή μέχρι την επόμενη φόρτωση της σελίδας'
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -48,7 +54,11 @@ export const createdServiceCount = () => created
  * @param {{
  *   courseId: string,
  *   content: import('./contentAdapter.js').ContentAdapter,   // με legacy codec (legacy mode)
- *   backend: { read: () => Record<string, string>, write: (changes: Record<string, string>) => void },
+ *   backend: {
+ *     read: () => Record<string, string>,
+ *     write: (changes: Record<string, string>) => void,   // πετάει αν η εγγραφή απορριφθεί/αποτύχει
+ *     pending?: () => boolean,  // εκκρεμεί σημάδι συναλλαγής (ανάκτηση στην επόμενη εκκίνηση)· αν πετάξει → fail-closed (degraded)
+ *   },
  *   recovery?: { status: string },                           // αποτέλεσμα του recoverInterrupted
  *   newUid?: () => string,
  *   warn?: (...a: unknown[]) => void,
@@ -66,8 +76,22 @@ export function createProgressService({ courseId, content, backend, recovery = {
     return freezeState({ status: 'degraded', issues, courses: { [courseId]: emptySnapshot(courseId) } })
   }
 
+  /**
+   * Εμποδίζονται οι εγγραφές; Fail-closed: αν ο έλεγχος του σημαδιού συναλλαγής αποτύχει (π.χ. το storage πετάει),
+   * η κατάσταση θεωρείται άγνωστη → ναι. Επιστρέφει το μήνυμα του degraded ή null. Ποτέ δεν πετάει.
+   */
+  function writesBlocked() {
+    try {
+      return backend.pending?.() ? PENDING_ISSUE : null
+    } catch {
+      return PENDING_UNKNOWN_ISSUE
+    }
+  }
+
   function load() {
     if (UNSAFE_RECOVERY.has(recovery?.status)) return degraded([`ανάκτηση μετά από διακοπή: ${recovery.status}`])
+    const blocked = writesBlocked()
+    if (blocked) return degraded([blocked])
     let entries
     try {
       entries = backend.read()
@@ -100,8 +124,16 @@ export function createProgressService({ courseId, content, backend, recovery = {
         backend.write(changes)
         raw = { ...raw, ...changes }
       } catch (e) {
-        // Όπως το legacy: η αποτυχία εγγραφής (π.χ. quota) δεν σταματά τη μελέτη. Η εμφάνισή της = follow-up.
         warn('[progress] η αποθήκευση απέτυχε:', e?.message ?? e)
+        // Εκκρεμεί ανάκτηση (σημάδι συναλλαγής) ή ο έλεγχος δεν είναι δυνατός: degraded, η αλλαγή ΔΕΝ εφαρμόζεται,
+        // καμία εγγραφή μέχρι το reload.
+        const blocked = writesBlocked()
+        if (blocked) {
+          state = freezeState({ ...state, status: 'degraded', issues: [blocked] })
+          notify()
+          return false
+        }
+        // Αλλιώς, όπως το legacy: η αποτυχία εγγραφής (π.χ. quota) δεν σταματά τη μελέτη. Η εμφάνισή της = follow-up.
       }
     }
     state = freezeState({ ...state, courses: { ...state.courses, [courseId]: next } })
@@ -123,7 +155,8 @@ export function createProgressService({ courseId, content, backend, recovery = {
 
     /**
      * Μία απάντηση στο κεντρικό κουίζ. Λάθος → εγγραφή στο wrongBook (ό,τι είδε ο χρήστης).
-     * @param {{ questionId: string, ok: boolean, wrong?: { question: string, explanation: string, userLabel: string, correctLabel: string } }} a
+     * `wrong.uid` (1E-4c-2): αν δοθεί, χρησιμοποιείται αυτό (ίδιο με τον shadow recorder)· αλλιώς νέο.
+     * @param {{ questionId: string, ok: boolean, wrong?: { uid?: string, question: string, explanation: string, userLabel: string, correctLabel: string } }} a
      */
     answerQuestion({ questionId, ok, wrong }) {
       const s = current()
@@ -133,8 +166,8 @@ export function createProgressService({ courseId, content, backend, recovery = {
       const g = s.byGroup[group] ?? { correct: 0, wrong: 0 }
       let wrongBook = s.wrongBook
       if (!ok) {
-        const { question, explanation, userLabel, correctLabel } = wrong ?? {}
-        wrongBook = [...s.wrongBook, { uid: newUid(), item: toGlobalId(courseId, questionId), group, question, explanation, userLabel, correctLabel, t: null }]
+        const { uid, question, explanation, userLabel, correctLabel } = wrong ?? {}
+        wrongBook = [...s.wrongBook, { uid: typeof uid === 'string' && uid ? uid : newUid(), item: toGlobalId(courseId, questionId), group, question, explanation, userLabel, correctLabel, t: null }]
         while (wrongBook.length > WRONG_BOOK_LIMIT) wrongBook.shift()
       }
       return commit({

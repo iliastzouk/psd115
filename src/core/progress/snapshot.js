@@ -258,7 +258,8 @@ function readChecklistsState(value, { courseId, content }, errors, warnings) {
  *                  → `degraded`, ποτέ «μηδενικά».
  * @param {Record<string, string>} entries raw legacy κλειδιά (χωρίς backups)
  * @param {{ content: import('./contentAdapter.js').ContentAdapter, mode?: 'strict' | 'runtime' }} opts
- * @returns {{ ok: true, status: 'ready', snapshot: object, settings: string[], warnings: string[] }
+ * `unrepresented`: legacy δεδομένα που υπάρχουν αλλά δεν μπαίνουν στο snapshot (άγνωστα κλειδιά, checklists χωρίς θέμα).
+ * @returns {{ ok: true, status: 'ready', snapshot: object, settings: string[], unrepresented: { key: string, reason: string }[], warnings: string[] }
  *         | { ok: false, status: 'degraded', errors: string[], issues: string[], warnings: string[] }}
  */
 export function legacyToSnapshot(entries, { content, mode = 'strict' }) {
@@ -276,13 +277,19 @@ export function legacyToSnapshot(entries, { content, mode = 'strict' }) {
   const { courseId } = content
   const decoded = content.legacy.decode(entries)
   errors.push(...decoded.errors)
-  for (const u of decoded.unknown ?? []) contentIssue(strict, u, errors, warnings)
+  // Legacy δεδομένα που το snapshot ΔΕΝ αναπαριστά (μένουν ανέγγιχτα στο storage): strict → σφάλμα· runtime → λίστα.
+  const unrepresented = []
+  for (const u of decoded.unknown ?? []) {
+    contentIssue(strict, `${u.key}: ${u.reason}`, errors, warnings)
+    unrepresented.push({ key: u.key, reason: u.reason })
+  }
   const parts = legacyStudyParts(decoded.study, { courseId, content, strict, where: 'study' }, errors, warnings)
 
   const checklists = {}
   for (const { key, topicId, items } of decoded.checklists) {
     if (topicId === null || !content.hasTopic(topicId)) {
       contentIssue(strict, `${key}: δεν αντιστοιχεί σε θέμα του μαθήματος`, errors, warnings)
+      unrepresented.push({ key, reason: 'checklist χωρίς θέμα του μαθήματος' })
       continue
     }
     if (checklists[topicId]) {
@@ -297,6 +304,7 @@ export function legacyToSnapshot(entries, { content, mode = 'strict' }) {
     status: 'ready',
     snapshot: { ...emptySnapshot(courseId), ...parts, checklists },
     settings: [...decoded.settings].sort(),
+    unrepresented,
     warnings,
   }
 }

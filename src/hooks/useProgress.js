@@ -6,6 +6,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { useRouteIdentity } from '../core/routing/hooks.js'
 import { createdServiceCount } from '../core/progress/progressService.js'
+import { recordChecklist } from '../utils/progressShadow.js'
 
 let installed = null
 
@@ -53,7 +54,10 @@ export function useChecklist(courseId, topicId, length) {
     (next) => {
       const service = getProgressService()
       const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
-      service.setChecklist(topicId, typeof next === 'function' ? next(prev) : next)
+      const items = typeof next === 'function' ? next(prev) : next
+      // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
+      if (courseId === service.courseId) recordChecklist({ topicId, items })
+      service.setChecklist(topicId, items)
     },
     [courseId, topicId, length],
   )

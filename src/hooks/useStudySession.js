@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useRouteIdentity } from '../core/routing/hooks.js'
 import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
-import { recordFlashcardSeen, recordQuizAnswer } from '../utils/progressShadow.js'
+import { recordFlashcardSeen, recordQuizAnswer, recordWrongBookClear, recordWrongBookRemove } from '../utils/progressShadow.js'
+import { newEventId } from '../core/progress/events.js'
 import { flashcards, quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import { getProgressService, useProgress } from './useProgress.js'
@@ -233,22 +234,21 @@ export function useStudySession() {
       setQuizRevealed(true)
       const correct = idx === currentQuestion.correctIndex
       setSessionCorrect((s) => (correct ? s + 1 : s))
-      // Shadow (1E-3): ένα event ανά απάντηση, στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
-      recordQuizAnswer({ questionId: currentQuestion.id, ok: correct })
+      // Λάθος: ΕΝΑ uid στον handler, κοινό για shadow και ProgressService (1E-4c-2).
+      const wrong = correct
+        ? undefined
+        : {
+            uid: newEventId(),
+            question: currentQuestion.question,
+            explanation: currentQuestion.explanation,
+            userLabel: currentQuestion.options[idx],
+            correctLabel: currentQuestion.options[currentQuestion.correctIndex],
+          }
+      // Shadow (1E-3): ένα event ανά απάντηση (+ wrongBook), στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
+      recordQuizAnswer({ questionId: currentQuestion.id, ok: correct, wrong })
 
       // Μετά το event (shadow), η πρόοδος: ΜΙΑ σύγχρονη αλλαγή στο ProgressService (όχι σε updater/effect).
-      getProgressService().answerQuestion({
-        questionId: currentQuestion.id,
-        ok: correct,
-        wrong: correct
-          ? undefined
-          : {
-              question: currentQuestion.question,
-              explanation: currentQuestion.explanation,
-              userLabel: currentQuestion.options[idx],
-              correctLabel: currentQuestion.options[currentQuestion.correctIndex],
-            },
-      })
+      getProgressService().answerQuestion({ questionId: currentQuestion.id, ok: correct, wrong })
     },
     [currentQuestion, quizRevealed],
   )
@@ -272,10 +272,12 @@ export function useStudySession() {
   }, [])
 
   const clearWrongBook = useCallback(() => {
+    recordWrongBookClear()
     getProgressService().clearWrongBook()
   }, [])
 
   const removeWrongOne = useCallback((uid) => {
+    recordWrongBookRemove({ uid })
     getProgressService().removeWrong(uid)
   }, [])
 
