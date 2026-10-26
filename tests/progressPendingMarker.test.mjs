@@ -254,3 +254,85 @@ describe('review PR #11 · legacy εγγραφή ΕΝΟΣ κλειδιού με 
     assert.equal(warns.length, 1)
   })
 })
+
+describe('review PR #11 · ο ΙΔΙΟΣ ο έλεγχος του σημαδιού αποτυγχάνει → fail-closed (degraded), ποτέ εξαίρεση', async () => {
+  const { createProgressService } = await import('../src/core/progress/progressService.js')
+  const PAVLOV = 'psd115-w1-pavlov-checklist'
+  /** Storage όπου η ανάγνωση του σημαδιού πετάει όσο `broken.marker` είναι true· `broken.set` για αποτυχία εγγραφής. */
+  function flakyStorage() {
+    const s = fakeStorage({ ...PROD })
+    const broken = { marker: false, set: null }
+    const writes = []
+    const { getItem, setItem } = s
+    s.getItem = (k) => {
+      if (k === TXN_KEY && broken.marker) throw new Error('SecurityError: storage δεν είναι διαθέσιμο')
+      return getItem(k)
+    }
+    s.setItem = (k, v) => {
+      if (broken.set?.(k)) throw Object.assign(new Error('quota'), { name: 'QuotaExceededError' })
+      writes.push(k)
+      setItem(k, v)
+    }
+    return { s, broken, writes }
+  }
+  const service = (s, warn = () => {}) => createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn })
+
+  test('αρχική φόρτωση: ο έλεγχος πετάει → το service δημιουργείται σε degraded (σαφές μήνυμα), καμία εγγραφή', () => {
+    const { s, broken, writes } = flakyStorage()
+    broken.marker = true
+    let svc
+    assert.doesNotThrow(() => (svc = service(s)))
+    const st = svc.getSnapshot()
+    assert.equal(st.status, 'degraded')
+    assert.match(st.issues.join(' '), /δεν ήταν δυνατός ο έλεγχος/)
+    assert.equal(svc.setChecklist('pavlov', [true]), false)
+    assert.equal(svc.markCardSeen('fc-pavlov-9'), false)
+    assert.deepEqual(writes, [])
+    assert.deepEqual(s.dump(), PROD)
+  })
+
+  test('resync: ο έλεγχος πετάει → degraded, χωρίς εξαίρεση', () => {
+    const { s, broken } = flakyStorage()
+    const svc = service(s)
+    assert.equal(svc.getSnapshot().status, 'ready')
+    broken.marker = true
+    assert.doesNotThrow(() => svc.resync())
+    assert.equal(svc.getSnapshot().status, 'degraded')
+  })
+
+  test('αποτυχημένη εγγραφή ΚΑΙ αποτυχία του ελέγχου → καμία εξαίρεση, false, degraded, snapshot πριν από την ενέργεια', () => {
+    const { s, broken, writes } = flakyStorage()
+    const warns = []
+    const svc = service(s, (...a) => warns.push(a))
+    const before = svc.getSnapshot()
+    broken.set = (k) => k === PAVLOV // η εγγραφή αποτυγχάνει…
+    broken.marker = true //            …και ο έλεγχος του σημαδιού επίσης
+    let r
+    assert.doesNotThrow(() => (r = svc.setChecklist('pavlov', [true, true])))
+    assert.equal(r, false, 'καμία ψευδής επιτυχία')
+    assert.equal(svc.getSnapshot().status, 'degraded')
+    assert.deepEqual(svc.getSnapshot().courses.psd115, before.courses.psd115)
+    assert.deepEqual(writes, [])
+    assert.deepEqual(s.dump(), PROD)
+    assert.equal(warns.length, 1)
+  })
+
+  test('ο έλεγχος πετάει ενώ η εγγραφή θα πετύχαινε → το backend αρνείται, το service σε degraded (fail-closed), καμία εγγραφή', () => {
+    const { s, broken, writes } = flakyStorage()
+    const svc = service(s)
+    broken.marker = true
+    let r
+    assert.doesNotThrow(() => (r = svc.markCardSeen('fc-pavlov-9')))
+    assert.equal(r, false)
+    assert.equal(svc.getSnapshot().status, 'degraded')
+    assert.deepEqual(writes, [])
+  })
+
+  test('storage κανονικό: αμετάβλητη συμπεριφορά (ready, εγγραφή, true)', () => {
+    const { s, writes } = flakyStorage()
+    const svc = service(s)
+    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.equal(svc.getSnapshot().status, 'ready')
+    assert.deepEqual(writes, [PAVLOV])
+  })
+})

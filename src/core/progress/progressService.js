@@ -17,6 +17,7 @@
  * - Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (`backend.pending()`, μετά από αποτυχημένο rollback): η εγγραφή
  *   απορρίπτεται και το service περνά σε degraded ΧΩΡΙΣ να εφαρμόσει την αλλαγή στη μνήμη (κανένα «αποθηκεύτηκε»).
  *   Μένει το τελευταίο snapshot πριν από την ενέργεια — αυτό που θα επαναφέρει η ανάκτηση στην επόμενη εκκίνηση.
+ *   Fail-closed: αν ο ίδιος ο έλεγχος του σημαδιού αποτύχει, ισχύει το ίδιο (degraded), χωρίς εξαίρεση προς τον καλούντα.
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -28,6 +29,7 @@ export const WRONG_BOOK_LIMIT = 60
 /** Αποτελέσματα του recoverInterrupted που αφήνουν αμφίβολη κατάσταση → degraded. */
 const UNSAFE_RECOVERY = new Set(['failed', 'corrupt-marker'])
 const PENDING_ISSUE = 'μη ολοκληρωμένη αλλαγή αποθήκευσης· η ανάκτηση γίνεται στην επόμενη φόρτωση της σελίδας'
+const PENDING_UNKNOWN_ISSUE = 'δεν ήταν δυνατός ο έλεγχος για μη ολοκληρωμένη αλλαγή αποθήκευσης· καμία εγγραφή μέχρι την επόμενη φόρτωση της σελίδας'
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -70,9 +72,22 @@ export function createProgressService({ courseId, content, backend, recovery = {
     return freezeState({ status: 'degraded', issues, courses: { [courseId]: emptySnapshot(courseId) } })
   }
 
+  /**
+   * Εμποδίζονται οι εγγραφές; Fail-closed: αν ο έλεγχος του σημαδιού συναλλαγής αποτύχει (π.χ. το storage πετάει),
+   * η κατάσταση θεωρείται άγνωστη → ναι. Επιστρέφει το μήνυμα του degraded ή null. Ποτέ δεν πετάει.
+   */
+  function writesBlocked() {
+    try {
+      return backend.pending?.() ? PENDING_ISSUE : null
+    } catch {
+      return PENDING_UNKNOWN_ISSUE
+    }
+  }
+
   function load() {
     if (UNSAFE_RECOVERY.has(recovery?.status)) return degraded([`ανάκτηση μετά από διακοπή: ${recovery.status}`])
-    if (backend.pending?.()) return degraded([PENDING_ISSUE])
+    const blocked = writesBlocked()
+    if (blocked) return degraded([blocked])
     let entries
     try {
       entries = backend.read()
@@ -106,9 +121,11 @@ export function createProgressService({ courseId, content, backend, recovery = {
         raw = { ...raw, ...changes }
       } catch (e) {
         warn('[progress] η αποθήκευση απέτυχε:', e?.message ?? e)
-        // Εκκρεμεί ανάκτηση (σημάδι συναλλαγής): degraded, η αλλαγή ΔΕΝ εφαρμόζεται, καμία εγγραφή μέχρι το reload.
-        if (backend.pending?.()) {
-          state = freezeState({ ...state, status: 'degraded', issues: [PENDING_ISSUE] })
+        // Εκκρεμεί ανάκτηση (σημάδι συναλλαγής) ή ο έλεγχος δεν είναι δυνατός: degraded, η αλλαγή ΔΕΝ εφαρμόζεται,
+        // καμία εγγραφή μέχρι το reload.
+        const blocked = writesBlocked()
+        if (blocked) {
+          state = freezeState({ ...state, status: 'degraded', issues: [blocked] })
           notify()
           return false
         }
