@@ -334,7 +334,7 @@ export function planImport(data, storage = defaultStorage()) {
  */
 export function applyImport(data, storage = defaultStorage()) {
   const plan = planImport(data, storage)
-  if (!plan.ok) throw new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`)
+  if (!plan.ok) throw Object.assign(new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`), { outcome: 'not-started' })
   const { changed } = runTransaction(storage, { op: `import-v${data.version}`, targets: plan.targets })
   return { keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
 }
@@ -347,7 +347,7 @@ export function applyImport(data, storage = defaultStorage()) {
 export function importWithBackup(data, { storage = defaultStorage(), download = downloadJson } = {}) {
   assertNoPendingTransaction(storage)
   const plan = planImport(data, storage)
-  if (!plan.ok) throw new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`)
+  if (!plan.ok) throw Object.assign(new Error(`Το αρχείο δεν πέρασε τον έλεγχο· δεν γράφτηκε τίποτα. ${plan.errors.join('; ')}`), { outcome: 'not-started' })
   const backup = createSafetyBackup('import', { storage, download })
   const { changed } = runTransaction(storage, { op: `import-v${data.version}`, targets: plan.targets })
   return { backup, keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }

@@ -11,6 +11,7 @@ import { activeCourseId } from '../core/routing/navigation.js'
 import { courseHeader } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/settings.js'
 import { describeReset, resetProgressSafely } from '../utils/progressBackup.js'
+import { describeProgressFailure } from '../utils/progressFailureMessage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -288,11 +289,8 @@ export default function AppShell() {
             resetProgressSafely()
           } catch (e) {
             setResetConfirmOpen(false)
-            window.alert(
-              e?.name === 'BackupError'
-                ? 'Δεν δημιουργήθηκε επιβεβαιωμένο αντίγραφο ασφαλείας· η επαναφορά ακυρώθηκε και η πρόοδος δεν άλλαξε.'
-                : 'Η επαναφορά δεν ολοκληρώθηκε· η πρόοδος δεν άλλαξε.',
-            )
+            // Μήνυμα ανά πραγματικό αποτέλεσμα: «δεν άλλαξε» μόνο όταν είναι επιβεβαιωμένο (D2).
+            window.alert(describeProgressFailure('reset', e))
             return
           }
           study.resetAllStudyProgress()

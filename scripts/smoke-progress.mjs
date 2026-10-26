@@ -14,6 +14,9 @@
  *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (μετά από αποτυχημένο rollback, review PR #11): κλικ σε checklist →
  *      ΚΑΜΙΑ εγγραφή, μήνυμα ασφαλούς λειτουργίας, το checkbox δεν δείχνει «αποθηκευμένη» αλλαγή, σημάδι ανέγγιχτο·
  *      reload → η υπάρχουσα ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
+ *  R.  Μηνύματα reset ανά αποτέλεσμα (Φάση 1, D1/D2): εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», ΚΑΜΙΑ λήψη/backup·
+ *      πραγματικό rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΟΧΙ «δεν άλλαξε»·
+ *      reload → ανάκτηση, αρχικές τιμές.
  *  G2. Smoke build (dist-progress, VITE_PROGRESS_SMOKE=1): 1 service· όλοι οι consumers ίδιο snapshot (===)·
  *      μετά από κάθε ενέργεια (checklist, κάρτα, σωστή, λάθος, αφαίρεση λάθους, reset) ίδιο ΝΕΟ snapshot (!== παλιό)
  *      και μνήμη ≡ storage (legacyToSnapshot των κλειδιών)· reset → resync, κανένα checklist ξανα-γράφεται.
@@ -356,7 +359,64 @@ try {
     check(!('progress-txn-v1' in recovered), 'P: το σημάδι έμεινε μετά την ανάκτηση')
     check(!(await page.getByTestId('progress-degraded').count()), 'P: μετά την ανάκτηση η εφαρμογή έμεινε σε degraded')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση`)
+    // R: μηνύματα reset ανά πραγματικό αποτέλεσμα (D1/D2).
+    ;({ context, page } = await newContext(browser, PROD))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const resetVia = async () => {
+      let text = ''
+      let downloads = 0
+      const onDownload = () => downloads++
+      page.on('download', onDownload)
+      page.once('dialog', async (d) => {
+        text = d.message()
+        await d.accept()
+      })
+      await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
+      await page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()
+      await page.waitForTimeout(400)
+      page.off('download', onDownload)
+      return { text, downloads }
+    }
+    // R1: εκκρεμές σημάδι → άρνηση πριν από το backup.
+    await page.evaluate((m) => localStorage.setItem('progress-txn-v1', m), JSON.stringify({ v: 1, op: 'x', before: {}, after: {} }))
+    const r1Before = await readKeys(page)
+    let r = await resetVia()
+    check(/Εκκρεμεί ανάκτηση· επαναφόρτωσε τη σελίδα πριν δοκιμάσεις ξανά/.test(r.text), `R1: λάθος μήνυμα («${r.text}»)`)
+    check(r.downloads === 0, `R1: έγινε λήψη backup (${r.downloads})`)
+    check(sameKeys(await readKeys(page), r1Before), 'R1: άλλαξαν κλειδιά (backup ή πρόοδος)')
+    await page.evaluate(() => localStorage.removeItem('progress-txn-v1'))
+    // R2: πραγματικό rollback-incomplete (η 2η διαγραφή αποτυγχάνει, μετά αποτυγχάνει και η επαναφορά).
+    const r2Before = await readKeys(page)
+    await page.evaluate(() => {
+      const P = Storage.prototype
+      const { removeItem, setItem } = P
+      let removes = 0
+      let blockRestore = false
+      P.removeItem = function (k) {
+        if (this === localStorage && String(k).startsWith('psd115-w') && ++removes === 2) {
+          blockRestore = true
+          throw new DOMException('fail', 'UnknownError')
+        }
+        return removeItem.call(this, k)
+      }
+      P.setItem = function (k, v) {
+        if (this === localStorage && blockRestore && String(k).startsWith('psd115-w')) throw new DOMException('full', 'QuotaExceededError')
+        return setItem.call(this, k, v)
+      }
+    })
+    r = await resetVia()
+    check(/δεν ολοκληρώθηκε με ασφάλεια/.test(r.text) && /Επαναφόρτωσε τη σελίδα για να επιχειρηθεί ανάκτηση/.test(r.text), `R2: λάθος μήνυμα («${r.text}»)`)
+    check(!/δεν άλλαξε|διατηρήθηκε/.test(r.text), `R2: το μήνυμα ισχυρίζεται ότι η πρόοδος δεν άλλαξε («${r.text}»)`)
+    check((await readKeys(page))['progress-txn-v1'] !== undefined, 'R2: δεν έμεινε σημάδι για την ανάκτηση')
+    await page.reload() // νέα σελίδα: χωρίς τα patches του Storage
+    await settle(page)
+    const r2After = await readKeys(page)
+    const progressOnly = (keys) => Object.fromEntries(Object.entries(keys).filter(([k]) => !k.startsWith('psd115-backup-')))
+    check(sameKeys(progressOnly(r2After), progressOnly(r2Before)), 'R2: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
+    check(!('progress-txn-v1' in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
+    await context.close()
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)

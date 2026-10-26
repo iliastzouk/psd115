@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog.jsx'
 import { exportProgressToFile, importWithBackup, readImportFile } from '../utils/progressBackup.js'
+import { describeProgressFailure } from '../utils/progressFailureMessage.js'
 
 const btn =
   'touch-manipulation rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-teal-400 hover:bg-white dark:hover:bg-slate-900 transition'
@@ -48,11 +49,8 @@ export default function ProgressBackupPanel() {
       // Επικύρωση → επαληθευμένο backup → συναλλαγή. Οποιαδήποτε αποτυχία: καμία εγγραφή στην πρόοδο.
       importWithBackup(result.data)
     } catch (e) {
-      const lines =
-        e?.name === 'BackupError'
-          ? ['Δεν δημιουργήθηκε επιβεβαιωμένο αντίγραφο ασφαλείας· η εισαγωγή ακυρώθηκε και η πρόοδος δεν άλλαξε.']
-          : ['Η εισαγωγή απέτυχε· η προηγούμενη πρόοδος διατηρήθηκε.']
-      setMessage({ tone: 'error', lines })
+      // Μήνυμα ανά πραγματικό αποτέλεσμα: «δεν άλλαξε» μόνο όταν είναι επιβεβαιωμένο (D2).
+      setMessage({ tone: 'error', lines: [describeProgressFailure('import', e)] })
       return
     }
     // Επαναφόρτωση αμέσως: αλλιώς η εφαρμογή θα έγραφε από πάνω την παλιά πρόοδο που κρατά στη μνήμη.

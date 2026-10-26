@@ -8,7 +8,6 @@
  *  T4  εκκρεμές σημάδι (D1): reset/import ακυρώνονται ΠΡΙΝ από backup/λήψη/κλάδεμα· αποτυχία ελέγχου → fail-closed
  *  T5  μηνύματα ανά πραγματικό αποτέλεσμα (D2)
  *
- * Tests με `todo` = η συμπεριφορά υλοποιείται σε επόμενο commit του ίδιου PR (test-first)· το `todo` αφαιρείται εκεί.
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -242,40 +241,40 @@ describe('T5 · μηνύματα ανά πραγματικό αποτέλεσμ�
   const load = () => import('../src/utils/progressFailureMessage.js')
   const err = (props) => Object.assign(new Error('x'), props)
   for (const action of ['reset', 'import']) {
-    test(`${action}: BackupError → ακυρώθηκε, η πρόοδος δεν άλλαξε`, { todo: 'D2' }, async () => {
+    test(`${action}: BackupError → ακυρώθηκε, η πρόοδος δεν άλλαξε`, async () => {
       const { describeProgressFailure } = await load()
       assert.match(describeProgressFailure(action, err({ name: 'BackupError' })), /αντίγραφο ασφαλείας.*ακυρώθηκε.*δεν άλλαξε/)
     })
     for (const outcome of ['not-started', 'rolled-back']) {
-      test(`${action}: ${outcome} → η πρόοδος δεν άλλαξε (επιβεβαιωμένο)`, { todo: 'D2' }, async () => {
+      test(`${action}: ${outcome} → η πρόοδος δεν άλλαξε (επιβεβαιωμένο)`, async () => {
         const { describeProgressFailure } = await load()
         assert.match(describeProgressFailure(action, err({ name: 'ProgressTransactionError', outcome })), /δεν άλλαξε/)
       })
     }
-    test(`${action}: rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΧΩΡΙΣ «δεν άλλαξε» και χωρίς υπόσχεση επιτυχίας`, { todo: 'D2' }, async () => {
+    test(`${action}: rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΧΩΡΙΣ «δεν άλλαξε» και χωρίς υπόσχεση επιτυχίας`, async () => {
       const { describeProgressFailure } = await load()
       const m = describeProgressFailure(action, err({ name: 'ProgressTransactionError', outcome: 'rollback-incomplete' }))
       assert.match(m, /δεν ολοκληρώθηκε με ασφάλεια/)
       assert.match(m, /Επαναφόρτωσε τη σελίδα για να επιχειρηθεί ανάκτηση/)
       assert.doesNotMatch(m, /δεν άλλαξε|διατηρήθηκε|θα ανακτηθεί/)
     })
-    test(`${action}: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση· επαναφόρτωσε…»`, { todo: 'D2' }, async () => {
+    test(`${action}: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση· επαναφόρτωσε…»`, async () => {
       const { describeProgressFailure } = await load()
       assert.match(describeProgressFailure(action, err({ name: 'PendingTransactionError', reason: 'pending' })), /Εκκρεμεί ανάκτηση· επαναφόρτωσε τη σελίδα πριν δοκιμάσεις ξανά/)
     })
-    test(`${action}: ο έλεγχος δεν έγινε → «δεν μπόρεσε να ελεγχθεί… ακυρώθηκε», χωρίς ισχυρισμό εκκρεμούς ανάκτησης`, { todo: 'D2' }, async () => {
+    test(`${action}: ο έλεγχος δεν έγινε → «δεν μπόρεσε να ελεγχθεί… ακυρώθηκε», χωρίς ισχυρισμό εκκρεμούς ανάκτησης`, async () => {
       const { describeProgressFailure } = await load()
       const m = describeProgressFailure(action, err({ name: 'PendingTransactionError', reason: 'unverifiable' }))
       assert.match(m, /δεν μπόρεσε να ελεγχθεί/)
       assert.match(m, /ακυρώθηκε/)
       assert.doesNotMatch(m, /Εκκρεμεί ανάκτηση/)
     })
-    test(`${action}: άγνωστο σφάλμα → ΔΕΝ ισχυρίζεται ότι η πρόοδος δεν άλλαξε`, { todo: 'D2' }, async () => {
+    test(`${action}: άγνωστο σφάλμα → ΔΕΝ ισχυρίζεται ότι η πρόοδος δεν άλλαξε`, async () => {
       const { describeProgressFailure } = await load()
       assert.doesNotMatch(describeProgressFailure(action, new Error('κάτι άλλο')), /δεν άλλαξε|διατηρήθηκε/)
     })
   }
-  test('import: άκυρο αρχείο (πριν από κάθε εγγραφή) → not-started → «δεν άλλαξε»', { todo: 'D2' }, async () => {
+  test('import: άκυρο αρχείο (πριν από κάθε εγγραφή) → not-started → «δεν άλλαξε»', async () => {
     const { describeProgressFailure } = await load()
     const s = fakeStorage({ ...PROD })
     let e
