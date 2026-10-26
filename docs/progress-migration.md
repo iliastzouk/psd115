@@ -337,6 +337,16 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
   (rollback σε αποτυχία), με τους ίδιους ελέγχους με το `append` (σχήμα, διπλά ids, όριο migration) και το νέο **όριο reset
   ανά μάθημα** (`resetViolations`: event του μαθήματος με `t` πριν από το `progress:reset:<c>.at` → απόρριψη). Το `append`
   είναι commit ενός event και γράφει ακόμα σύγχρονα.
+- **Αποτυχία ΚΑΙ του rollback** (review PR #11) — οι εγγραφές δύο κλειδιών (events + state) περνούν από το
+  `runTransaction` (μεταφέρθηκε στο `src/core/progress/transaction.js`· το `utils/progressTransaction.js` το
+  επανεξάγει): σημάδι `progress-txn-v1` → εγγραφή → επαλήθευση → επαληθευμένο rollback. Αν αποτύχει και το rollback,
+  το σφάλμα έχει `outcome: 'rollback-incomplete'` (όχι «δεν άλλαξε τίποτα»), το σημάδι μένει και το `recoverInterrupted`
+  της εκκίνησης ολοκληρώνει ή επαναφέρει. Όσο εκκρεμεί σημάδι, το store αρνείται κάθε εγγραφή (`not-started`). Ένα
+  κλειδί = ένα `setItem` (είτε γράφεται είτε όχι) → `not-started`. Η ατομικότητα είναι εγγύηση της εφαρμογής πάνω σε
+  χωριστά `setItem`, όχι συναλλαγή του browser.
+  *Trade-offs:* (α) το σημάδι κρατά before/after και των δύο κλειδιών, άρα σε κάθε εγγραφή δύο κλειδιών το log των
+  events γράφεται προσωρινά τρεις φορές· με γεμάτο storage η εγγραφή αποτυγχάνει ως `not-started` (τίποτα δεν αλλάζει).
+  (β) αν μείνει σημάδι, οι εγγραφές του store (και οι legacy εγγραφές πολλών κλειδιών) περιμένουν την επόμενη εκκίνηση.
 - **Recorder** — κάθε ενέργεια = ΕΝΑ commit:
   - σωστή απάντηση → event· λάθος → event + εγγραφή στο `progress:wrongbook:<c>` (όριο 60, FIFO)·
   - `recordWrongBookRemove` / `recordWrongBookClear` / `recordChecklist` → μόνο state (`unchanged` όταν δεν αλλάζει τίποτα)·
@@ -351,7 +361,7 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
 - **Μη αναπαριστώμενα legacy δεδομένα** (F3) — άγνωστα κλειδιά και checklists χωρίς θέμα → `unrepresented` στο report·
   όσο υπάρχουν, το reconciliation δεν βγάζει ποτέ `in-sync`.
 
-Tests: `tests/progressCommit.test.mjs` (G1), `tests/progressMirror.test.mjs` (G2–G9, G11), G10 στο
+Tests: `tests/progressCommit.test.mjs` (G1, και rollback-incomplete / ανάκτηση), `tests/progressMirror.test.mjs` (G2–G9, G11), G10 στο
 `tests/progressDecoupling.test.mjs`· smoke: `scripts/smoke-shadow.mjs` (A, A2, A3, B).
 
 **Εκκρεμότητες (follow-ups, όχι σε αυτό το phase):** test για το όριο των 3 τοπικών backups· αποδεκτό trade-off:

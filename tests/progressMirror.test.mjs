@@ -20,6 +20,7 @@ import { resetProgressSafely } from '../src/utils/progressBackup.js'
 import { createLegacyProgressBackend } from '../src/utils/legacyProgressBackend.js'
 import { activateShadow, deactivateShadow, shadowReconciliation } from '../src/utils/progressMigration.js'
 import { createShadowRecorder } from '../src/utils/progressShadow.js'
+import { recoverInterrupted, TXN_KEY } from '../src/core/progress/transaction.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
@@ -325,6 +326,22 @@ describe('G8 · απομόνωση αποτυχιών', () => {
       assert.equal(stateOf(s)[SHADOW_STATE_KEY].failures, 1)
       assert.equal(eventsOf(s).length, 0)
     }
+  })
+  test('λάθος απάντηση με αποτυχία ΚΑΙ του rollback → failed, legacy κανονικά· η ανάκτηση επαναφέρει το store', async () => {
+    const s = await activated()
+    const a = app(s)
+    await a.answer(Q(1), true) // υπάρχει log: το rollback του χρειάζεται setItem (που θα αποτύχει)
+    const storeBefore = { e: s.getItem(EVENTS_KEY), st: s.getItem(STATE_KEY) }
+    let eventWrites = 0
+    s.fail((k) => k === STATE_KEY || (k === EVENTS_KEY && ++eventWrites > 1))
+    const r = await a.answer(Q(0), false)
+    s.fail(null)
+    assert.equal(r.status, 'failed')
+    assert.match(r.error, /αναίρεση δεν ολοκληρώθηκε/)
+    assert.equal(JSON.parse(s.getItem('psd115-w1-study')).quizAnswered, JSON.parse(PROD['psd115-w1-study']).quizAnswered + 2, 'η ενέργεια του χρήστη ισχύει')
+    assert.notEqual(s.getItem(TXN_KEY), null)
+    assert.equal(recoverInterrupted(s).status, 'rolled-back')
+    assert.deepEqual({ e: s.getItem(EVENTS_KEY), st: s.getItem(STATE_KEY) }, storeBefore)
   })
   test('άγνωστο θέμα checklist → failed, τίποτα στο store', async () => {
     const s = await activated()

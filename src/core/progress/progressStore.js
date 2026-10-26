@@ -11,6 +11,7 @@
  */
 import { sameEvent, validateEvent } from './events.js'
 import { boundaryViolations, importBoundary, migrationBoundary, resetViolations } from './boundary.js'
+import { ProgressTransactionError, runTransaction, TXN_KEY } from './transaction.js'
 
 export const EVENTS_KEY = 'study-progress-events-v1'
 export const STATE_KEY = 'study-progress-state-v1'
@@ -20,11 +21,15 @@ export const EXPORT_VERSION = 1
 const QUERY_FIELDS = new Set(['item', 'kind', 'ctx', 'session', 'from', 'to'])
 
 export class ProgressStoreError extends Error {
-  /** @param {string} message @param {string[]} [details] */
-  constructor(message, details = []) {
+  /**
+   * @param {string} message @param {string[]} [details]
+   * @param {'not-started' | 'rolled-back' | 'rollback-incomplete'} [outcome] μόνο για αποτυχίες εγγραφής (1E-4c-2)
+   */
+  constructor(message, details = [], outcome) {
     super(details.length ? `${message}: ${details.slice(0, 5).join('; ')}` : message)
     this.name = 'ProgressStoreError'
     this.details = details
+    if (outcome) this.outcome = outcome
   }
 }
 
@@ -66,26 +71,35 @@ export function createProgressStore({ storage, now = () => Date.now() } = {}) {
     return obj
   }
 
-  /** Γράφει events και/ή state· αν αποτύχει η δεύτερη εγγραφή, επαναφέρει την πρώτη (ατομικότητα). */
+  /**
+   * Γράφει events και/ή state. Το localStorage δεν έχει συναλλαγές· η εγγύηση είναι της εφαρμογής:
+   *  - ΕΝΑ κλειδί: ένα setItem (είτε γράφεται είτε μένει η παλιά τιμή) → αποτυχία = `not-started`.
+   *  - ΔΥΟ κλειδιά (commit event + state, importAll): μέσω runTransaction (σημάδι → εγγραφή → επαλήθευση → rollback με
+   *    επαλήθευση). Αν και το rollback δεν ολοκληρωθεί, το σφάλμα λέει ρητά `rollback-incomplete` (ΟΧΙ «δεν άλλαξε τίποτα»)
+   *    και το σημάδι μένει: το recoverInterrupted της εκκίνησης ολοκληρώνει ή επαναφέρει.
+   *  - Όσο υπάρχει σημάδι μη ολοκληρωμένης αλλαγής, ΚΑΜΙΑ εγγραφή του store (η ανάκτηση θα έσβηνε ό,τι γραφτεί ενδιάμεσα).
+   */
   function writeAtomic(nextEvents, nextState) {
-    const prevEvents = store.getItem(EVENTS_KEY)
-    const prevState = store.getItem(STATE_KEY)
-    try {
-      if (nextEvents) store.setItem(EVENTS_KEY, JSON.stringify(nextEvents))
-      if (nextState) store.setItem(STATE_KEY, JSON.stringify(nextState))
-    } catch (err) {
-      for (const [key, prev] of [
-        [EVENTS_KEY, prevEvents],
-        [STATE_KEY, prevState],
-      ]) {
-        try {
-          if (prev === null) store.removeItem(key)
-          else store.setItem(key, prev)
-        } catch {
-          /* best effort */
-        }
+    if (store.getItem(TXN_KEY) !== null) {
+      throw new ProgressStoreError('Υπάρχει μη ολοκληρωμένη προηγούμενη αλλαγή (ανάκτηση στην επόμενη εκκίνηση)· δεν άλλαξε τίποτα', [], 'not-started')
+    }
+    const targets = {}
+    if (nextEvents) targets[EVENTS_KEY] = JSON.stringify(nextEvents)
+    if (nextState) targets[STATE_KEY] = JSON.stringify(nextState)
+    const keys = Object.keys(targets)
+    if (keys.length === 1) {
+      try {
+        store.setItem(keys[0], targets[keys[0]])
+      } catch (err) {
+        throw new ProgressStoreError(`Η αποθήκευση απέτυχε (${err?.name ?? 'error'})· δεν άλλαξε τίποτα`, [], 'not-started')
       }
-      throw new ProgressStoreError(`Η αποθήκευση απέτυχε (${err?.name ?? 'error'})· δεν άλλαξε τίποτα`)
+      return
+    }
+    try {
+      runTransaction(store, { op: 'progress-store', targets, now })
+    } catch (err) {
+      if (err instanceof ProgressTransactionError) throw new ProgressStoreError(err.message, [], err.outcome)
+      throw err
     }
   }
 

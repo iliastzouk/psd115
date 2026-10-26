@@ -7,6 +7,7 @@ import { newEventId } from '../src/core/progress/events.js'
 import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
 import { MIGRATION_MARKER_KEY } from '../src/core/progress/keys.js'
 import { resetStateKey, wrongBookStateKey } from '../src/core/progress/namespaces.js'
+import { recoverInterrupted, TXN_KEY } from '../src/core/progress/transaction.js'
 
 const T0 = Date.UTC(2026, 9, 20, 10, 0, 0)
 function fakeStorage(init = {}, { failSet } = {}) {
@@ -121,5 +122,78 @@ describe('G1 · όριο reset ανά μάθημα (F2)', () => {
       /reset/,
     )
     assert.equal(s.getItem(STATE_KEY), null)
+  })
+})
+
+describe('G1 · αποτυχία ΚΑΙ του rollback: ρητά αβέβαιο αποτέλεσμα, σημάδι, ανάκτηση (review PR #11)', () => {
+  /** 1η εγγραφή (events) πετυχαίνει, 2η (state) αποτυγχάνει, το rollback της 1ης αποτυγχάνει. */
+  function brokenAfterFirstWrite() {
+    const before = { [EVENTS_KEY]: JSON.stringify([ev(T0 - 5)]), [STATE_KEY]: JSON.stringify({ other: 1 }) }
+    const s = fakeStorage(before)
+    let eventWrites = 0
+    s.fail((k) => k === STATE_KEY || (k === EVENTS_KEY && ++eventWrites > 1))
+    return { s, before }
+  }
+
+  test('commit → outcome rollback-incomplete, ΟΧΙ «δεν άλλαξε τίποτα»· το σημάδι μένει', async () => {
+    const { s } = brokenAfterFirstWrite()
+    const e = ev(T0)
+    await assert.rejects(createProgressStore({ storage: s }).commit({ events: [e], state: { [WB]: { version: 1, entries: [] } } }), (err) => {
+      assert.equal(err.outcome, 'rollback-incomplete')
+      assert.doesNotMatch(err.message, /δεν άλλαξε τίποτα/)
+      return true
+    })
+    assert.notEqual(s.getItem(TXN_KEY), null, 'το σημάδι μένει για την ανάκτηση')
+    assert.equal(JSON.parse(s.getItem(EVENTS_KEY)).at(-1).id, e.id, 'η πραγματική (μισή) κατάσταση: το event γράφτηκε')
+  })
+
+  test('όσο υπάρχει το σημάδι: append / commit / setState → not-started, καμία αλλαγή', async () => {
+    const { s } = brokenAfterFirstWrite()
+    const store = createProgressStore({ storage: s })
+    await assert.rejects(store.commit({ events: [ev(T0)], state: { x: 1 } }))
+    s.fail(null)
+    const pending = s.dump()
+    for (const write of [() => store.append(ev(T0 + 1)), () => store.commit({ events: [ev(T0 + 2)], state: { y: 1 } }), () => store.setState('z', 1)]) {
+      await assert.rejects(write(), (err) => err.outcome === 'not-started')
+    }
+    assert.deepEqual(s.dump(), pending)
+  })
+
+  test('ανάκτηση στην εκκίνηση (recoverInterrupted) → rolled-back: και τα δύο κλειδιά byte-identical, χωρίς σημάδι', async () => {
+    const { s, before } = brokenAfterFirstWrite()
+    await assert.rejects(createProgressStore({ storage: s }).commit({ events: [ev(T0)], state: { x: 1 } }))
+    s.fail(null) // το storage «ελευθερώθηκε» (π.χ. νέα εκκίνηση)
+    assert.equal(recoverInterrupted(s).status, 'rolled-back')
+    assert.deepEqual(s.dump(), before)
+    await createProgressStore({ storage: s }).append(ev(T0 + 3)) // και μετά οι εγγραφές συνεχίζουν
+  })
+
+  test('διακοπή ΜΕΤΑ τις δύο εγγραφές (το σημάδι δεν σβήστηκε) → completed, κατάσταση «after»', async () => {
+    const s = fakeStorage({ [STATE_KEY]: JSON.stringify({ other: 1 }) })
+    const orig = s.removeItem
+    s.removeItem = (k) => {
+      if (k === TXN_KEY) throw new Error('κλείσιμο tab')
+      orig(k)
+    }
+    const e = ev(T0)
+    await createProgressStore({ storage: s }).commit({ events: [e], state: { x: 1 } })
+    s.removeItem = orig
+    assert.notEqual(s.getItem(TXN_KEY), null)
+    assert.equal(recoverInterrupted(s).status, 'completed')
+    assert.equal(s.getItem(TXN_KEY), null)
+    assert.deepEqual(JSON.parse(s.getItem(EVENTS_KEY)), [e])
+    assert.deepEqual(JSON.parse(s.getItem(STATE_KEY)), { other: 1, x: 1 })
+  })
+
+  test('outcomes: αποτυχία με επιτυχές rollback → rolled-back· αποτυχία ενός κλειδιού → not-started (byte-identical)', async () => {
+    const before = { [STATE_KEY]: JSON.stringify({ other: 1 }) }
+    const s = fakeStorage(before)
+    s.fail((k) => k === STATE_KEY)
+    await assert.rejects(createProgressStore({ storage: s }).commit({ events: [ev(T0)], state: { x: 1 } }), (err) => err.outcome === 'rolled-back')
+    assert.deepEqual(s.dump(), before)
+    await assert.rejects(createProgressStore({ storage: s }).setState('x', 1), (err) => err.outcome === 'not-started')
+    s.fail((k) => k === EVENTS_KEY)
+    await assert.rejects(createProgressStore({ storage: s }).append(ev(T0)), (err) => err.outcome === 'not-started')
+    assert.deepEqual(s.dump(), before)
   })
 })
