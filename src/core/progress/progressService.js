@@ -54,7 +54,11 @@ export const createdServiceCount = () => created
  * @param {{
  *   courseId: string,
  *   content: import('./contentAdapter.js').ContentAdapter,   // με legacy codec (legacy mode)
- *   backend: { read: () => Record<string, string>, write: (changes: Record<string, string>) => void },
+ *   backend: {
+ *     read: () => Record<string, string>,
+ *     write: (changes: Record<string, string>) => void,   // πετάει αν η εγγραφή απορριφθεί/αποτύχει
+ *     pending?: () => boolean,  // εκκρεμεί σημάδι συναλλαγής (ανάκτηση στην επόμενη εκκίνηση)· αν πετάξει → fail-closed (degraded)
+ *   },
  *   recovery?: { status: string },                           // αποτέλεσμα του recoverInterrupted
  *   newUid?: () => string,
  *   warn?: (...a: unknown[]) => void,
