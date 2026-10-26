@@ -5,6 +5,8 @@
  *     και runtime ενεργοποίηση:
  *       1 απάντηση κουίζ + 1 «Επόμενη κάρτα» → το legacy αλλάζει κανονικά ΚΑΙ γράφονται ακριβώς 2 events
  *       (σωστά id/item/kind/ctx/t)· reconciliation in-sync.
+ *       1E-4c-2 (mirror): λάθος απάντηση, checklist (Εβδ. 1 + εβδομαδιαίο) και αφαίρεση λάθους από το UI →
+ *       πλήρες in-sync μετά από ΚΑΘΕ ενέργεια (wrongBook/checklists στα state namespaces, ίδιο uid).
  *       απενεργοποίηση (runtime) → νέα απάντηση: legacy +1, κανένα νέο event (το reconciliation το δείχνει).
  *       import αρχείου με event πριν από το όριο migration → απόρριψη, κανένα event.
  *  A2. Integration του πραγματικού useStudySession.handleSelectOption (shadow build, πραγματικά κλικ):
@@ -12,7 +14,9 @@
  *     λάθος επιλογή → 1 event (ok 0), legacy answered +1, correct +0·
  *     αποτυχία του append (setItem του log πετάει) → legacy answered +1 κανονικά, το UI δείχνει την απάντηση,
  *     κανένα νέο event, καταγραφή αποτυχίας στο shadow:psd115, κανένα σφάλμα JS.
- *  B. Κανονικό build (dist, flag κλειστό): ίδιο storage → καμία εγγραφή στο νέο store.
+ *  A3. Shadow build + degraded mode (κατεστραμμένη legacy πρόοδος): απάντηση + checklist → ΜΗΔΕΝ εγγραφές και
+ *     μηδέν αναγνώσεις στο νέο store από τον recorder (isActive = false).
+ *  B. Κανονικό build (dist, flag κλειστό): ίδιο storage, απάντηση + checklist + αφαίρεση λάθους → καμία εγγραφή στο νέο store.
  *
  * Run: node scripts/smoke-shadow.mjs   (χτίζει μόνο του το dist-shadow· το dist πρέπει να υπάρχει)
  */
@@ -42,6 +46,7 @@ const { buildLegacyBaseline } = await imp('src/core/progress/legacyBaseline.js')
 const { reconcileShadow } = await imp('src/core/progress/reconcile.js')
 const { psd115ProgressAdapter: content } = await imp('src/core/progress/adapters/psd115.js')
 const K = await imp('src/core/progress/keys.js')
+const { stateFromSnapshot } = await imp('src/core/progress/snapshot.js')
 const fixture = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8'))
 
 const EVENTS = 'study-progress-events-v1'
@@ -55,6 +60,8 @@ const seed = {
   [STATE]: JSON.stringify({
     [K.LEGACY_BASELINE_KEY]: built.baseline,
     [K.MIGRATION_MARKER_KEY]: built.marker,
+    // 1E-4c-2: ό,τι γράφει το migration — τα υλοποιημένα namespaces wrongBook / checklists.
+    ...stateFromSnapshot(built.snapshot),
     [K.SHADOW_STATE_KEY]: { enabled: true, activatedAt: built.marker.at, failures: 0, recentFailures: [] },
   }),
 }
@@ -99,13 +106,13 @@ async function serve(outDir, port) {
   throw new Error(`ο server ${outDir} δεν ξεκίνησε`)
 }
 
-async function newPage(browser) {
+async function newPage(browser, data = seed) {
   const context = await browser.newContext({ acceptDownloads: true })
   await context.addInitScript((data) => {
     if (sessionStorage.getItem('shadow-smoke-seeded')) return
     for (const [k, v] of Object.entries(data)) localStorage.setItem(k, v)
     sessionStorage.setItem('shadow-smoke-seeded', '1')
-  }, seed)
+  }, data)
   const page = await context.newPage()
   page.on('pageerror', (e) => fail(`σφάλμα JS: ${e.message}`))
   return { context, page }
@@ -114,7 +121,13 @@ async function newPage(browser) {
 const read = (page) =>
   page.evaluate(([E, S]) => ({
     legacyEntries: Object.fromEntries(Object.keys(localStorage).filter((k) => k.startsWith('psd115-') && !k.startsWith('psd115-backup-')).map((k) => [k, localStorage.getItem(k)])),
-    study: JSON.parse(localStorage.getItem('psd115-w1-study') ?? '{}'),
+    study: (() => {
+      try {
+        return JSON.parse(localStorage.getItem('psd115-w1-study') ?? '{}')
+      } catch {
+        return null // A3: σκόπιμα κατεστραμμένη πρόοδος
+      }
+    })(),
     events: localStorage.getItem(E) === null ? null : JSON.parse(localStorage.getItem(E)),
     state: JSON.parse(localStorage.getItem(S) ?? '{}'),
   }), [EVENTS, STATE])
@@ -170,13 +183,39 @@ let server
   const rec = reconcile(s)
   check(rec.ok, `A: reconciliation όχι in-sync: ${JSON.stringify(rec.diff)}`)
 
-  // 1E-4c-1: λάθος απάντηση → το legacy wrongBook αλλάζει, το νέο store ΔΕΝ το έχει ακόμα (mirror = 1E-4c-2).
-  // Το πλήρες reconciliation το δείχνει ρητά — απόκλιση ΜΟΝΟ στο wrongBook (οι μετρητές συμφωνούν).
+  // 1E-4c-2: λάθος απάντηση → event + εγγραφή στο wrongBook namespace με το ΙΔΙΟ uid με το legacy → in-sync.
   await answerOneQuizQuestion(page, base, false)
   s = await read(page)
   check(s.events?.length === 3, `A: ${s.events?.length} events μετά τη λάθος απάντηση (αναμενόταν 3)`)
-  const recWrong = reconcile(s)
-  check(!recWrong.ok && JSON.stringify(Object.keys(recWrong.diff)) === '["wrongBook"]', `A: λάθος απάντηση: αναμενόταν απόκλιση μόνο στο wrongBook, βρέθηκε ${JSON.stringify(Object.keys(recWrong.diff))}`)
+  const inSync = (label) => {
+    const r = reconcile(s)
+    check(r.ok, `A: ${label}: όχι in-sync: ${JSON.stringify({ diff: Object.keys(r.diff), unrepresented: r.unrepresented, errors: r.errors })}`)
+  }
+  inSync('λάθος απάντηση')
+  const wbNs = s.state['progress:wrongbook:psd115']?.entries ?? []
+  check(wbNs.length === s.study.wrongBook.length && wbNs.at(-1)?.uid === s.study.wrongBook.at(-1)?.uid, 'A: το νέο λάθος δεν έχει το ίδιο uid στο namespace και στο legacy')
+
+  // Checklists από το UI: Εβδ. 1 (pavlov) και εβδομαδιαίο (empiricism) — μόνο state, κανένα event.
+  for (const topic of ['pavlov', 'empiricism']) {
+    await page.goto(`${base}/psd115/topics/${topic}`, { waitUntil: 'networkidle' })
+    await page.locator('main input[type=checkbox]').first().click()
+    await page.waitForTimeout(250)
+    s = await read(page)
+    check(s.events?.length === 3, `A: checklist ${topic}: ${s.events?.length} events (αναμενόταν 3)`)
+    check(s.state['progress:checklists:psd115']?.topics?.[topic]?.items?.[0] === true, `A: checklist ${topic}: δεν καθρεφτίστηκε στο namespace`)
+    inSync(`checklist ${topic}`)
+  }
+
+  // Αφαίρεση λάθους από τη σελίδα επανάληψης.
+  const wbBefore = s.study.wrongBook.length
+  await page.goto(`${base}/study/review?scope=unit:psd115/k2`, { waitUntil: 'networkidle' })
+  await page.locator('main ul li button').first().click()
+  await page.getByRole('button', { name: 'Αφαίρεση από τη λίστα' }).click()
+  await page.waitForTimeout(250)
+  s = await read(page)
+  check(s.study.wrongBook.length === wbBefore - 1, `A: αφαίρεση: legacy wrongBook ${s.study.wrongBook.length} (αναμενόταν ${wbBefore - 1})`)
+  check((s.state['progress:wrongbook:psd115']?.entries ?? []).length === wbBefore - 1, 'A: αφαίρεση: δεν καθρεφτίστηκε στο namespace')
+  inSync('αφαίρεση λάθους')
 
   // Απενεργοποίηση (runtime) → καμία νέα εγγραφή.
   await page.evaluate(([S, KEY]) => {
@@ -204,7 +243,7 @@ let server
 
   await context.close()
   server.kill()
-  console.log(`${failures.length ? '✗' : '✓'} Shadow build: σωστή απάντηση + κάρτα → 2 events · πλήρες in-sync · λάθος απάντηση → diverged μόνο στο wrongBook (mirror: 1E-4c-2) · απενεργοποίηση → 0 νέα · παλιό event → απόρριψη`)
+  console.log(`${failures.length ? '✗' : '✓'} Shadow build: σωστή απάντηση + κάρτα → 2 events · λάθος απάντηση, checklists (Εβδ. 1 + εβδομαδιαίο), αφαίρεση λάθους → πλήρες in-sync μετά από κάθε ενέργεια · απενεργοποίηση → 0 νέα · παλιό event → απόρριψη`)
 }
 
 // ---------- A2. Integration: handleSelectOption → recorder → legacy ----------
@@ -287,6 +326,41 @@ const beforeA2 = failures.length
   )
 }
 
+// ---------- A3. Shadow build + degraded mode → ο recorder δεν αγγίζει το νέο store ----------
+const beforeA3 = failures.length
+{
+  server = await serve('dist-shadow', 4318)
+  const base = 'http://localhost:4318'
+  const { context, page } = await newPage(browser, { ...seed, 'psd115-w1-study': '{ κατεστραμμένο' })
+  await context.addInitScript(() => {
+    window.__storeTouches = []
+    const { getItem, setItem } = Storage.prototype
+    Storage.prototype.getItem = function (k) {
+      if (String(k).startsWith('study-progress-') && sessionStorage.getItem('shadow-smoke-seeded')) window.__storeTouches.push(`get ${k}`)
+      return getItem.call(this, k)
+    }
+    Storage.prototype.setItem = function (k, v) {
+      if (String(k).startsWith('study-progress-') && sessionStorage.getItem('shadow-smoke-seeded')) window.__storeTouches.push(`set ${k}`)
+      return setItem.call(this, k, v)
+    }
+  })
+  await page.goto(`${base}/`, { waitUntil: 'networkidle' })
+  const before = await read(page)
+  await answerOneQuizQuestion(page, base, false)
+  await page.goto(`${base}/psd115/topics/pavlov`, { waitUntil: 'networkidle' })
+  await page.locator('main input[type=checkbox]').first().click().catch(() => {})
+  await page.waitForTimeout(250)
+  const after = await read(page)
+  check(JSON.stringify(after.events) === JSON.stringify(before.events), 'A3: γράφτηκαν events σε degraded mode')
+  check(JSON.stringify(after.state) === JSON.stringify(before.state), 'A3: άλλαξε το state του νέου store σε degraded mode')
+  const touches = await page.evaluate(() => window.__storeTouches.filter((t) => t.startsWith('set ')))
+  check(touches.length === 0, `A3: εγγραφές στο νέο store σε degraded mode: ${JSON.stringify(touches)}`)
+  check(after.legacyEntries['psd115-w1-study'] === '{ κατεστραμμένο', 'A3: η κατεστραμμένη legacy πρόοδος άλλαξε')
+  await context.close()
+  server.kill()
+  console.log(`${failures.length > beforeA3 ? '✗' : '✓'} Shadow build + degraded: λάθος απάντηση + checklist → 0 εγγραφές στο νέο store, legacy ανέγγιχτο`)
+}
+
 // ---------- B. Κανονικό build (flag κλειστό) ----------
 const beforeB = failures.length
 {
@@ -297,13 +371,22 @@ const beforeB = failures.length
     return read(page)
   })()).state
   await answerOneQuizQuestion(page, 'http://localhost:4319')
+  // 1E-4c-2: και οι νέες ενέργειες mirror (checklist, αφαίρεση λάθους) → καμία εγγραφή στο νέο store.
+  await page.goto('http://localhost:4319/psd115/topics/pavlov', { waitUntil: 'networkidle' })
+  await page.locator('main input[type=checkbox]').first().click()
+  await page.goto('http://localhost:4319/study/review?scope=unit:psd115/k2', { waitUntil: 'networkidle' })
+  await page.locator('main ul li button').first().click()
+  await page.getByRole('button', { name: 'Αφαίρεση από τη λίστα' }).click()
+  await page.waitForTimeout(250)
   const s = await read(page)
   check(s.study.quizAnswered === 2, `B: legacy quizAnswered ${s.study.quizAnswered} (αναμενόταν 2)`)
+  check(s.study.wrongBook.length === 0, `B: legacy wrongBook ${s.study.wrongBook.length} (αναμενόταν 0 μετά την αφαίρεση)`)
+  check(JSON.parse(s.legacyEntries['psd115-w1-pavlov-checklist'] ?? '[]')[0] === true, 'B: το legacy checklist δεν άλλαξε')
   check(s.events === null, 'B: το κανονικό build έγραψε events')
   check(JSON.stringify(s.state) === JSON.stringify(stateBefore), 'B: το κανονικό build άλλαξε το state του νέου store')
   await context.close()
   server.kill()
-  console.log(`${failures.length > beforeB ? '✗' : '✓'} Κανονικό build: legacy +1 · καμία εγγραφή στο νέο store (ακόμα και με ενεργό runtime state)`)
+  console.log(`${failures.length > beforeB ? '✗' : '✓'} Κανονικό build: απάντηση + checklist + αφαίρεση λάθους → legacy κανονικά · καμία εγγραφή στο νέο store (ακόμα και με ενεργό runtime state)`)
 }
 
 await browser.close()
