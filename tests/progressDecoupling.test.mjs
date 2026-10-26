@@ -60,7 +60,7 @@ describe('1E-4c-1 · μόνο ο adapter ξέρει το μάθημα', () => {
   })
   test('η σύνδεση με το PSD115 γίνεται μόνο στο main.jsx (adapter → service + recorder)', () => {
     const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8')
-    assert.match(main, /createShadowRecorder\(\{ courseId: 'psd115', content: psd115ProgressAdapter \}\)/)
+    assert.match(main, /createShadowRecorder\(\{ courseId: 'psd115', content: psd115ProgressAdapter, isActive: /)
     assert.match(main, /installShadowRecorder\(/)
   })
 })

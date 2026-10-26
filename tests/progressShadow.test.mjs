@@ -64,6 +64,10 @@ async function activated() {
   assert.equal(r.status, 'active')
   return s
 }
+/** Ό,τι κάνει ο handler σε λάθος απάντηση (1E-4c-2): ΕΝΑ uid, κοινό για shadow και legacy. */
+const wrongOf = (q, uid = newEventId()) => ({ uid, question: q.question, explanation: q.explanation, userLabel: q.options[q.correctIndex === 0 ? 1 : 0], correctLabel: q.options[q.correctIndex] })
+const legacyWrong = (q, w) => ({ uid: w.uid, id: q.id, categoryId: q.categoryId, question: w.question, explanation: w.explanation, userLabel: w.userLabel, correctLabel: w.correctLabel })
+const Q = (id) => quizQuestions.find((q) => q.id === id)
 const recorder = (s, t = T0 + 1000, extra = {}) => createShadowRecorder({ courseId: 'psd115', content, storage: s, now: fixed(t), enabled: true, warn: () => {}, ...extra })
 
 describe('όριο migration: event με t πριν από το marker.at απορρίπτεται σε ΚΑΘΕ δρόμο', () => {
@@ -178,8 +182,10 @@ describe('δημιουργία events', () => {
   test('μία απάντηση κουίζ → ακριβώς ένα event (σταθερό ID ερώτησης, ctx quiz, πραγματικό t)', async () => {
     const s = await activated()
     const legacyBefore = legacyOnly(s.dump())
-    const r = await recorder(s, T0 + 4242).recordQuizAnswer({ questionId: 'q-w2-var-4', ok: false })
+    const wrong = wrongOf(Q('q-w2-var-4'))
+    const r = await recorder(s, T0 + 4242).recordQuizAnswer({ questionId: 'q-w2-var-4', ok: false, wrong })
     assert.equal(r.status, 'recorded')
+    assert.deepEqual(state(s)['progress:wrongbook:psd115'].entries.at(-1).uid, wrong.uid, 'λάθος → και στο wrongBook namespace, ίδιο uid')
     const list = events(s)
     assert.equal(list.length, 1)
     const [e] = list
@@ -285,9 +291,11 @@ describe('reconciliation', () => {
       const c = (legacy.byCategory[q.categoryId] ??= { correct: 0, wrong: 0 })
       if (ok) c.correct += 1
       else c.wrong += 1
+      const wrong = ok ? undefined : wrongOf(q)
+      if (wrong) legacy.wrongBook.push(legacyWrong(q, wrong))
       if (dropEvent && i === 3) continue
       t += 1000
-      await recorder(s, t).recordQuizAnswer({ questionId: q.id, ok })
+      await recorder(s, t).recordQuizAnswer({ questionId: q.id, ok, wrong })
     }
     return { s, baseline, legacy }
   }
@@ -342,12 +350,13 @@ describe('reconciliation', () => {
     const s = await activated()
     const baseline = state(s)[LEGACY_BASELINE_KEY]
     const q = quizQuestions.find((x) => x.categoryId === 'pavlov')
-    await recorder(s).recordQuizAnswer({ questionId: q.id, ok: false })
+    const wrong = wrongOf(q, 'u-shadow')
+    await recorder(s).recordQuizAnswer({ questionId: q.id, ok: false, wrong })
     const { checklists, ...study } = structuredClone(baseline.progress)
     study.quizAnswered += 1
     study.byCategory.pavlov = { correct: 0, wrong: 1 }
-    // Το παλιό λάθος αφαιρέθηκε και μπήκε το νέο: ίδιο πλήθος (1), άλλη εγγραφή.
-    study.wrongBook = [{ uid: 'u-new', id: q.id, categoryId: 'pavlov', question: q.question, explanation: q.explanation, userLabel: q.options[q.correctIndex === 0 ? 1 : 0], correctLabel: q.options[q.correctIndex] }]
+    // Το legacy έχει άλλο uid για το νέο λάθος: ίδιο πλήθος, άλλη εγγραφή.
+    study.wrongBook = [...study.wrongBook, legacyWrong(q, { ...wrong, uid: 'u-new' })]
     const entries = { ...entriesOf(baseline, study), 'psd115-w1-pavlov-checklist': JSON.stringify([true, false, false, false, false, false, false, false, false]) }
     const r = reconcileShadow({ content, baseline, legacyEntries: entries, events: events(s), state: state(s) })
     assert.equal(r.ok, false)
@@ -385,9 +394,10 @@ describe('reset μετά το migration', () => {
     const s = await activated()
     await recorder(s, T0 + 1).recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true })
     resetProgressSafely({ storage: s, download: noBackup, now: fixed(T0 + 100) })
-    await recorder(s, T0 + 200).recordQuizAnswer({ questionId: 'q-w2-var-2', ok: false })
-    const cat = quizQuestions.find((q) => q.id === 'q-w2-var-2').categoryId
-    s.setItem('psd115-w1-study', JSON.stringify({ quizAnswered: 1, quizCorrect: 0, byCategory: { [cat]: { correct: 0, wrong: 1 } }, flashcardSeenIds: [], wrongBook: [] }))
+    const wrong = wrongOf(Q('q-w2-var-2'))
+    await recorder(s, T0 + 200).recordQuizAnswer({ questionId: 'q-w2-var-2', ok: false, wrong })
+    const cat = Q('q-w2-var-2').categoryId
+    s.setItem('psd115-w1-study', JSON.stringify({ quizAnswered: 1, quizCorrect: 0, byCategory: { [cat]: { correct: 0, wrong: 1 } }, flashcardSeenIds: [], wrongBook: [legacyWrong(Q('q-w2-var-2'), wrong)] }))
     const r = await shadowReconciliation({ storage: s, content })
     assert.equal(r.status, 'in-sync', JSON.stringify(r.report))
   })
@@ -399,7 +409,7 @@ describe('πολλά tabs', () => {
     const tabA = recorder(s, T0 + 10)
     const tabB = recorder(s, T0 + 20)
     await tabA.recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true })
-    await tabB.recordQuizAnswer({ questionId: 'q-w2-var-2', ok: false })
+    await tabB.recordQuizAnswer({ questionId: 'q-w2-var-2', ok: false, wrong: wrongOf(Q('q-w2-var-2')) })
     await tabA.recordFlashcardSeen({ cardId: 'fc-def-1' })
     assert.deepEqual(events(s).map((e) => e.item), ['psd115/q-w2-var-1', 'psd115/q-w2-var-2', 'psd115/fc-def-1'])
   })
@@ -407,9 +417,11 @@ describe('πολλά tabs', () => {
 
 describe('επανενεργοποίηση (activateShadow idempotent)', () => {
   const answerBoth = async (s, t, questionId, ok) => {
-    await recorder(s, t).recordQuizAnswer({ questionId, ok })
-    const cat = quizQuestions.find((q) => q.id === questionId).categoryId
+    const wrong = ok ? undefined : wrongOf(Q(questionId))
+    await recorder(s, t).recordQuizAnswer({ questionId, ok, wrong })
+    const cat = Q(questionId).categoryId
     const study = JSON.parse(s.getItem('psd115-w1-study'))
+    if (wrong) study.wrongBook.push(legacyWrong(Q(questionId), wrong))
     study.quizAnswered += 1
     if (ok) study.quizCorrect += 1
     const c = (study.byCategory[cat] ??= { correct: 0, wrong: 0 })

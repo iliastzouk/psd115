@@ -123,7 +123,8 @@ export function createProgressService({ courseId, content, backend, recovery = {
 
     /**
      * Μία απάντηση στο κεντρικό κουίζ. Λάθος → εγγραφή στο wrongBook (ό,τι είδε ο χρήστης).
-     * @param {{ questionId: string, ok: boolean, wrong?: { question: string, explanation: string, userLabel: string, correctLabel: string } }} a
+     * `wrong.uid` (1E-4c-2): αν δοθεί, χρησιμοποιείται αυτό (ίδιο με τον shadow recorder)· αλλιώς νέο.
+     * @param {{ questionId: string, ok: boolean, wrong?: { uid?: string, question: string, explanation: string, userLabel: string, correctLabel: string } }} a
      */
     answerQuestion({ questionId, ok, wrong }) {
       const s = current()
@@ -133,8 +134,8 @@ export function createProgressService({ courseId, content, backend, recovery = {
       const g = s.byGroup[group] ?? { correct: 0, wrong: 0 }
       let wrongBook = s.wrongBook
       if (!ok) {
-        const { question, explanation, userLabel, correctLabel } = wrong ?? {}
-        wrongBook = [...s.wrongBook, { uid: newUid(), item: toGlobalId(courseId, questionId), group, question, explanation, userLabel, correctLabel, t: null }]
+        const { uid, question, explanation, userLabel, correctLabel } = wrong ?? {}
+        wrongBook = [...s.wrongBook, { uid: typeof uid === 'string' && uid ? uid : newUid(), item: toGlobalId(courseId, questionId), group, question, explanation, userLabel, correctLabel, t: null }]
         while (wrongBook.length > WRONG_BOOK_LIMIT) wrongBook.shift()
       }
       return commit({
