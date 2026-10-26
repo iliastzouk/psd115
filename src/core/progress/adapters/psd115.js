@@ -78,7 +78,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
           continue
         }
         if (key.startsWith(BACKUP_PREFIX)) {
-          unknown.push(`${key}: τα αντίγραφα ασφαλείας δεν είναι πρόοδος`)
+          unknown.push({ key, reason: 'τα αντίγραφα ασφαλείας δεν είναι πρόοδος' })
           continue
         }
         let m = key.match(W1_CHECKLIST_RE)
@@ -91,7 +91,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
         if (m) {
           const unitId = unitOfWeek(Number(m[1]))
           if (!unitId) {
-            unknown.push(`${key}: άγνωστη εβδομάδα ${m[1]}`)
+            unknown.push({ key, reason: `άγνωστη εβδομάδα ${m[1]}` })
             continue
           }
           const p = parse(key, raw, errors)
@@ -103,7 +103,7 @@ export function createPsd115ProgressAdapter({ course: c, topics: tps, categories
           for (const [slug, items] of Object.entries(p.value)) checklists.push({ key: `${key}#${slug}`, topicId: topicFor(unitId, slug), items })
           continue
         }
-        unknown.push(`${key}: άγνωστο κλειδί προόδου`)
+        unknown.push({ key, reason: 'άγνωστο κλειδί προόδου' })
       }
       return { study, checklists, settings, unknown, errors }
     },
