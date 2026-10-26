@@ -211,7 +211,7 @@ describe('όρια της αλλαγής', () => {
   })
 })
 
-describe('E2 · κείμενα ειδοποίησης (ακριβή)', { todo: 'Φάση 2 UI' }, () => {
+describe('E2 · κείμενα ειδοποίησης (ακριβή)', () => {
   test('quota / other', async () => {
     const { describeWriteFailure } = await import('../src/utils/progressFailureMessage.js')
     assert.equal(

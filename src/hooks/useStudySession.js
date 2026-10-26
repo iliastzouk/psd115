@@ -27,6 +27,9 @@ export function useStudySession() {
   const progressState = useProgress('study-session')
   const progress = progressState.courses[COURSE_ID]
   const progressStatus = progressState.status
+  // Φάση 2: η τελευταία αλλαγή δεν αποθηκεύτηκε (ready· ≠ degraded). Η απόρριψη απλώς κρύβει την ειδοποίηση.
+  const progressWriteFailure = progressState.writeFailure ?? null
+  const dismissWriteFailure = useCallback(() => getProgressService().dismissWriteFailure(), [])
   // Ρυθμίσεις: από το settings module (διαβάστηκαν πριν από το render· εγγραφή μόνο σε αλλαγή του χρήστη).
   const dark = useTheme() === 'dark'
   const setDark = useCallback((next) => {
@@ -290,6 +293,8 @@ export function useStudySession() {
     setDark,
     progress,
     progressStatus,
+    progressWriteFailure,
+    dismissWriteFailure,
     selectedIds,
     toggleCategory,
     filteredCards,

@@ -388,3 +388,20 @@ reset/import αποτυγχάνει όταν το storage είναι πολύ γ
   ανέπαφη, ενώ το νέο backup και το κλάδεμα ενός παλιού μπορεί να έχουν γίνει (αποδεκτό, D4).
 
 Tests: `tests/progressBackupSafety.test.mjs` (T1–T5)· smoke: `scripts/smoke-progress.mjs` (R1, R2).
+
+## 16. Αποτυχίες αποθήκευσης χωρίς εκκρεμές σημάδι (Φάση 2)
+
+- **E1(α)**: αν το `backend.write` αποτύχει και ΔΕΝ εκκρεμεί σημάδι συναλλαγής (π.χ. γεμάτο storage), η αλλαγή ΔΕΝ
+  εφαρμόζεται στη μνήμη (μνήμη ≡ storage), η ενέργεια επιστρέφει `false` και το `status` μένει `ready`.
+  Η επόμενη ενέργεια αποθηκεύει μόνο τη δική της αλλαγή — η αποτυχημένη δεν επαναλαμβάνεται αυτόματα· ο χρήστης πρέπει να
+  την επαναλάβει.
+- **E2**: `ProgressState.writeFailure = { at, kind: 'quota' | 'other' } | null`, ξεχωριστό από το `status`. `quota` μόνο από
+  `name` (`QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`) ή `code` (22, 1014) — ποτέ από το κείμενο· τυλιγμένα σφάλματα
+  συναλλαγής → `other`. Καθαρίζει ΜΟΝΟ με πραγματικά επιτυχημένη εγγραφή ή `dismissWriteFailure()` (που απλώς κρύβει την
+  ειδοποίηση)· ενέργεια χωρίς εγγραφή δεν το καθαρίζει. Ειδοποίηση `role="status"` (όχι modal), χωριστή από το banner
+  του degraded.
+- **E3**: ο shadow recorder μένει πριν από το service· ένα event χωρίς legacy εγγραφή φαίνεται στο reconciliation (`diverged`).
+- **E4**: μόνο οι εγγραφές προόδου μέσω του service· εκτός: ρυθμίσεις, reset/import, πολλά tabs, `storage.js`.
+- Προγραμματιστικά σφάλματα (άκυρο θέμα, άκυρο snapshot) εξακολουθούν να πετούν.
+
+Tests: `tests/progressWriteFailure.test.mjs`· smoke: `scripts/smoke-progress.mjs` (W).
