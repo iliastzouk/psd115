@@ -210,7 +210,7 @@ describe('T4 · εκκρεμές σημάδι (D1): ακύρωση ΠΡΙΝ απ
     import: (s, download) => importWithBackup(importFile(), { storage: s, download }),
   }
   for (const [name, run] of Object.entries(ACTIONS)) {
-    test(`${name} με εκκρεμές σημάδι → PendingTransactionError(pending)· καμία λήψη· τα 3 backups, η πρόοδος και το σημάδι byte-identical`, { todo: 'D1' }, (t) => {
+    test(`${name} με εκκρεμές σημάδι → PendingTransactionError(pending)· καμία λήψη· τα 3 backups, η πρόοδος και το σημάδι byte-identical`, (t) => {
       const s = threeBackupsThenMarker(t)
       const before = s.dump()
       let downloads = 0
@@ -218,7 +218,7 @@ describe('T4 · εκκρεμές σημάδι (D1): ακύρωση ΠΡΙΝ απ
       assert.equal(downloads, 0)
       assert.deepEqual(s.dump(), before)
     })
-    test(`${name}: ο έλεγχος του σημαδιού πετάει → fail-closed, PendingTransactionError(unverifiable), τίποτα δεν αλλάζει`, { todo: 'D1' }, () => {
+    test(`${name}: ο έλεγχος του σημαδιού πετάει → fail-closed, PendingTransactionError(unverifiable), τίποτα δεν αλλάζει`, () => {
       const s = fakeStorage({ ...PROD })
       s.hooks.get = (k) => k === TXN_KEY
       const before = s.dump()

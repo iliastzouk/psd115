@@ -55,6 +55,9 @@ function breakAfterFirst(s, first, second) {
 /** Έγκυρο αρχείο εισαγωγής που ΔΙΑΦΕΡΕΙ από τα τρέχοντα δεδομένα (export αντιγράφου με άλλο checklist). */
 const importFile = () => buildExport('export', fakeStorage({ ...PROD, 'psd115-w1-pavlov-checklist': JSON.stringify([true, true, true, false, false, false, false, false, false]) }))
 
+/** Μονοπάτια που (Φάση 1, D1) ελέγχουν το σημάδι ΠΡΙΝ από το safety backup. */
+const EARLY = new Set(['importWithBackup', 'resetProgressSafely'])
+
 const SOURCES = {
   'commit του νέου store (events + state)': async () => {
     const s = fakeStorage({ ...PROD })
@@ -96,13 +99,19 @@ for (const [source, makePending] of Object.entries(SOURCES)) {
         const marker = s.getItem(TXN_KEY)
         assert.notEqual(marker, null)
         const before = data(s.dump())
+        const all = s.dump()
         let err
         try {
           await run(s, file)
         } catch (e) {
           err = e
         }
-        assert.equal(err?.outcome, 'not-started', `${name}: ${err?.message ?? 'δεν απορρίφθηκε'}`)
+        if (EARLY.has(name)) {
+          // Φάση 1 (D1): reset/import απορρίπτονται ΠΡΙΝ από το backup — ούτε νέο backup ούτε κλάδεμα παλιού.
+          assert.equal(err?.name, 'PendingTransactionError', `${name}: ${err?.message ?? 'δεν απορρίφθηκε'}`)
+          assert.equal(err.reason, 'pending')
+          assert.deepEqual(s.dump(), all, 'καμία αλλαγή, ΟΥΤΕ στα backups')
+        } else assert.equal(err?.outcome, 'not-started', `${name}: ${err?.message ?? 'δεν απορρίφθηκε'}`)
         assert.deepEqual(data(s.dump()), before, 'καμία αλλαγή στα δεδομένα (τα safety backups εξαιρούνται)')
         assert.equal(s.getItem(TXN_KEY), marker, 'το σημάδι δεν άλλαξε')
       })
