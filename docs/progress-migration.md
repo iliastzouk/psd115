@@ -324,5 +324,36 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
 - `createShadowRecorder({ courseId, content, … })` / `installShadowRecorder` (main.jsx)·
   `migrateLegacyBaseline` / `activateShadow` / `shadowReconciliation` παίρνουν `content`.
 
-**Συνέπεια (σκόπιμη):** μέχρι το 1E-4c-2 (mirror του wrongBook/checklists στο state), κάθε αλλαγή στο legacy wrongBook ή
+**Συνέπεια (σκόπιμη, έως το 1E-4c-2 — βλ. §14):** μέχρι το 1E-4c-2 (mirror του wrongBook/checklists στο state), κάθε αλλαγή στο legacy wrongBook ή
 στα checklists εμφανίζεται ως `diverged` — το παλιό reconciliation τις αγνοούσε και έλεγε λανθασμένα `in-sync`.
+
+## 14. Mirror wrongBook / checklists στο shadow store (Phase 1E-4c-2)
+
+Το shadow store αναπαριστά πλέον **ολόκληρη** την πρόοδο: μετά από κάθε ενέργεια του χρήστη το πλήρες reconciliation είναι
+`in-sync`. Καμία ενεργοποίηση στο production: το build flag μένει κλειστό, το κανονικό build δεν γράφει κανένα
+`study-progress-*` (smoke B, G9).
+
+- **Atomic commit** — `progressStore.commit({ events, state })`: events + patch του state σε μία επαληθευμένη εγγραφή
+  (rollback σε αποτυχία), με τους ίδιους ελέγχους με το `append` (σχήμα, διπλά ids, όριο migration) και το νέο **όριο reset
+  ανά μάθημα** (`resetViolations`: event του μαθήματος με `t` πριν από το `progress:reset:<c>.at` → απόρριψη). Το `append`
+  είναι commit ενός event και γράφει ακόμα σύγχρονα.
+- **Recorder** — κάθε ενέργεια = ΕΝΑ commit:
+  - σωστή απάντηση → event· λάθος → event + εγγραφή στο `progress:wrongbook:<c>` (όριο 60, FIFO)·
+  - `recordWrongBookRemove` / `recordWrongBookClear` / `recordChecklist` → μόνο state (`unchanged` όταν δεν αλλάζει τίποτα)·
+  - αν το namespace λείπει → αποτυχία (καταγραφή στο `shadow:<c>`)· **ποτέ** δεν δημιουργείται από το μηδέν (F4)·
+  - `isActive` (F5): στο `main.jsx` = `ProgressService.status === 'ready'`· σε degraded καμία ανάγνωση/εγγραφή (smoke A3).
+- **Ένα uid** — το `handleSelectOption` φτιάχνει το uid του λάθους μία φορά και δίνει το ίδιο αντικείμενο `wrong` στον
+  recorder και στο `ProgressService.answerQuestion` (που σέβεται το `wrong.uid`). Σειρά: recorder ΠΡΙΝ από το service σε
+  όλους τους handlers (απάντηση, κάρτα, αφαίρεση, άδειασμα, checklist· guard G11).
+- **Υλοποίηση στο migration** — το `migrateLegacyBaseline` γράφει baseline + σημάδι + `stateFromSnapshot(legacy)` στην ίδια
+  συναλλαγή (golden baseline hashes αμετάβλητα). Επανενεργοποίηση χωρίς τα namespaces → `not-materialized`.
+- **Reset** — μετά το migration, το `resetProgressSafely` γράφει στην ίδια συναλλαγή reset marker + κενά namespaces.
+- **Μη αναπαριστώμενα legacy δεδομένα** (F3) — άγνωστα κλειδιά και checklists χωρίς θέμα → `unrepresented` στο report·
+  όσο υπάρχουν, το reconciliation δεν βγάζει ποτέ `in-sync`.
+
+Tests: `tests/progressCommit.test.mjs` (G1), `tests/progressMirror.test.mjs` (G2–G9, G11), G10 στο
+`tests/progressDecoupling.test.mjs`· smoke: `scripts/smoke-shadow.mjs` (A, A2, A3, B).
+
+**Εκκρεμότητες (follow-ups, όχι σε αυτό το phase):** test για το όριο των 3 τοπικών backups· αποδεκτό trade-off:
+reset/import αποτυγχάνει όταν το storage είναι πολύ γεμάτο για επαληθευμένο backup· συγχρονισμός πολλών tabs· UI για
+αποτυχίες εγγραφής· καθαρισμός του `storage.js`· σημασιολογία εμφάνισης F2/F3.
