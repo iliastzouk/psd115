@@ -14,6 +14,9 @@
  * - Αλλαγή που δεν αλλάζει τίποτα (π.χ. κάρτα που ήδη είδε) → καμία εγγραφή, κανένα notify.
  * - Degraded (κατεστραμμένα δεδομένα / αμφίβολη ανάκτηση): καμία εγγραφή, ποτέ «μηδενικά που αποθηκεύονται»·
  *   η μελέτη συνεχίζει χωρίς αποθήκευση.
+ * - Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (`backend.pending()`, μετά από αποτυχημένο rollback): η εγγραφή
+ *   απορρίπτεται και το service περνά σε degraded ΧΩΡΙΣ να εφαρμόσει την αλλαγή στη μνήμη (κανένα «αποθηκεύτηκε»).
+ *   Μένει το τελευταίο snapshot πριν από την ενέργεια — αυτό που θα επαναφέρει η ανάκτηση στην επόμενη εκκίνηση.
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -24,6 +27,7 @@ export const PROGRESS_STATE_VERSION = 1
 export const WRONG_BOOK_LIMIT = 60
 /** Αποτελέσματα του recoverInterrupted που αφήνουν αμφίβολη κατάσταση → degraded. */
 const UNSAFE_RECOVERY = new Set(['failed', 'corrupt-marker'])
+const PENDING_ISSUE = 'μη ολοκληρωμένη αλλαγή αποθήκευσης· η ανάκτηση γίνεται στην επόμενη φόρτωση της σελίδας'
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -68,6 +72,7 @@ export function createProgressService({ courseId, content, backend, recovery = {
 
   function load() {
     if (UNSAFE_RECOVERY.has(recovery?.status)) return degraded([`ανάκτηση μετά από διακοπή: ${recovery.status}`])
+    if (backend.pending?.()) return degraded([PENDING_ISSUE])
     let entries
     try {
       entries = backend.read()
@@ -100,8 +105,14 @@ export function createProgressService({ courseId, content, backend, recovery = {
         backend.write(changes)
         raw = { ...raw, ...changes }
       } catch (e) {
-        // Όπως το legacy: η αποτυχία εγγραφής (π.χ. quota) δεν σταματά τη μελέτη. Η εμφάνισή της = follow-up.
         warn('[progress] η αποθήκευση απέτυχε:', e?.message ?? e)
+        // Εκκρεμεί ανάκτηση (σημάδι συναλλαγής): degraded, η αλλαγή ΔΕΝ εφαρμόζεται, καμία εγγραφή μέχρι το reload.
+        if (backend.pending?.()) {
+          state = freezeState({ ...state, status: 'degraded', issues: [PENDING_ISSUE] })
+          notify()
+          return false
+        }
+        // Αλλιώς, όπως το legacy: η αποτυχία εγγραφής (π.χ. quota) δεν σταματά τη μελέτη. Η εμφάνισή της = follow-up.
       }
     }
     state = freezeState({ ...state, courses: { ...state.courses, [courseId]: next } })

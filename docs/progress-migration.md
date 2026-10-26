@@ -346,7 +346,11 @@ ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy 
   χωριστά `setItem`, όχι συναλλαγή του browser.
   *Trade-offs:* (α) το σημάδι κρατά before/after και των δύο κλειδιών, άρα σε κάθε εγγραφή δύο κλειδιών το log των
   events γράφεται προσωρινά τρεις φορές· με γεμάτο storage η εγγραφή αποτυγχάνει ως `not-started` (τίποτα δεν αλλάζει).
-  (β) αν μείνει σημάδι, οι εγγραφές του store (και οι legacy εγγραφές πολλών κλειδιών) περιμένουν την επόμενη εκκίνηση.
+  (β) αν μείνει σημάδι, ΚΑΜΙΑ εγγραφή προόδου μέχρι την επόμενη εκκίνηση: store, legacy πολλών κλειδιών ΚΑΙ legacy ενός
+  κλειδιού (review PR #11 — αλλιώς η ανάκτηση θα έσβηνε την εγγραφή). Το ProgressService περνά σε degraded με το
+  υπάρχον μήνυμα, δεν εφαρμόζει την απορριφθείσα αλλαγή στη μνήμη (μένει το snapshot πριν από την ενέργεια) και ο
+  recorder γίνεται αδρανής· με reload, το recoverInterrupted επαναφέρει τις αρχικές τιμές. Το σημάδι το καθαρίζει μόνο
+  η ανάκτηση.
 - **Recorder** — κάθε ενέργεια = ΕΝΑ commit:
   - σωστή απάντηση → event· λάθος → event + εγγραφή στο `progress:wrongbook:<c>` (όριο 60, FIFO)·
   - `recordWrongBookRemove` / `recordWrongBookClear` / `recordChecklist` → μόνο state (`unchanged` όταν δεν αλλάζει τίποτα)·

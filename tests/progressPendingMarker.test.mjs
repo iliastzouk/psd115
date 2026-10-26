@@ -149,3 +149,108 @@ test('συναλλαγή χωρίς καμία αλλαγή (π.χ. εισαγω
   assert.deepEqual(runTransaction(s, { op: 'y', targets: { a: '1', b: '2' } }), { changed: [] })
   assert.deepEqual(s.dump(), before)
 })
+
+describe('review PR #11 · legacy εγγραφή ΕΝΟΣ κλειδιού με εκκρεμές σημάδι → απόρριψη + degraded', async () => {
+  const { createProgressService } = await import('../src/core/progress/progressService.js')
+  const PAVLOV = 'psd115-w1-pavlov-checklist'
+  const W4 = 'psd115-w4-checklists'
+  // Μισή κατάσταση με ΕΓΚΥΡΕΣ τιμές: ο reader τη διαβάζει κανονικά, ώστε το degraded να οφείλεται ΜΟΝΟ στο σημάδι.
+  const HALF = { [PAVLOV]: '[true,true]', [W4]: '{}' }
+  const service = (s) => createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s) })
+  /** Ρεαλιστικό σημάδι: legacy εγγραφή 2 κλειδιών αποτυγχάνει ΚΑΙ στο rollback (όπως ένα αποτυχημένο import/reset). */
+  function pendingFromLegacy() {
+    const s = fakeStorage({ ...PROD })
+    breakAfterFirst(s, PAVLOV, W4)
+    assert.throws(() => createLegacyProgressBackend(s).write(HALF), (e) => e.outcome === 'rollback-incomplete')
+    s.fail(null)
+    return s
+  }
+
+  test('χωρίς σημάδι: η εγγραφή ενός κλειδιού γίνεται κανονικά (backend και service)', () => {
+    const s = fakeStorage({ ...PROD })
+    createLegacyProgressBackend(s).write({ [PAVLOV]: '[true]' })
+    assert.equal(s.getItem(PAVLOV), '[true]')
+    const svc = service(s)
+    assert.equal(svc.setChecklist('pavlov', [false, true]), true)
+    assert.equal(s.getItem(PAVLOV), '[false,true]')
+    assert.equal(svc.getSnapshot().status, 'ready')
+  })
+
+  test('με εκκρεμές σημάδι: backend.write ενός κλειδιού → not-started, δεδομένα και σημάδι byte-identical', () => {
+    const s = pendingFromLegacy()
+    const marker = s.getItem(TXN_KEY)
+    const before = s.dump()
+    assert.throws(() => createLegacyProgressBackend(s).write({ 'psd115-w1-study': PROD['psd115-w1-study'].replace('"quizAnswered":', '"quizAnswered":1') }), (e) => e.outcome === 'not-started')
+    assert.deepEqual(s.dump(), before)
+    assert.equal(s.getItem(TXN_KEY), marker)
+  })
+
+  test('αποτυχημένο rollback → η ΕΠΟΜΕΝΗ ενέργεια (κάρτα / checklist / απάντηση) δεν γράφεται, δεν δηλώνεται επιτυχία, degraded', () => {
+    const s = fakeStorage({ ...PROD })
+    const svc = service(s) // ready, πριν από την αποτυχία
+    const notified = []
+    svc.subscribe(() => notified.push(svc.getSnapshot().status))
+    breakAfterFirst(s, PAVLOV, W4)
+    assert.throws(() => createLegacyProgressBackend(s).write(HALF), (e) => e.outcome === 'rollback-incomplete')
+    s.fail(null)
+    const marker = s.getItem(TXN_KEY)
+    const before = s.dump()
+    const snapBefore = svc.getSnapshot()
+
+    assert.equal(svc.markCardSeen('fc-pavlov-9'), false, 'η ενέργεια ΔΕΝ δηλώνεται ως επιτυχής')
+    assert.deepEqual(s.dump(), before, 'καμία εγγραφή')
+    assert.equal(s.getItem(TXN_KEY), marker, 'το σημάδι δεν αγγίζεται')
+    const st = svc.getSnapshot()
+    assert.equal(st.status, 'degraded')
+    assert.match(st.issues.join(' '), /ανάκτηση/)
+    assert.deepEqual(st.courses.psd115, snapBefore.courses.psd115, 'η μνήμη μένει στο snapshot πριν από την ενέργεια')
+    assert.deepEqual(notified, ['degraded'], 'ένα notify: η μετάβαση σε degraded (το UI δείχνει το μήνυμα)')
+
+    // Σε degraded: οι επόμενες ενέργειες είναι no-op (ούτε εγγραφή ούτε αλλαγή μνήμης).
+    assert.equal(svc.setChecklist('pavlov', [true, true]), false)
+    assert.equal(svc.answerQuestion({ questionId: 'q-w2-var-1', ok: true }), false)
+    assert.deepEqual(s.dump(), before)
+    assert.equal(svc.getSnapshot(), st)
+  })
+
+  test('εκκρεμές σημάδι στη φόρτωση/resync (π.χ. μετά από αποτυχημένο reset) → degraded, καμία εγγραφή', () => {
+    const s = pendingFromLegacy()
+    const before = s.dump()
+    // Η μισή κατάσταση είναι αναγνώσιμη: χωρίς σημάδι το service θα ήταν ready (άρα το degraded οφείλεται στο σημάδι).
+    assert.equal(service(fakeStorage(Object.fromEntries(Object.entries(before).filter(([k]) => k !== TXN_KEY)))).getSnapshot().status, 'ready')
+    assert.equal(service(s).getSnapshot().status, 'degraded')
+    const svc = service(fakeStorage({ ...PROD }))
+    assert.equal(svc.getSnapshot().status, 'ready')
+    const s2 = pendingFromLegacy()
+    const svc2 = service(s2)
+    svc2.resync()
+    assert.equal(svc2.getSnapshot().status, 'degraded')
+    assert.deepEqual(s.dump(), before)
+  })
+
+  test('reload: η υπάρχουσα ανάκτηση επαναφέρει τις αρχικές τιμές και το νέο service είναι ready', () => {
+    const s = fakeStorage({ ...PROD })
+    const svc = service(s)
+    breakAfterFirst(s, PAVLOV, W4)
+    assert.throws(() => createLegacyProgressBackend(s).write(HALF), (e) => e.outcome === 'rollback-incomplete')
+    s.fail(null)
+    svc.markCardSeen('fc-pavlov-9') // απορρίπτεται
+    const recovery = recoverInterrupted(s) // όπως το main.jsx στην εκκίνηση
+    assert.equal(recovery.status, 'rolled-back')
+    for (const [k, v] of Object.entries(PROD)) assert.equal(s.getItem(k), v, k)
+    assert.equal(s.getItem(TXN_KEY), null)
+    const fresh = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), recovery })
+    assert.equal(fresh.getSnapshot().status, 'ready')
+    assert.equal(fresh.markCardSeen('fc-pavlov-9'), true, 'μετά την ανάκτηση οι εγγραφές συνεχίζουν')
+  })
+
+  test('αποτυχία εγγραφής ΧΩΡΙΣ σημάδι (π.χ. quota σε ένα κλειδί) → αμετάβλητη συμπεριφορά (ready, warn)', () => {
+    const s = fakeStorage({ ...PROD })
+    const warns = []
+    const svc = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: (...a) => warns.push(a) })
+    s.fail((k) => k === PAVLOV)
+    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.equal(svc.getSnapshot().status, 'ready')
+    assert.equal(warns.length, 1)
+  })
+})

@@ -327,7 +327,7 @@ describe('G8 · απομόνωση αποτυχιών', () => {
       assert.equal(eventsOf(s).length, 0)
     }
   })
-  test('λάθος απάντηση με αποτυχία ΚΑΙ του rollback → failed, legacy κανονικά· η ανάκτηση επαναφέρει το store', async () => {
+  test('λάθος απάντηση με αποτυχία ΚΑΙ του rollback → failed· το service ΔΕΝ γράφει το legacy (εκκρεμές σημάδι) → degraded· η ανάκτηση επαναφέρει το store', async () => {
     const s = await activated()
     const a = app(s)
     await a.answer(Q(1), true) // υπάρχει log: το rollback του χρειάζεται setItem (που θα αποτύχει)
@@ -338,7 +338,10 @@ describe('G8 · απομόνωση αποτυχιών', () => {
     s.fail(null)
     assert.equal(r.status, 'failed')
     assert.match(r.error, /αναίρεση δεν ολοκληρώθηκε/)
-    assert.equal(JSON.parse(s.getItem('psd115-w1-study')).quizAnswered, JSON.parse(PROD['psd115-w1-study']).quizAnswered + 2, 'η ενέργεια του χρήστη ισχύει')
+    // review PR #11: με εκκρεμές σημάδι η legacy εγγραφή θα χανόταν στην ανάκτηση → απορρίπτεται, το service σε degraded.
+    assert.equal(JSON.parse(s.getItem('psd115-w1-study')).quizAnswered, JSON.parse(PROD['psd115-w1-study']).quizAnswered + 1, 'μόνο η πρώτη (πριν από την αποτυχία) απάντηση')
+    assert.equal(a.service.getSnapshot().status, 'degraded')
+    assert.equal(a.service.getSnapshot().courses.psd115.quizAnswered, JSON.parse(PROD['psd115-w1-study']).quizAnswered + 1, 'η μνήμη δεν δηλώνει την απορριφθείσα απάντηση')
     assert.notEqual(s.getItem(TXN_KEY), null)
     assert.equal(recoverInterrupted(s).status, 'rolled-back')
     assert.deepEqual({ e: s.getItem(EVENTS_KEY), st: s.getItem(STATE_KEY) }, storeBefore)
