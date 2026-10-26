@@ -117,6 +117,23 @@ export function listLocalBackups(storage = defaultStorage()) {
     .sort()
 }
 
+/**
+ * Κλειδί που ΔΕΝ υπάρχει ήδη: κανένα backup δεν αντικαθίσταται (π.χ. δύο backups στο ίδιο ms). Χωρίς σύγκρουση η μορφή
+ * μένει `psd115-backup-<ISO>`· με σύγκρουση `-001`, `-002`, … (σταθερό πλάτος, ώστε η ταξινόμηση να μένει χρονολογική).
+ * Το suffix είναι πάντα ΜΕΓΑΛΥΤΕΡΟ από κάθε υπάρχον της ίδιας βάσης (ποτέ επαναχρησιμοποίηση κλειδιού που κλαδεύτηκε),
+ * ώστε το νεότερο backup να ταξινομείται τελευταίο και να μην κλαδεύεται πρώτο.
+ */
+function uniqueBackupKey(storage, base) {
+  let max = -1
+  for (const key of listLocalBackups(storage)) {
+    if (key === base) max = Math.max(max, 0)
+    else if (key.startsWith(`${base}-`) && /^\d{3}$/.test(key.slice(base.length + 1))) max = Math.max(max, Number(key.slice(base.length + 1)))
+  }
+  if (max < 0) return base
+  if (max >= 999) throw new BackupError('Δεν βρέθηκε ελεύθερο κλειδί για το αντίγραφο ασφαλείας· δεν άλλαξε τίποτα')
+  return `${base}-${String(max + 1).padStart(3, '0')}`
+}
+
 /** Το safety backup δεν δημιουργήθηκε ή δεν επαληθεύτηκε· η ενέργεια που το χρειάζεται ΔΕΝ πρέπει να συνεχίσει. */
 export class BackupError extends Error {
   constructor(message) {
@@ -127,7 +144,7 @@ export class BackupError extends Error {
 
 /**
  * Αντίγραφο ασφαλείας (export v2: legacy + νέο store, raw — byte-identical ακόμα και αν είναι αλλοιωμένα) πριν από
- * import ή reset: κατεβαίνει ως αρχείο ΚΑΙ γράφεται στο localStorage (τα τελευταία 3).
+ * import ή reset: κατεβαίνει ως αρχείο ΚΑΙ γράφεται στο localStorage (τα τελευταία 3, σε μοναδικό κλειδί).
  * Θεωρείται επιτυχές ΜΟΝΟ όταν το τοπικό αντίγραφο γραφτεί και ξαναδιαβαστεί ίδιο (η λήψη αρχείου δεν μπορεί να
  * επιβεβαιωθεί από την εφαρμογή). Αλλιώς → BackupError, και ο καλών δεν αλλάζει τίποτα (reset/import ακυρώνονται).
  * @returns {{ data: object, storedLocally: true, key: string }}
@@ -136,10 +153,8 @@ export function createSafetyBackup(reason, { storage = defaultStorage(), downloa
   const data = buildExport(reason, storage)
   const serialized = JSON.stringify(data)
   download(data, `psd115-backup-before-${reason}-${stamp(data.exportedAt)}.json`)
-  const key = `${BACKUP_KEY_PREFIX}${data.exportedAt}`
-  const existed = storage.getItem(key) !== null
+  const key = uniqueBackupKey(storage, `${BACKUP_KEY_PREFIX}${data.exportedAt}`)
   const discard = () => {
-    if (existed) return
     try {
       storage.removeItem(key)
     } catch {

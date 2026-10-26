@@ -89,7 +89,7 @@ describe('T1 · όριο 3 τοπικών backups', () => {
     assert.equal(listLocalBackups(s).length, 4, 'τα παλιά δεν κλαδεύτηκαν (best effort)')
   })
 
-  test('D3: δύο backups στο ΙΔΙΟ ms → δύο διαφορετικά κλειδιά, το πρώτο ΔΕΝ αντικαθίσταται', { todo: 'D3' }, (t) => {
+  test('D3: δύο backups στο ΙΔΙΟ ms → δύο διαφορετικά κλειδιά, το πρώτο ΔΕΝ αντικαθίσταται', (t) => {
     withClock(t)
     const s = fakeStorage({ ...PROD })
     const a = createSafetyBackup('reset', { storage: s, download: noDownload })
@@ -103,7 +103,7 @@ describe('T1 · όριο 3 τοπικών backups', () => {
     assert.ok(a.key === `${PREFIX}${new Date(T0).toISOString()}`, 'χωρίς σύγκρουση η μορφή του κλειδιού δεν αλλάζει')
   })
 
-  test('D3: 12 backups στο ίδιο ms → μένουν τα 3 τελευταία που δημιουργήθηκαν (σωστή σειρά και μετά το 10ο)', { todo: 'D3' }, (t) => {
+  test('D3: 12 backups στο ίδιο ms → μένουν τα 3 τελευταία που δημιουργήθηκαν (σωστή σειρά και μετά το 10ο)', (t) => {
     withClock(t)
     const s = fakeStorage({ ...PROD })
     const keys = []
