@@ -55,7 +55,7 @@ function app(s = fakeStorage(), { now = () => T0 } = {}) {
 const course = (svc) => svc.getSnapshot().courses.psd115
 
 describe('αναπαραγωγή του ελαττώματος (πρέπει να αποτυγχάνει στο main, να περνά μετά)', () => {
-  test('αποτυχία checklist (quota) → μετά από επόμενη επιτυχημένη εγγραφή, μνήμη ≡ storage', { todo: 'Φάση 2 service' }, () => {
+  test('αποτυχία checklist (quota) → μετά από επόμενη επιτυχημένη εγγραφή, μνήμη ≡ storage', () => {
     const { s, svc } = app()
     s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
     svc.setChecklist('pavlov', [true, true, true])
@@ -65,7 +65,7 @@ describe('αναπαραγωγή του ελαττώματος (πρέπει ν�
   })
 })
 
-describe('E1(α) · η αλλαγή που δεν αποθηκεύτηκε δεν εφαρμόζεται', { todo: 'Φάση 2 service' }, () => {
+describe('E1(α) · η αλλαγή που δεν αποθηκεύτηκε δεν εφαρμόζεται', () => {
   test('ένα κλειδί (quota) → false, snapshot ΙΔΙΟ, ready, writeFailure quota, storage ανέγγιχτο, ένα notify', () => {
     const { s, svc, notified } = app()
     const before = course(svc)
@@ -87,7 +87,7 @@ describe('E1(α) · η αλλαγή που δεν αποθηκεύτηκε δε�
   })
 })
 
-describe('E2 · ταξινόμηση από αναγνωρίσιμα στοιχεία του σφάλματος, όχι από κείμενο', { todo: 'Φάση 2 service' }, () => {
+describe('E2 · ταξινόμηση από αναγνωρίσιμα στοιχεία του σφάλματος, όχι από κείμενο', () => {
   const CASES = {
     'QuotaExceededError (name)': [Object.assign(new Error('x'), { name: 'QuotaExceededError' }), 'quota'],
     'Firefox NS_ERROR_DOM_QUOTA_REACHED (name)': [Object.assign(new Error('x'), { name: 'NS_ERROR_DOM_QUOTA_REACHED' }), 'quota'],
@@ -118,7 +118,7 @@ describe('E2 · ταξινόμηση από αναγνωρίσιμα στοιχ�
   }
 })
 
-describe('ανάκαμψη και διάρκεια της ειδοποίησης', { todo: 'Φάση 2 service' }, () => {
+describe('ανάκαμψη και διάρκεια της ειδοποίησης', () => {
   test('επόμενη επιτυχημένη ενέργεια: γράφει ΜΟΝΟ τη δική της αλλαγή (καμία αυτόματη επανάληψη) και καθαρίζει το writeFailure', () => {
     const { s, svc } = app()
     s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
@@ -140,6 +140,31 @@ describe('ανάκαμψη και διάρκεια της ειδοποίησης
     s.hooks.fail = null
     assert.equal(svc.markCardSeen('fc-freud-1'), false, 'no-op')
     assert.equal(svc.getSnapshot().writeFailure, failure)
+  })
+  test('ενέργεια που δεν γράφει κανένα κλειδί (θέμα χωρίς legacy κλειδί) ΔΕΝ καθαρίζει το writeFailure', () => {
+    // Adapter όπου το pavlov δεν προβάλλεται σε legacy κλειδί → το commit δεν γράφει τίποτα.
+    const noPavlov = {
+      ...content,
+      legacy: {
+        ...content.legacy,
+        encode(x, o) {
+          const r = content.legacy.encode(x, o)
+          const { [PAVLOV]: _, ...entries } = r.entries
+          return { ...r, entries }
+        },
+      },
+    }
+    const s = fakeStorage()
+    const svc = createProgressService({ courseId: 'psd115', content: noPavlov, backend: createLegacyProgressBackend(s), now: () => T0, warn: () => {} })
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1')
+    const failure = svc.getSnapshot().writeFailure
+    assert.ok(failure)
+    s.hooks.fail = null
+    const dump = s.dump()
+    svc.setChecklist('pavlov', [true, true])
+    assert.deepEqual(s.dump(), dump, 'καμία εγγραφή')
+    assert.equal(svc.getSnapshot().writeFailure, failure, 'χωρίς εγγραφή η ειδοποίηση μένει')
   })
   test('διαδοχικές αποτυχίες → το writeFailure ανανεώνεται (νέο at)', () => {
     let t = T0

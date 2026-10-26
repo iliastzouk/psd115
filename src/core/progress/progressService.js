@@ -6,7 +6,8 @@
  *   backend.read() → legacyToSnapshot(runtime) → ΕΝΑ immutable ProgressState στη μνήμη
  *   mutation → νέο Snapshot → snapshotToLegacy → backend.write(μόνο τα κλειδιά που άλλαξαν) → νέο state → notify
  *
- *   ProgressState = { version: 1, status: 'ready' | 'degraded', issues: string[], courses: { [courseId]: Snapshot } }
+ *   ProgressState = { version: 1, status: 'ready' | 'degraded', issues: string[], courses: { [courseId]: Snapshot },
+ *                     writeFailure: { at: number, kind: 'quota' | 'other' } | null }
  *
  * - Η δημιουργία ΔΕΝ γράφει τίποτα. Καμία εγγραφή χωρίς ενέργεια του χρήστη.
  * - `getSnapshot()` επιστρέφει το ΙΔΙΟ αντικείμενο μέχρι την επόμενη πραγματική αλλαγή (useSyncExternalStore).
@@ -18,6 +19,10 @@
  *   απορρίπτεται και το service περνά σε degraded ΧΩΡΙΣ να εφαρμόσει την αλλαγή στη μνήμη (κανένα «αποθηκεύτηκε»).
  *   Μένει το τελευταίο snapshot πριν από την ενέργεια — αυτό που θα επαναφέρει η ανάκτηση στην επόμενη εκκίνηση.
  *   Fail-closed: αν ο ίδιος ο έλεγχος του σημαδιού αποτύχει, ισχύει το ίδιο (degraded), χωρίς εξαίρεση προς τον καλούντα.
+ * - Αποτυχία εγγραφής ΧΩΡΙΣ εκκρεμές σημάδι (Φάση 2, π.χ. quota): η αλλαγή ΔΕΝ εφαρμόζεται (μνήμη ≡ storage), `false`,
+ *   το status μένει `ready` και καταγράφεται `writeFailure`. Η επόμενη ενέργεια αποθηκεύει ΜΟΝΟ τη δική της αλλαγή — η
+ *   αποτυχημένη δεν επαναλαμβάνεται αυτόματα. Το `writeFailure` καθαρίζει με πραγματικά επιτυχημένη εγγραφή ή με
+ *   `dismissWriteFailure()` (που απλώς κρύβει την ειδοποίηση). Προγραμματιστικά σφάλματα πετούν όπως πριν.
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -29,6 +34,11 @@ export const WRONG_BOOK_LIMIT = 60
 /** Αποτελέσματα του recoverInterrupted που αφήνουν αμφίβολη κατάσταση → degraded. */
 const UNSAFE_RECOVERY = new Set(['failed', 'corrupt-marker'])
 const PENDING_ISSUE = 'μη ολοκληρωμένη αλλαγή αποθήκευσης· η ανάκτηση γίνεται στην επόμενη φόρτωση της σελίδας'
+/** Αναγνωρίσιμα στοιχεία σφάλματος «γεμάτος χώρος» (name/code) — ποτέ το κείμενο του μηνύματος. */
+const QUOTA_NAMES = new Set(['QuotaExceededError', 'NS_ERROR_DOM_QUOTA_REACHED'])
+const QUOTA_CODES = new Set([22, 1014])
+/** Τυλιγμένα σφάλματα συναλλαγής δεν κρατούν την αρχική αιτία → `other`. */
+const failureKind = (e) => (QUOTA_NAMES.has(e?.name) || QUOTA_CODES.has(e?.code) ? 'quota' : 'other')
 const PENDING_UNKNOWN_ISSUE = 'δεν ήταν δυνατός ο έλεγχος για μη ολοκληρωμένη αλλαγή αποθήκευσης· καμία εγγραφή μέχρι την επόμενη φόρτωση της σελίδας'
 
 function deepFreeze(o) {
@@ -62,15 +72,24 @@ export const createdServiceCount = () => created
  *   recovery?: { status: string },                           // αποτέλεσμα του recoverInterrupted
  *   newUid?: () => string,
  *   warn?: (...a: unknown[]) => void,
+ *   now?: () => number,                                      // χρόνος του writeFailure
  * }} opts
  */
-export function createProgressService({ courseId, content, backend, recovery = { status: 'none' }, newUid = defaultUid, warn = () => {} }) {
+export function createProgressService({
+  courseId,
+  content,
+  backend,
+  recovery = { status: 'none' },
+  newUid = defaultUid,
+  warn = () => {},
+  now = () => Date.now(),
+}) {
   created += 1
   const listeners = new Set()
   /** Τελευταίες γνωστές raw τιμές (για διατήρηση ό,τι δεν ανήκει στο snapshot μέσα σε κοινά κλειδιά). */
   let raw = {}
 
-  const freezeState = (s) => deepFreeze({ version: PROGRESS_STATE_VERSION, ...s })
+  const freezeState = (s) => deepFreeze({ version: PROGRESS_STATE_VERSION, writeFailure: null, ...s })
   const degraded = (issues) => {
     raw = {}
     return freezeState({ status: 'degraded', issues, courses: { [courseId]: emptySnapshot(courseId) } })
@@ -133,8 +152,15 @@ export function createProgressService({ courseId, content, backend, recovery = {
           notify()
           return false
         }
-        // Αλλιώς, όπως το legacy: η αποτυχία εγγραφής (π.χ. quota) δεν σταματά τη μελέτη. Η εμφάνισή της = follow-up.
+        // Αλλιώς (Φάση 2): η αλλαγή ΔΕΝ εφαρμόζεται — καμία ψευδής ένδειξη αποθήκευσης· ready, ειδοποίηση.
+        state = freezeState({ ...state, writeFailure: { at: now(), kind: failureKind(e) } })
+        notify()
+        return false
       }
+      // Πραγματικά επιτυχημένη εγγραφή → η ειδοποίηση φεύγει (no-op ενέργειες δεν φτάνουν εδώ).
+      state = freezeState({ ...state, writeFailure: null, courses: { ...state.courses, [courseId]: next } })
+      notify()
+      return true
     }
     state = freezeState({ ...state, courses: { ...state.courses, [courseId]: next } })
     notify()
@@ -210,6 +236,13 @@ export function createProgressService({ courseId, content, backend, recovery = {
       const prev = s.checklists[topicId]?.items
       if (prev && sameItems(prev, items)) return false
       return commit({ ...s, checklists: { ...s.checklists, [topicId]: { items: [...items] } } })
+    },
+
+    /** Κρύβει την ειδοποίηση αποτυχίας αποθήκευσης. ΔΕΝ σημαίνει ότι η αλλαγή αποθηκεύτηκε· snapshot/storage ίδια. */
+    dismissWriteFailure() {
+      if (!state.writeFailure) return
+      state = freezeState({ ...state, writeFailure: null })
+      notify()
     },
 
     /** Ξαναδιαβάζει το backend μετά από εγγραφή υποδομής (reset). Νέο state, notify. */

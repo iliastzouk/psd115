@@ -269,7 +269,7 @@ describe('1E-4b · άγνωστα / orphan / κατεστραμμένα δεδο
     assert.equal(s.getSnapshot().status, 'degraded')
   })
 
-  test('αποτυχία εγγραφής (quota): η μελέτη συνεχίζει όπως πριν, με προειδοποίηση', () => {
+  test('αποτυχία εγγραφής (quota): η μελέτη συνεχίζει, η αλλαγή ΔΕΝ εφαρμόζεται (Φάση 2), προειδοποίηση + writeFailure', () => {
     const warnings = []
     const storage = fakeStorage(PROD)
     storage.setItem = () => {
@@ -277,7 +277,10 @@ describe('1E-4b · άγνωστα / orphan / κατεστραμμένα δεδο
     }
     const service = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(storage), warn: (...a) => warnings.push(a.join(' ')) })
     answer(service, quizQuestions[0], quizQuestions[0].correctIndex)
-    assert.equal(service.getSnapshot().courses.psd115.quizAnswered, 2)
+    // Φάση 2 (E1α): πριν η απάντηση μετρούσε στη μνήμη χωρίς να αποθηκευτεί· τώρα μένει 1 (μνήμη ≡ storage).
+    assert.equal(service.getSnapshot().courses.psd115.quizAnswered, 1)
+    assert.equal(service.getSnapshot().status, 'ready')
+    assert.equal(service.getSnapshot().writeFailure.kind, 'other', 'Error χωρίς αναγνωρίσιμο name/code → other')
     assert.match(warnings.join(), /quota/)
   })
 })
