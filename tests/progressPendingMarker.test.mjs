@@ -253,13 +253,14 @@ describe('review PR #11 · legacy εγγραφή ΕΝΟΣ κλειδιού με 
     assert.equal(fresh.markCardSeen('fc-pavlov-9'), true, 'μετά την ανάκτηση οι εγγραφές συνεχίζουν')
   })
 
-  test('αποτυχία εγγραφής ΧΩΡΙΣ σημάδι (π.χ. quota σε ένα κλειδί) → αμετάβλητη συμπεριφορά (ready, warn)', () => {
+  test('αποτυχία εγγραφής ΧΩΡΙΣ σημάδι (π.χ. quota σε ένα κλειδί) → ready, όχι degraded· Φάση 2: false + writeFailure', () => {
     const s = fakeStorage({ ...PROD })
     const warns = []
     const svc = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: (...a) => warns.push(a) })
     s.fail((k) => k === PAVLOV)
-    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.equal(svc.setChecklist('pavlov', [true]), false)
     assert.equal(svc.getSnapshot().status, 'ready')
+    assert.equal(svc.getSnapshot().writeFailure.kind, 'quota')
     assert.equal(warns.length, 1)
   })
 })

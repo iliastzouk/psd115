@@ -14,6 +14,10 @@
  *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία (μετά από αποτυχημένο rollback, review PR #11): κλικ σε checklist →
  *      ΚΑΜΙΑ εγγραφή, μήνυμα ασφαλούς λειτουργίας, το checkbox δεν δείχνει «αποθηκευμένη» αλλαγή, σημάδι ανέγγιχτο·
  *      reload → η υπάρχουσα ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
+ *  W.  Αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2): γεμάτο storage → κλικ σε checkbox → ειδοποίηση (όχι degraded), το
+ *      checkbox ΔΕΝ αλλάζει, καμία επιτυχής αλλαγή στο storage (έγινε απόπειρα)· κλείσιμο → κρύβεται, τίποτα δεν αλλάζει·
+ *      ξανά αποτυχία, μετά ελεύθερο storage → ΑΣΧΕΤΗ επιτυχημένη εγγραφή (κάρτα) → η ειδοποίηση ΜΕΝΕΙ, το checklist
+ *      αμετάβλητο (review #13)· επανάληψη της ίδιας ενέργειας → σώζεται, η ειδοποίηση φεύγει· reload → μνήμη ≡ storage.
  *  R.  Μηνύματα reset ανά αποτέλεσμα (Φάση 1, D1/D2): εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», ΚΑΜΙΑ λήψη/backup·
  *      πραγματικό rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΟΧΙ «δεν άλλαξε»·
  *      reload → ανάκτηση, αρχικές τιμές.
@@ -359,6 +363,66 @@ try {
     check(!('progress-txn-v1' in recovered), 'P: το σημάδι έμεινε μετά την ανάκτηση')
     check(!(await page.getByTestId('progress-degraded').count()), 'P: μετά την ανάκτηση η εφαρμογή έμεινε σε degraded')
     await context.close()
+    // W: αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2).
+    ;({ context, page } = await newContext(browser, PROD))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const quotaOn = () =>
+      page.evaluate(() => {
+        const P = Storage.prototype
+        window.__realSetItem ??= P.setItem
+        window.__attempts = 0
+        P.setItem = function (k, v) {
+          if (this === localStorage && String(k).startsWith('psd115-') && !String(k).startsWith('psd115-backup-')) {
+            window.__attempts++
+            throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+          }
+          return window.__realSetItem.call(this, k, v)
+        }
+      })
+    const quotaOff = () => page.evaluate(() => (Storage.prototype.setItem = window.__realSetItem))
+    const notice = page.getByTestId('progress-write-failure')
+    const wBox = page.locator('main input[type=checkbox]').first()
+    const wBefore = await readKeys(page)
+    const wChecked = await wBox.isChecked()
+    await quotaOn()
+    await wBox.click()
+    await page.waitForTimeout(300)
+    check((await page.evaluate(() => window.__attempts)) >= 1, 'W: δεν έγινε απόπειρα εγγραφής')
+    check(sameKeys(await readKeys(page), wBefore), 'W: άλλαξαν αποθηκευμένες τιμές παρά την αποτυχία')
+    check(await notice.isVisible(), 'W: δεν εμφανίστηκε η ειδοποίηση αποτυχίας αποθήκευσης')
+    check(/χώρος αποθήκευσης του browser φαίνεται γεμάτος/.test((await notice.count()) ? ((await notice.textContent()) ?? '') : ''), 'W: λάθος/κανένα κείμενο ειδοποίησης (quota)')
+    check(!(await page.getByTestId('progress-degraded').count()), 'W: η αποτυχία εγγραφής έβγαλε degraded')
+    check((await wBox.isChecked()) === wChecked, 'W: το checkbox δείχνει την αλλαγή που δεν αποθηκεύτηκε')
+    if (await notice.count()) await notice.getByRole('button', { name: 'Απόκρυψη ειδοποίησης' }).click()
+    await page.waitForTimeout(200)
+    check(!(await notice.count()), 'W: η ειδοποίηση δεν κρύφτηκε')
+    check(sameKeys(await readKeys(page), wBefore) && (await wBox.isChecked()) === wChecked, 'W: το κλείσιμο άλλαξε κάτι')
+    await wBox.click() // ξανά αποτυχία
+    await page.waitForTimeout(300)
+    check(await notice.isVisible(), 'W: δεύτερη αποτυχία χωρίς ειδοποίηση')
+    await quotaOff()
+    // Άσχετη επιτυχημένη εγγραφή (κάρτα): η ειδοποίηση πρέπει να ΜΕΙΝΕΙ — το checklist είναι ακόμα χαμένο.
+    const studyBefore = (await readKeys(page))['psd115-w1-study']
+    const next = page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
+    for (let i = 0; i < 8 && (await readKeys(page))['psd115-w1-study'] === studyBefore; i++) {
+      await next.click()
+      await page.waitForTimeout(150)
+    }
+    check((await readKeys(page))['psd115-w1-study'] !== studyBefore, 'W: δεν έγινε άσχετη επιτυχημένη εγγραφή (κάρτα)')
+    check(await notice.isVisible(), 'W: η ειδοποίηση χάθηκε μετά από ΑΣΧΕΤΗ επιτυχημένη εγγραφή')
+    check((await readKeys(page))['psd115-w1-pavlov-checklist'] === wBefore['psd115-w1-pavlov-checklist'], 'W: το checklist άλλαξε χωρίς επανάληψη')
+    await wBox.click() // ο χρήστης επαναλαμβάνει την ΙΔΙΑ ενέργεια με ελεύθερο storage
+    await page.waitForTimeout(300)
+    const wAfter = await readKeys(page)
+    check(JSON.parse(wAfter['psd115-w1-pavlov-checklist'])[0] === !wChecked, 'W: η επανάληψη δεν αποθηκεύτηκε')
+    check((await wBox.isChecked()) === !wChecked, 'W: το checkbox δεν δείχνει την αποθηκευμένη αλλαγή')
+    check(!(await notice.count()), 'W: η ειδοποίηση έμεινε μετά από επιτυχημένη εγγραφή')
+    await page.reload()
+    await settle(page)
+    check((await wBox.isChecked()) === JSON.parse((await readKeys(page))['psd115-w1-pavlov-checklist'])[0], 'W: μετά το reload μνήμη ≠ storage')
+    await context.close()
+
     // R: μηνύματα reset ανά πραγματικό αποτέλεσμα (D1/D2).
     ;({ context, page } = await newContext(browser, PROD))
     await page.goto(`${base}/psd115/topics/pavlov`)
@@ -416,7 +480,7 @@ try {
     check(sameKeys(progressOnly(r2After), progressOnly(r2Before)), 'R2: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
     check(!('progress-txn-v1' in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση`)
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)

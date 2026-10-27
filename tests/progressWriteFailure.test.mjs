@@ -1,0 +1,345 @@
+/**
+ * Φάση 2 — αποτυχίες αποθήκευσης ΧΩΡΙΣ εκκρεμές σημάδι συναλλαγής (E1–E4).
+ *
+ *  - E1(α): η αλλαγή που δεν αποθηκεύτηκε ΔΕΝ εφαρμόζεται στη μνήμη· `false`· `ready`· μνήμη ≡ storage.
+ *  - Η επόμενη ενέργεια αποθηκεύει ΜΟΝΟ τη δική της αλλαγή (καμία αυτόματη επανάληψη της αποτυχημένης).
+ *  - E2 (διορθωμένο στο review του #13): `writeFailure: { at, kind: 'quota' | 'other' } | null`· καθαρίζει ΜΟΝΟ όταν
+ *    αποθηκευτούν όλες οι τιμές που απέτυχαν (ο χρήστης επανέλαβε την ίδια αλλαγή) ή με ρητή απόρριψη (που ΔΕΝ σημαίνει
+ *    ότι η αλλαγή σώθηκε). Άσχετη επιτυχημένη εγγραφή ή no-op ενέργεια ΔΕΝ το καθαρίζει.
+ *  - `quota` μόνο από αναγνωρίσιμα στοιχεία του σφάλματος (name/code), ποτέ από το κείμενο· τυλιγμένα σφάλματα
+ *    συναλλαγής (`not-started` / `rolled-back`) → `other`.
+ *  - Προγραμματιστικά σφάλματα (άκυρο θέμα κ.λπ.) εξακολουθούν να πετούν.
+ *  - E3: shadow event χωρίς legacy εγγραφή → το reconciliation το δείχνει (diverged).
+ */
+import { test, describe } from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createProgressService } from '../src/core/progress/progressService.js'
+import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
+import { createLegacyProgressBackend } from '../src/utils/legacyProgressBackend.js'
+import { ProgressTransactionError, TXN_KEY } from '../src/utils/progressTransaction.js'
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
+const PAVLOV = 'psd115-w1-pavlov-checklist'
+const STUDY = 'psd115-w1-study'
+const T0 = Date.UTC(2026, 9, 28, 9, 0, 0)
+
+function fakeStorage(init = PROD) {
+  const m = new Map(Object.entries(init))
+  const hooks = { fail: null }
+  return {
+    get length() {
+      return m.size
+    },
+    key: (i) => [...m.keys()][i] ?? null,
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem(k, v) {
+      const err = hooks.fail?.(k)
+      if (err) throw err
+      m.set(k, String(v))
+    },
+    removeItem: (k) => void m.delete(k),
+    dump: () => Object.fromEntries(m),
+    hooks,
+  }
+}
+const quota = () => Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError', code: 22 })
+function app(s = fakeStorage(), { now = () => T0 } = {}) {
+  const svc = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), now, warn: () => {} })
+  let notifications = 0
+  svc.subscribe(() => notifications++)
+  return { s, svc, notified: () => notifications }
+}
+const course = (svc) => svc.getSnapshot().courses.psd115
+
+describe('αναπαραγωγή του ελαττώματος (πρέπει να αποτυγχάνει στο main, να περνά μετά)', () => {
+  test('αποτυχία checklist (quota) → μετά από επόμενη επιτυχημένη εγγραφή, μνήμη ≡ storage', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.deepEqual(course(svc).checklists.pavlov.items, JSON.parse(s.getItem(PAVLOV)), 'η μνήμη δεν δείχνει μη αποθηκευμένη αλλαγή')
+  })
+})
+
+describe('E1(α) · η αλλαγή που δεν αποθηκεύτηκε δεν εφαρμόζεται', () => {
+  test('ένα κλειδί (quota) → false, snapshot ΙΔΙΟ, ready, writeFailure quota, storage ανέγγιχτο, ένα notify', () => {
+    const { s, svc, notified } = app()
+    const before = course(svc)
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    assert.equal(svc.setChecklist('pavlov', [true, true]), false)
+    assert.equal(course(svc), before, 'το snapshot του μαθήματος είναι το ίδιο αντικείμενο')
+    assert.equal(svc.getSnapshot().status, 'ready')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0, kind: 'quota' })
+    assert.deepEqual(s.dump(), PROD)
+    assert.equal(notified(), 1)
+  })
+  test('απάντηση κουίζ (κλειδί study) → μετρητές και wrongBook αμετάβλητοι', () => {
+    const { s, svc } = app()
+    const before = course(svc)
+    s.hooks.fail = (k) => (k === STUDY ? quota() : null)
+    assert.equal(svc.answerQuestion({ questionId: 'q-w2-var-1', ok: false, wrong: { uid: 'u1', question: 'Q', explanation: 'E', userLabel: 'A', correctLabel: 'B' } }), false)
+    assert.equal(course(svc), before)
+    assert.equal(s.getItem(STUDY), PROD[STUDY])
+  })
+})
+
+describe('E2 · ταξινόμηση από αναγνωρίσιμα στοιχεία του σφάλματος, όχι από κείμενο', () => {
+  const CASES = {
+    'QuotaExceededError (name)': [Object.assign(new Error('x'), { name: 'QuotaExceededError' }), 'quota'],
+    'Firefox NS_ERROR_DOM_QUOTA_REACHED (name)': [Object.assign(new Error('x'), { name: 'NS_ERROR_DOM_QUOTA_REACHED' }), 'quota'],
+    'DOMException code 22': [Object.assign(new Error('x'), { name: 'Error', code: 22 }), 'quota'],
+    'κείμενο «quota» χωρίς αναγνωρίσιμο name/code': [new Error('quota exceeded'), 'other'],
+    'SecurityError': [Object.assign(new Error('denied'), { name: 'SecurityError' }), 'other'],
+  }
+  for (const [label, [err, kind]] of Object.entries(CASES)) {
+    test(`${label} → ${kind}`, () => {
+      const { s, svc } = app()
+      s.hooks.fail = (k) => (k === PAVLOV ? err : null)
+      assert.equal(svc.setChecklist('pavlov', [true]), false)
+      assert.equal(svc.getSnapshot().writeFailure.kind, kind)
+    })
+  }
+  for (const outcome of ['not-started', 'rolled-back']) {
+    test(`τυλιγμένο σφάλμα συναλλαγής (${outcome}, χωρίς σημάδι) → other, ready, false`, () => {
+      const s = fakeStorage()
+      const real = createLegacyProgressBackend(s)
+      const backend = { ...real, write: () => { throw new ProgressTransactionError('x', outcome) } }
+      const svc = createProgressService({ courseId: 'psd115', content, backend, now: () => T0, warn: () => {} })
+      const before = course(svc)
+      assert.equal(svc.setChecklist('pavlov', [true]), false)
+      assert.equal(course(svc), before)
+      assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0, kind: 'other' })
+      assert.equal(svc.getSnapshot().status, 'ready')
+    })
+  }
+})
+
+describe('ανάκαμψη και διάρκεια της ειδοποίησης', () => {
+  test('review #13: αποτυχία checklist, μετά ΕΠΙΤΥΧΗΣ εγγραφή κάρτας → η ειδοποίηση ΜΕΝΕΙ, το checklist αμετάβλητο στο storage', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    const failure = svc.getSnapshot().writeFailure
+    s.hooks.fail = null
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'η άσχετη εγγραφή πετυχαίνει')
+    assert.ok(JSON.parse(s.getItem(STUDY)).flashcardSeenIds.includes('fc-freud-1'))
+    assert.equal(s.getItem(PAVLOV), PROD[PAVLOV], 'η αποτυχημένη αλλαγή ΔΕΝ επαναλήφθηκε')
+    assert.equal(svc.getSnapshot().writeFailure, failure, 'η ειδοποίηση μένει: η αλλαγή του checklist είναι ακόμα χαμένη')
+  })
+  test('ο χρήστης επαναλαμβάνει την ΙΔΙΑ αλλαγή και αποθηκεύεται → η ειδοποίηση καθαρίζει', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.setChecklist('pavlov', [true, true, true]), true)
+    assert.deepEqual(JSON.parse(s.getItem(PAVLOV)).slice(0, 3), [true, true, true])
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('δύο αποτυχίες σε διαφορετικά κλειδιά → η επανάληψη ΜΟΝΟ της μίας δεν καθαρίζει την ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1') // επανάληψη της κάρτας → σώζεται
+    assert.ok(svc.getSnapshot().writeFailure, 'το checklist παραμένει χαμένο')
+    svc.setChecklist('pavlov', [true]) // επανάληψη και του checklist
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('review #13 (2ο): δύο αποτυχίες διαφορετικού τύπου, επαναλαμβάνεται μόνο η 2η → μένει η ειδοποίηση της 1ης (σωστό kind/at)', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true]) // 1η: quota
+    t += 1000
+    s.hooks.fail = (k) => (k === STUDY ? Object.assign(new Error('denied'), { name: 'SecurityError' }) : null)
+    svc.markCardSeen('fc-freud-1') // 2η: other
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null) // το checklist εξακολουθεί να μη χωρά
+    t += 1000
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'η 2η αλλαγή επαναλαμβάνεται και αποθηκεύεται')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0, kind: 'quota' }, 'η ειδοποίηση αφορά πλέον την εκκρεμή 1η αποτυχία')
+    s.hooks.fail = null
+    svc.setChecklist('pavlov', [true])
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('επανάληψη της 1ης (παλαιότερης) αποτυχίας → μένει η 2η, με το δικό της kind', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true])
+    t += 1000
+    s.hooks.fail = (k) => (k === STUDY ? new Error('x') : null)
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = (k) => (k === STUDY ? new Error('x') : null)
+    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+  })
+  test('τρεις αποτυχίες (quota, other, quota), επαναλαμβάνεται μόνο η 3η → η ειδοποίηση είναι της 2ης (πιο πρόσφατης εκκρεμούς)', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true]) // 1η quota (pavlov)
+    t += 1000
+    s.hooks.fail = () => new Error('x')
+    svc.setChecklist('empiricism', [true]) // 2η other (w2/w4…)
+    t += 1000
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1') // 3η quota (study)
+    s.hooks.fail = (k) => (k === STUDY ? null : quota())
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'μόνο η 3η επαναλαμβάνεται')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+  })
+  test('άλλη αλλαγή στο ΙΔΙΟ κλειδί (όχι η χαμένη) δεν καθαρίζει την ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    s.hooks.fail = null
+    assert.equal(svc.setChecklist('pavlov', [false, true]), true, 'διαφορετική τιμή στο ίδιο κλειδί')
+    assert.ok(svc.getSnapshot().writeFailure, 'η αρχική αλλαγή δεν αποθηκεύτηκε ποτέ')
+  })
+  test('μετά το κλείσιμο, μια επόμενη επιτυχία δεν ξαναφέρνει παλιά ειδοποίηση· νέα αποτυχία → νέα ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    svc.dismissWriteFailure()
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-2')
+    assert.ok(svc.getSnapshot().writeFailure)
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-2')
+    assert.equal(svc.getSnapshot().writeFailure, null, 'η πρώτη (κλεισμένη) αποτυχία δεν μετράει πια')
+  })
+  test('resync (π.χ. μετά από reset) → νέα κατάσταση από το storage, καμία παλιά εκκρεμότητα', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true])
+    s.hooks.fail = null
+    svc.resync()
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.getSnapshot().writeFailure, null, 'το παλιό checklist δεν κρατά την ειδοποίηση μετά το resync')
+  })
+  test('no-op ενέργεια (ίδιο checklist / κάρτα που ήδη είδε) ΔΕΝ καθαρίζει το writeFailure', () => {
+    const { s, svc } = app()
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    const failure = svc.getSnapshot().writeFailure
+    s.hooks.fail = null
+    assert.equal(svc.markCardSeen('fc-freud-1'), false, 'no-op')
+    assert.equal(svc.getSnapshot().writeFailure, failure)
+  })
+  test('ενέργεια που δεν γράφει κανένα κλειδί (θέμα χωρίς legacy κλειδί) ΔΕΝ καθαρίζει το writeFailure', () => {
+    // Adapter όπου το pavlov δεν προβάλλεται σε legacy κλειδί → το commit δεν γράφει τίποτα.
+    const noPavlov = {
+      ...content,
+      legacy: {
+        ...content.legacy,
+        encode(x, o) {
+          const r = content.legacy.encode(x, o)
+          const { [PAVLOV]: _, ...entries } = r.entries
+          return { ...r, entries }
+        },
+      },
+    }
+    const s = fakeStorage()
+    const svc = createProgressService({ courseId: 'psd115', content: noPavlov, backend: createLegacyProgressBackend(s), now: () => T0, warn: () => {} })
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1')
+    const failure = svc.getSnapshot().writeFailure
+    assert.ok(failure)
+    s.hooks.fail = null
+    const dump = s.dump()
+    svc.setChecklist('pavlov', [true, true])
+    assert.deepEqual(s.dump(), dump, 'καμία εγγραφή')
+    assert.equal(svc.getSnapshot().writeFailure, failure, 'χωρίς εγγραφή η ειδοποίηση μένει')
+  })
+  test('διαδοχικές αποτυχίες → το writeFailure ανανεώνεται (νέο at)', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    t += 5000
+    svc.markCardSeen('fc-freud-1')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 5000, kind: 'quota' })
+  })
+  test('dismissWriteFailure: κρύβει την ειδοποίηση· snapshot και storage ΑΜΕΤΑΒΛΗΤΑ (δεν σημαίνει ότι σώθηκε)', () => {
+    const { s, svc, notified } = app()
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    const before = course(svc)
+    const dump = s.dump()
+    svc.dismissWriteFailure()
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    assert.equal(course(svc), before)
+    assert.deepEqual(s.dump(), dump)
+    const n = notified()
+    svc.dismissWriteFailure()
+    assert.equal(notified(), n, 'χωρίς ειδοποίηση: κανένα notify')
+  })
+  test('χωρίς αποτυχία: writeFailure null από την αρχή, κανονική εγγραφή', () => {
+    const { s, svc } = app()
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.equal(JSON.parse(s.getItem(PAVLOV))[0], true)
+  })
+})
+
+describe('όρια της αλλαγής', () => {
+  test('εκκρεμές σημάδι → εξακολουθεί να ισχύει το degraded (Φάση 1E-4c-2), όχι writeFailure', () => {
+    const s = fakeStorage()
+    const svc = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: () => {} })
+    s.setItem(TXN_KEY, JSON.stringify({ v: 1, op: 'x', before: {}, after: {} }))
+    assert.equal(svc.setChecklist('pavlov', [true]), false)
+    assert.equal(svc.getSnapshot().status, 'degraded')
+  })
+  test('προγραμματιστικό σφάλμα (άγνωστο θέμα) εξακολουθεί να πετά — δεν κρύβεται ως αποτυχία αποθήκευσης', () => {
+    const { svc } = app()
+    assert.throws(() => svc.setChecklist('δεν-υπάρχει', [true]), /άγνωστο θέμα/)
+  })
+})
+
+describe('E2 · κείμενα ειδοποίησης (ακριβή)', () => {
+  test('quota / other', async () => {
+    const { describeWriteFailure } = await import('../src/utils/progressFailureMessage.js')
+    assert.equal(
+      describeWriteFailure('quota'),
+      'Η τελευταία αλλαγή δεν αποθηκεύτηκε: ο χώρος αποθήκευσης του browser φαίνεται γεμάτος. Ελευθέρωσε χώρο και επανάλαβε την ενέργεια.',
+    )
+    assert.equal(
+      describeWriteFailure('other'),
+      'Η τελευταία αλλαγή δεν αποθηκεύτηκε. Η μελέτη συνεχίζεται, αλλά η αλλαγή αυτή δεν θα επαναληφθεί αυτόματα. Επανέλαβέ την όταν η αποθήκευση λειτουργεί κανονικά.',
+    )
+  })
+})
+
+describe('E3 · shadow event χωρίς legacy εγγραφή → ανιχνεύσιμη απόκλιση', async () => {
+  const { activateShadow, shadowReconciliation } = await import('../src/utils/progressMigration.js')
+  const { createShadowRecorder } = await import('../src/utils/progressShadow.js')
+  test('ο recorder γράφει (πριν από το service), το legacy αποτυγχάνει (quota) → reconciliation diverged, όχι in-sync', async () => {
+    const s = fakeStorage()
+    assert.equal((await activateShadow({ storage: s, now: () => T0, backup: () => {}, content })).status, 'active')
+    const svc = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: () => {} })
+    const rec = createShadowRecorder({ courseId: 'psd115', content, storage: s, now: () => T0 + 1000, enabled: true, isActive: () => svc.getSnapshot().status === 'ready', warn: () => {} })
+    await rec.recordFlashcardSeen({ cardId: 'fc-freud-1' })
+    s.hooks.fail = (k) => (k === STUDY ? quota() : null)
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = null
+    const r = await shadowReconciliation({ storage: s, content })
+    assert.equal(r.status, 'diverged')
+    assert.deepEqual(Object.keys(r.report.diff), ['flashcardSeenIds'])
+  })
+})

@@ -11,7 +11,7 @@ import { activeCourseId } from '../core/routing/navigation.js'
 import { courseHeader } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/settings.js'
 import { describeReset, resetProgressSafely } from '../utils/progressBackup.js'
-import { describeProgressFailure } from '../utils/progressFailureMessage.js'
+import { describeProgressFailure, describeWriteFailure } from '../utils/progressFailureMessage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -244,6 +244,23 @@ export default function AppShell() {
           >
             Οι αλλαγές προόδου δεν αποθηκεύονται όσο η πρόοδος δεν μπορεί να διαβαστεί με ασφάλεια. Η εισαγωγή ή
             επαναφορά είναι διαθέσιμη μόνο μετά από επιβεβαιωμένο αντίγραφο ασφαλείας.
+          </div>
+        ) : study.progressWriteFailure ? (
+          // Φάση 2: μία αλλαγή δεν αποθηκεύτηκε (οι εγγραφές επιτρέπονται· όχι degraded). Όχι modal: το κουίζ δεν διακόπτεται.
+          <div
+            role="status"
+            data-testid="progress-write-failure"
+            className="flex items-start gap-3 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 p-3 text-sm text-rose-900 dark:text-rose-100"
+          >
+            <p className="flex-1">{describeWriteFailure(study.progressWriteFailure.kind)}</p>
+            <button
+              type="button"
+              onClick={study.dismissWriteFailure}
+              className="touch-manipulation shrink-0 rounded-md px-2 py-1 text-xs font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50"
+              aria-label="Απόκρυψη ειδοποίησης"
+            >
+              Κλείσιμο
+            </button>
           </div>
         ) : null}
         <Outlet context={study} />
