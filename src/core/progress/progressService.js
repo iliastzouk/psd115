@@ -218,10 +218,14 @@ export function createProgressService({
       })
     },
 
-    /** «Επόμενη κάρτα»: η κάρτα μπαίνει στο σύνολο των καρτών που είδε (μία φορά). */
+    /**
+     * «Επόμενη κάρτα»: η κάρτα μπαίνει στο σύνολο των καρτών που είδε (μία φορά). Μόνο κάρτες του περιεχομένου:
+     * άγνωστο `cardId` → false, χωρίς εγγραφή ή αλλαγή (όπως ο shadow recorder).
+     */
     markCardSeen(cardId) {
       const s = current()
       if (!s) return false
+      if (!content.isCard(cardId)) return false
       const item = toGlobalId(courseId, cardId)
       if (s.flashcardSeenIds.includes(item)) return false
       return commit({ ...s, flashcardSeenIds: [...s.flashcardSeenIds, item] })
