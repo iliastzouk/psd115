@@ -25,8 +25,14 @@ export default function Week2Layout() {
   const k2Slides = onUnitHome || onToolPage ? null : K2_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
-  const week2FlashTotal = useMemo(
-    () => flashcards.filter((c) => week2CategoryIds.has(c.categoryId)).length,
+  // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα (κάρτες της ενότητας, ακρίβεια από το byGroup της).
+  const progressScope = useMemo(
+    () => ({
+      kind: 'unit',
+      courseId: 'psd115',
+      cardIds: flashcards.filter((c) => week2CategoryIds.has(c.categoryId)).map((c) => c.id),
+      groupIds: [...week2CategoryIds],
+    }),
     [],
   )
   const week2QuizTotal = useMemo(
@@ -40,7 +46,7 @@ export default function Week2Layout() {
       {showProgress && (
         <Progress
           progress={ctx.progress}
-          totalFlashcards={week2FlashTotal}
+          scope={progressScope}
           totalQuiz={week2QuizTotal}
           defaultExpanded={progressExpandedByDefault}
           categories={WEEK2_CATEGORIES}

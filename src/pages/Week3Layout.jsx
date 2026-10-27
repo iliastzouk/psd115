@@ -25,8 +25,14 @@ export default function Week3Layout() {
   const k3Slides = onUnitHome || onToolPage ? null : K3_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
-  const week3FlashTotal = useMemo(
-    () => flashcards.filter((c) => week3CategoryIds.has(c.categoryId)).length,
+  // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα (κάρτες της ενότητας, ακρίβεια από το byGroup της).
+  const progressScope = useMemo(
+    () => ({
+      kind: 'unit',
+      courseId: 'psd115',
+      cardIds: flashcards.filter((c) => week3CategoryIds.has(c.categoryId)).map((c) => c.id),
+      groupIds: [...week3CategoryIds],
+    }),
     [],
   )
   const week3QuizTotal = useMemo(
@@ -40,7 +46,7 @@ export default function Week3Layout() {
       {showProgress && (
         <Progress
           progress={ctx.progress}
-          totalFlashcards={week3FlashTotal}
+          scope={progressScope}
           totalQuiz={week3QuizTotal}
           defaultExpanded={progressExpandedByDefault}
           categories={WEEK3_CATEGORIES}

@@ -30,7 +30,7 @@ const unit = (cats) => ({ kind: 'unit', courseId: 'psd115', cardIds: cardsOf(cat
 const course = { kind: 'course', courseId: 'psd115', cardIds: cardsOf(CATEGORIES), groupIds: CATEGORIES.map((c) => c.id) }
 const load = () => import('../src/components/progressDisplay.js')
 
-describe('H2 · κάρτες ανά scope', { todo: 'Φάση 4 εμφάνιση' }, () => {
+describe('H2 · κάρτες ανά scope', () => {
   test('k2 με το production fixture (καμία κάρτα της k2) → 0/56, ανεξάρτητα από τις κάρτες άλλων ενοτήτων', async () => {
     const { scopedProgress, progressSummary } = await load()
     const s = scopedProgress(PROD, unit(WEEK2_CATEGORIES))
@@ -62,7 +62,7 @@ describe('H2 · κάρτες ανά scope', { todo: 'Φάση 4 εμφάνιση
   })
 })
 
-describe('H3 · ακρίβεια κουίζ σε ενότητα (από το byGroup της ενότητας)', { todo: 'Φάση 4 εμφάνιση' }, () => {
+describe('H3 · ακρίβεια κουίζ σε ενότητα (από το byGroup της ενότητας)', () => {
   test('k1 με το production fixture (η μόνη απάντηση είναι της k2) → «—», όχι η ακρίβεια της k2', async () => {
     const { scopedProgress, progressSummary } = await load()
     const s = scopedProgress(PROD, unit(WEEK1_CATEGORIES))
@@ -78,7 +78,7 @@ describe('H3 · ακρίβεια κουίζ σε ενότητα (από το byG
   })
 })
 
-describe('H4 · ολόκληρο μάθημα: οι υπάρχοντες συνολικοί μετρητές', { todo: 'Φάση 4 εμφάνιση' }, () => {
+describe('H4 · ολόκληρο μάθημα: οι υπάρχοντες συνολικοί μετρητές', () => {
   test('quizCorrect/quizAnswered όπως είναι, ακόμα κι αν διαφέρουν από το άθροισμα του byGroup', async () => {
     const { scopedProgress, progressSummary } = await load()
     const p = { ...PROD, quizAnswered: 10, quizCorrect: 7, byGroup: { 'w2-variables': { correct: 1, wrong: 1 } } }

@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react'
 import { CATEGORIES as ALL_CATEGORIES } from '../../content/courses/psd115/questions.js'
-
-function pct(part, total) {
-  if (!total) return 0
-  return Math.round((part / total) * 100)
-}
+import { pct, progressSummary, scopedProgress } from './progressDisplay.js'
 
 /**
  * @param {object} props
  * @param {object} props.progress — snapshot προόδου του μαθήματος (quiz, κάρτες, byGroup)
- * @param {number} props.totalFlashcards
+ * @param {{ kind: 'unit' | 'course', courseId: string, cardIds: string[], groupIds: string[] }} props.scope — Φάση 4:
+ *   οι τιμές (κάρτες, ακρίβεια κουίζ) αφορούν ΜΟΝΟ αυτό το scope (βλ. progressDisplay.js)
  * @param {number} props.totalQuiz
  * @param {boolean} [props.defaultExpanded] — false σελίδες ενότητας: συμπαγής μπάρα, ανοιχτό σε hub & εργαλεία
  * @param {{ id: string, label: string }[]} [props.categories] — ανά εβδομάδα (προεπιλογή: όλες)
  */
-export default function Progress({ progress, totalFlashcards, totalQuiz, defaultExpanded = true, categories }) {
+export default function Progress({ progress, scope, totalQuiz, defaultExpanded = true, categories }) {
   const categoryList = categories?.length ? categories : ALL_CATEGORIES
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [catOpen, setCatOpen] = useState(false)
@@ -23,12 +20,11 @@ export default function Progress({ progress, totalFlashcards, totalQuiz, default
     setExpanded(defaultExpanded)
   }, [defaultExpanded])
 
-  const quizAccuracy = pct(progress.quizCorrect, progress.quizAnswered)
-  const seenFlash = progress.flashcardSeenIds.length
+  const scoped = scopedProgress(progress, scope)
+  const { quizCorrect, quizAnswered, seenCards: seenFlash, totalCards: totalFlashcards } = scoped
+  const quizAccuracy = pct(quizCorrect, quizAnswered)
   const flashPct = pct(seenFlash, totalFlashcards)
-
-  const quizLabel = progress.quizAnswered ? `${quizAccuracy}%` : '—'
-  const summary = `Κουίζ ${quizLabel} · Κάρτες ${seenFlash}/${totalFlashcards} (${flashPct}%)`
+  const summary = progressSummary(scoped)
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden">
@@ -55,13 +51,13 @@ export default function Progress({ progress, totalFlashcards, totalQuiz, default
             <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300 mb-1">
               <span>Κουίζ — ακρίβεια</span>
               <span>
-                {progress.quizAnswered ? `${quizAccuracy}%` : '—'} ({progress.quizCorrect}/{progress.quizAnswered})
+                {quizAnswered ? `${quizAccuracy}%` : '—'} ({quizCorrect}/{quizAnswered})
               </span>
             </div>
             <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-teal-500 transition-all duration-500"
-                style={{ width: `${progress.quizAnswered ? quizAccuracy : 0}%` }}
+                style={{ width: `${quizAnswered ? quizAccuracy : 0}%` }}
               />
             </div>
           </div>

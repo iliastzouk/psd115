@@ -87,7 +87,12 @@ export function ProgressPage() {
   return (
     <Progress
       progress={ctx.progress}
-      totalFlashcards={flashcards.filter((c) => ids.has(c.categoryId)).length}
+      scope={{
+        kind: id.scope.kind === 'unit' ? 'unit' : 'course',
+        courseId: id.courseId,
+        cardIds: flashcards.filter((c) => ids.has(c.categoryId)).map((c) => c.id),
+        groupIds: [...ids],
+      }}
       totalQuiz={quizQuestions.filter((q) => ids.has(q.categoryId)).length}
       defaultExpanded
       categories={categories}

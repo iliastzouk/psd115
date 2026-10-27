@@ -232,9 +232,13 @@ async function bootGate(browser, base, keys, route, expect) {
 
 const pad = (items, n) => [...items, ...Array(Math.max(0, n - items.length)).fill(false)].slice(0, n)
 const BOOT_CASES = [
-  [PROD, '/psd115/topics/pavlov', { text: [/Κουίζ 0% · Κάρτες 21\/94 \(22%\)/], notText: [/Κάρτες 0\//] }],
-  [PROD, '/psd115/units/k2', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 21\/56/], notText: [/μελετήθηκαν 0\//] }],
-  [PROD, '/progress?scope=psd115', { text: [/21\/\d+/] }],
+  // Φάση 4: τιμές ανά scope. k1 (pavlov): 21 κάρτες της k1, καμία απάντηση της k1 → «Κουίζ —». Το «όχι Κάρτες 0/» μένει
+  // ως έλεγχος hydration (το fixture έχει 21 κάρτες της k1).
+  [PROD, '/psd115/topics/pavlov', { text: [/Κουίζ — · Κάρτες 21\/94 \(22%\)/], notText: [/Κάρτες 0\//] }],
+  // k2: η μόνη απάντηση είναι της k2 (0/1)· καμία κάρτα της k2 → 0/56 (πριν: 21/56 από κάρτες της k1).
+  [PROD, '/psd115/units/k2', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 0\/56/], notText: [/μελετήθηκαν 21\//] }],
+  // Ολόκληρο μάθημα: οι συνολικοί μετρητές όπως πριν (0/1) και όλες οι κάρτες του μαθήματος.
+  [PROD, '/progress?scope=psd115', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 21\/198/] }],
   [PROD, '/study/review?scope=unit:psd115/k2', { text: [new RegExp(PROD_WRONG.question.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))] }],
   [SAMPLE, '/psd115/topics/pavlov', { text: [/Κάρτες 1\/94/], checks: (n) => pad([true, false, true], n) }],
   [SAMPLE, '/psd115/topics/research-methods-overview', { checks: (n) => pad([true, true, false], n) }],
