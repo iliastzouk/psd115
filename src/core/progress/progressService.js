@@ -24,6 +24,10 @@
  *   αποτυχημένη δεν επαναλαμβάνεται αυτόματα. Το `writeFailure` καθαρίζει ΜΟΝΟ όταν ΟΛΕΣ οι τιμές που απέτυχαν έχουν
  *   πλέον αποθηκευτεί (ο χρήστης επανέλαβε την ίδια αλλαγή) ή με `dismissWriteFailure()` (που απλώς κρύβει την
  *   ειδοποίηση). Μια άσχετη επιτυχημένη εγγραφή ΔΕΝ το καθαρίζει. Προγραμματιστικά σφάλματα πετούν όπως πριν.
+ * - Πολλά tabs (Φάση 3): κάθε ενέργεια ξαναδιαβάζει πρώτα το storage (ίδια επικύρωση με τη φόρτωση) και εφαρμόζεται πάνω
+ *   στην ΤΡΕΧΟΥΣΑ αποθηκευμένη κατάσταση· `refresh()` (από τον storage listener) φέρνει τη μνήμη στο storage χωρίς εγγραφή
+ *   και κάνει notify μόνο όταν αλλάζει πραγματικά το snapshot. Χωρίς cross-tab lock: δύο πραγματικά ανταγωνιστικές
+ *   εγγραφές μπορούν ακόμα να χάσουν μία αλλαγή (docs §17).
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -115,19 +119,25 @@ export function createProgressService({
     }
   }
 
-  function load() {
-    if (UNSAFE_RECOVERY.has(recovery?.status)) return degraded([`ανάκτηση μετά από διακοπή: ${recovery.status}`])
+  /** Ανάγνωση + επικύρωση της αποθηκευμένης προόδου (ίδια για τη φόρτωση και για κάθε φρέσκια ανάγνωση). Μόνο ανάγνωση. */
+  function readStored() {
     const blocked = writesBlocked()
-    if (blocked) return degraded([blocked])
+    if (blocked) return { ok: false, issues: [blocked] }
     let entries
     try {
       entries = backend.read()
     } catch (e) {
-      return degraded([`ανάγνωση: ${e?.message ?? e}`])
+      return { ok: false, issues: [`ανάγνωση: ${e?.message ?? e}`] }
     }
     const r = legacyToSnapshot(entries, { content, mode: 'runtime' })
+    return r.ok ? { ok: true, entries, snapshot: r.snapshot, warnings: r.warnings } : { ok: false, issues: r.issues }
+  }
+
+  function load() {
+    if (UNSAFE_RECOVERY.has(recovery?.status)) return degraded([`ανάκτηση μετά από διακοπή: ${recovery.status}`])
+    const r = readStored()
     if (!r.ok) return degraded(r.issues)
-    raw = { ...entries }
+    raw = { ...r.entries }
     return freezeState({ status: 'ready', issues: r.warnings, courses: { [courseId]: r.snapshot } })
   }
 
@@ -180,7 +190,30 @@ export function createProgressService({
     return true
   }
 
-  const current = () => (state.status === 'ready' ? state.courses[courseId] : null)
+  /**
+   * Φάση 3 (G1/G3): φέρνει τη μνήμη στην τρέχουσα αποθηκευμένη κατάσταση. Μόνο ανάγνωση. Αλλαγή που δεν αφορά την πρόοδο
+   * (π.χ. theme) → ίδιο snapshot, κανένα notify. Αποτυχία ανάγνωσης/επικύρωσης ή εκκρεμές σημάδι → degraded (κρατά το
+   * τελευταίο snapshot), καμία εγγραφή. Το `writeFailure` (Φάση 2) δεν αγγίζεται.
+   * @returns {object | null} το φρέσκο snapshot του μαθήματος ή null (όχι ready)
+   */
+  function syncFromStorage() {
+    if (state.status !== 'ready') return null
+    const r = readStored()
+    if (!r.ok) {
+      state = freezeState({ ...state, status: 'degraded', issues: r.issues })
+      notify()
+      return null
+    }
+    raw = { ...r.entries }
+    if (JSON.stringify(r.snapshot) !== JSON.stringify(state.courses[courseId])) {
+      state = freezeState({ ...state, issues: r.warnings, courses: { ...state.courses, [courseId]: r.snapshot } })
+      notify()
+    }
+    return state.courses[courseId]
+  }
+
+  /** Το snapshot πάνω στο οποίο υπολογίζεται μια ενέργεια: ΠΑΝΤΑ φρέσκο από το storage (Φάση 3, G1). */
+  const current = () => syncFromStorage()
 
   return Object.freeze({
     courseId,
@@ -261,6 +294,17 @@ export function createProgressService({
       unsaved = []
       state = freezeState({ ...state, writeFailure: null })
       notify()
+    },
+
+    /**
+     * Φάση 3 (G3): ξαναδιαβάζει το storage (π.χ. αλλαγή από άλλο tab). Μόνο ανάγνωση· notify μόνο σε πραγματική αλλαγή.
+     * Το εκκρεμές σημάδι κρίνεται από το ΤΡΕΧΟΝ storage. Σε degraded δεν κάνει τίποτα (μένει μέχρι το reload).
+     * @returns {boolean} αν άλλαξε το state
+     */
+    refresh() {
+      const before = state
+      syncFromStorage()
+      return state !== before
     },
 
     /** Ξαναδιαβάζει το backend μετά από εγγραφή υποδομής (reset). Νέο state, notify. */

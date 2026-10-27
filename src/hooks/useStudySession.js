@@ -183,6 +183,7 @@ export function useStudySession() {
 
   const markFlashSeen = useCallback((id) => {
     // Shadow (1E-3): στον handler, όχι στον updater (το StrictMode τρέχει τους updaters δύο φορές).
+    getProgressService().refresh() // Φάση 3: τρέχουσα κατάσταση πριν από τον recorder (isActive) και το service
     recordFlashcardSeen({ cardId: id })
     getProgressService().markCardSeen(id)
   }, [])
@@ -248,6 +249,7 @@ export function useStudySession() {
             correctLabel: currentQuestion.options[currentQuestion.correctIndex],
           }
       // Shadow (1E-3): ένα event ανά απάντηση (+ wrongBook), στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
+      getProgressService().refresh() // Φάση 3: τρέχουσα κατάσταση πριν από τον recorder (isActive) και το service
       recordQuizAnswer({ questionId: currentQuestion.id, ok: correct, wrong })
 
       // Μετά το event (shadow), η πρόοδος: ΜΙΑ σύγχρονη αλλαγή στο ProgressService (όχι σε updater/effect).
@@ -275,11 +277,13 @@ export function useStudySession() {
   }, [])
 
   const clearWrongBook = useCallback(() => {
+    getProgressService().refresh() // Φάση 3: τρέχουσα κατάσταση πριν από τον recorder (isActive) και το service
     recordWrongBookClear()
     getProgressService().clearWrongBook()
   }, [])
 
   const removeWrongOne = useCallback((uid) => {
+    getProgressService().refresh() // Φάση 3: τρέχουσα κατάσταση πριν από τον recorder (isActive) και το service
     recordWrongBookRemove({ uid })
     getProgressService().removeWrong(uid)
   }, [])

@@ -316,7 +316,14 @@ describe('review PR #11 · ο ΙΔΙΟΣ ο έλεγχος του σημαδιο
     const svc = service(s, (...a) => warns.push(a))
     const before = svc.getSnapshot()
     broken.set = (k) => k === PAVLOV // η εγγραφή αποτυγχάνει…
-    broken.marker = true //            …και ο έλεγχος του σημαδιού επίσης
+    // …και ο έλεγχος του σημαδιού ΜΕΤΑ την αποτυχία επίσης. Φάση 3: η ενέργεια διαβάζει πρώτα το storage (1η ανάγνωση του
+    // σημαδιού) και το backend ελέγχει πριν γράψει (2η)· αποτυγχάνει ο έλεγχος του service μετά την αποτυχία (3η).
+    let markerReads = 0
+    const getItem = s.getItem
+    s.getItem = (k) => {
+      if (k === TXN_KEY && ++markerReads >= 3) throw new Error('SecurityError')
+      return getItem(k)
+    }
     let r
     assert.doesNotThrow(() => (r = svc.setChecklist('pavlov', [true, true])))
     assert.equal(r, false, 'καμία ψευδής επιτυχία')
@@ -325,6 +332,20 @@ describe('review PR #11 · ο ΙΔΙΟΣ ο έλεγχος του σημαδιο
     assert.deepEqual(writes, [])
     assert.deepEqual(s.dump(), PROD)
     assert.equal(warns.length, 1)
+  })
+
+  test('Φάση 3: ο έλεγχος πετάει ήδη στη φρέσκια ανάγνωση → degraded ΠΡΙΝ από κάθε απόπειρα εγγραφής', () => {
+    const { s, broken, writes } = flakyStorage()
+    const warns = []
+    const svc = service(s, (...a) => warns.push(a))
+    const before = svc.getSnapshot()
+    broken.marker = true
+    assert.equal(svc.setChecklist('pavlov', [true]), false)
+    assert.equal(svc.getSnapshot().status, 'degraded')
+    assert.match(svc.getSnapshot().issues.join(' '), /δεν ήταν δυνατός ο έλεγχος/)
+    assert.deepEqual(svc.getSnapshot().courses.psd115, before.courses.psd115)
+    assert.deepEqual(writes, [])
+    assert.equal(warns.length, 0, 'καμία απόπειρα εγγραφής')
   })
 
   test('ο έλεγχος πετάει ενώ η εγγραφή θα πετύχαινε → το backend αρνείται, το service σε degraded (fail-closed), καμία εγγραφή', () => {

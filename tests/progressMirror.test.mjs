@@ -380,7 +380,8 @@ describe('G11 · σειρά: recorder ΠΡΙΝ από το service σε κάθε
     ['src/hooks/useStudySession.js', 'recordFlashcardSeen(', 'getProgressService().markCardSeen('],
     ['src/hooks/useStudySession.js', 'recordWrongBookRemove(', 'getProgressService().removeWrong('],
     ['src/hooks/useStudySession.js', 'recordWrongBookClear(', 'getProgressService().clearWrongBook('],
-    ['src/hooks/useProgress.js', 'recordChecklist(', 'service.setChecklist('],
+    // Φάση 3: ο setter είναι η applyChecklistUpdate· `record` = recordChecklist (παράμετρος μόνο για τα tests).
+    ['src/hooks/useProgress.js', 'record({ topicId, items })', 'service.setChecklist('],
   ]
   for (const [file, recorderCall, serviceCall] of PAIRS) {
     test(`${file}: ${recorderCall} πριν από ${serviceCall}`, () => {

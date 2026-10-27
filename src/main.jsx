@@ -12,6 +12,7 @@ import { createProgressService } from './core/progress/progressService.js'
 import { psd115ProgressAdapter } from './core/progress/adapters/psd115.js'
 import { installProgressService } from './hooks/useProgress.js'
 import { createShadowRecorder, installShadowRecorder } from './utils/progressShadow.js'
+import { installStorageSync } from './utils/progressSync.js'
 
 const storage = (() => {
   try {
@@ -49,6 +50,8 @@ installShadowRecorder(
   createShadowRecorder({ courseId: 'psd115', content: psd115ProgressAdapter, isActive: () => progressService.getSnapshot().status === 'ready' }),
 )
 if (progressService.getSnapshot().status !== 'ready') console.warn('[progress] ασφαλής λειτουργία:', progressService.getSnapshot().issues)
+// Φάση 3: αλλαγές από άλλο tab → refresh (μόνο ανάγνωση). Κάθε ενέργεια διαβάζει έτσι κι αλλιώς πρώτα το storage.
+installStorageSync(progressService, { storage })
 
 // Μόνο σε `npm run dev`: στην κονσόλα `psd115Progress.validate()` για έλεγχο της αποθηκευμένης προόδου,
 // και `studyProgress.store` / `studyProgress.persist()` για τη νέα (ακόμα αχρησιμοποίητη) υποδομή του Phase 0B.
