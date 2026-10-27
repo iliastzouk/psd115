@@ -20,7 +20,7 @@ import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/
 import { createLegacyProgressBackend } from '../src/utils/legacyProgressBackend.js'
 import { resetProgressSafely } from '../src/utils/progressBackup.js'
 import { TXN_KEY } from '../src/utils/progressTransaction.js'
-import { normalizeChecklist } from '../src/hooks/useProgress.js'
+import { applyChecklistUpdate } from '../src/hooks/useProgress.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
@@ -53,12 +53,17 @@ function sharedStorage(init = PROD) {
 const tab = (s) => createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: () => {} })
 const study = (s) => JSON.parse(s.getItem(STUDY))
 const wrong = (uid) => ({ uid, question: 'Q', explanation: 'E', userLabel: 'A', correctLabel: 'B' })
-/** Ό,τι κάνει ο setter του useChecklist (G2): refresh → φρέσκα items → toggle → setChecklist. */
+/** Ο ΠΡΑΓΜΑΤΙΚΟΣ setter του useChecklist (G2), με toggle όπως τα lessons: (prev) => prev με αντεστραμμένο το index. */
+const recorded = []
 function toggle(svc, topicId, index, length = 9) {
-  svc.refresh()
-  const prev = normalizeChecklist(svc.getSnapshot().courses.psd115.checklists[topicId]?.items, length)
-  const items = prev.map((x, i) => (i === index ? !x : x))
-  return svc.setChecklist(topicId, items)
+  return applyChecklistUpdate({
+    service: svc,
+    courseId: 'psd115',
+    topicId,
+    length,
+    next: (prev) => prev.map((x, i) => (i === index ? !x : x)),
+    record: (r) => recorded.push(r),
+  })
 }
 
 describe('αναπαραγωγή (αποτυγχάνει στο main): διαδοχικές ενέργειες από δύο tabs χάνονταν', () => {
@@ -218,7 +223,7 @@ describe('G3 · refresh(): μόνο ανάγνωση', () => {
   })
 })
 
-describe('G3 · storage listener', { todo: 'Φάση 3 listener' }, () => {
+describe('G3 · storage listener', () => {
   const load = () => import('../src/utils/progressSync.js')
   const fakeService = () => {
     let calls = 0
@@ -258,15 +263,26 @@ describe('G3 · storage listener', { todo: 'Φάση 3 listener' }, () => {
 
 describe('G2 / G5 · guards στον κώδικα', () => {
   const src = (f) => fs.readFileSync(path.join(root, f), 'utf8')
-  test('useChecklist: refresh ΠΡΙΝ από τον υπολογισμό, recorder ΠΡΙΝ από το setChecklist', { todo: 'Φάση 3 hook' }, () => {
+  test('ο recorder παίρνει τα ΤΕΛΙΚΑ (φρέσκα) items, πριν από την εγγραφή', () => {
+    const s = sharedStorage()
+    const A = tab(s)
+    const B = tab(s)
+    toggle(A, 'pavlov', 0)
+    recorded.length = 0
+    toggle(B, 'pavlov', 2)
+    assert.deepEqual(recorded[0].items.slice(0, 3), [true, false, true], 'το B είδε το τσεκ του A')
+  })
+  test('useChecklist: refresh ΠΡΙΝ από τον υπολογισμό, recorder ΠΡΙΝ από το setChecklist', () => {
     const code = src('src/hooks/useProgress.js')
     const r = code.indexOf('service.refresh()')
     const prev = code.indexOf('normalizeChecklist(service.getSnapshot()')
-    const rec = code.indexOf('recordChecklist(')
+    const rec = code.indexOf('record({ topicId, items })')
     const set = code.indexOf('service.setChecklist(')
     assert.ok(r > 0 && r < prev && prev < rec && rec < set, `σειρά: refresh ${r} < prev ${prev} < recorder ${rec} < setChecklist ${set}`)
+    assert.match(code, /record = recordChecklist/, 'στην εφαρμογή ο recorder είναι ο πραγματικός')
+    assert.match(code, /\(next\) => applyChecklistUpdate\(\{ service: getProgressService\(\)/, 'ο setter του hook είναι η applyChecklistUpdate')
   })
-  test('main.jsx εγκαθιστά τον storage listener', { todo: 'Φάση 3 listener' }, () => {
+  test('main.jsx εγκαθιστά τον storage listener', () => {
     assert.match(src('src/main.jsx'), /installStorageSync\(progressService/)
   })
   test('G5: τεκμηριωμένος υπολειπόμενος κίνδυνος (χωρίς cross-tab lock)', { todo: 'Φάση 3 docs' }, () => {

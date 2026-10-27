@@ -46,19 +46,26 @@ export function normalizeChecklist(items, length) {
  * Checklist ενός θέματος (canonical topicId). Απόν = όλα false. Καμία εγγραφή στο mount· εγγραφή μόνο σε αλλαγή.
  * @returns {[boolean[], (next: boolean[] | ((prev: boolean[]) => boolean[])) => void]}
  */
+/**
+ * Ο setter του checklist (καθαρή συνάρτηση, για να ελέγχεται χωρίς React). Φάση 3 (G2): πρώτα η τρέχουσα αποθηκευμένη
+ * κατάσταση (άλλο tab μπορεί να άλλαξε το ίδιο checklist), μετά το toggle πάνω στα ΦΡΕΣΚΑ items από το service (όχι από
+ * το React state), μετά recorder, μετά εγγραφή — σύγχρονα, στον setter.
+ */
+export function applyChecklistUpdate({ service, courseId, topicId, length, next, record = recordChecklist }) {
+  service.refresh()
+  const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
+  const items = typeof next === 'function' ? next(prev) : next
+  // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
+  if (courseId === service.courseId) record({ topicId, items })
+  return service.setChecklist(topicId, items)
+}
+
 export function useChecklist(courseId, topicId, length) {
   const course = useCourseProgress(courseId, 'checklist')
   const stored = course?.checklists[topicId]?.items
   const items = useMemo(() => normalizeChecklist(stored, length), [stored, length])
   const set = useCallback(
-    (next) => {
-      const service = getProgressService()
-      const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
-      const items = typeof next === 'function' ? next(prev) : next
-      // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
-      if (courseId === service.courseId) recordChecklist({ topicId, items })
-      service.setChecklist(topicId, items)
-    },
+    (next) => applyChecklistUpdate({ service: getProgressService(), courseId, topicId, length, next }),
     [courseId, topicId, length],
   )
   return [items, set]
