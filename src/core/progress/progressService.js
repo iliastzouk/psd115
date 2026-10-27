@@ -90,8 +90,10 @@ export function createProgressService({
   /** Τελευταίες γνωστές raw τιμές (για διατήρηση ό,τι δεν ανήκει στο snapshot μέσα σε κοινά κλειδιά). */
   let raw = {}
   /**
-   * Τιμές (κλειδί → raw) που δεν αποθηκεύτηκαν, από ΟΛΕΣ τις αποτυχίες μετά το τελευταίο καθάρισμα. Μια αποτυχία θεωρείται
+   * Τιμές που δεν αποθηκεύτηκαν, από ΟΛΕΣ τις αποτυχίες μετά το τελευταίο καθάρισμα, σε χρονολογική σειρά:
+   * `{ key, value, failure }`, όπου `failure` = το `{ at, kind }` της αποτυχίας που τις άφησε. Μια εκκρεμότητα θεωρείται
    * ανακτημένη μόνο όταν το κλειδί της έχει πλέον αποθηκευτεί με ΑΚΡΙΒΩΣ αυτή την τιμή. Εσωτερικό (όχι στο state).
+   * Το δημόσιο `writeFailure` = το `failure` της πιο πρόσφατης ΜΗ ανακτημένης εκκρεμότητας (ή null).
    */
   let unsaved = []
 
@@ -159,14 +161,16 @@ export function createProgressService({
           return false
         }
         // Αλλιώς (Φάση 2): η αλλαγή ΔΕΝ εφαρμόζεται — καμία ψευδής ένδειξη αποθήκευσης· ready, ειδοποίηση.
-        unsaved = [...unsaved, ...Object.entries(changes)]
-        state = freezeState({ ...state, writeFailure: { at: now(), kind: failureKind(e) } })
+        const failure = deepFreeze({ at: now(), kind: failureKind(e) })
+        unsaved = [...unsaved, ...Object.entries(changes).map(([key, value]) => ({ key, value, failure }))]
+        state = freezeState({ ...state, writeFailure: failure })
         notify()
         return false
       }
       // Η ειδοποίηση φεύγει ΜΟΝΟ αν αποθηκεύτηκαν πλέον όλες οι τιμές που είχαν αποτύχει — όχι επειδή πέτυχε άλλη εγγραφή.
-      unsaved = unsaved.filter(([key, value]) => raw[key] !== value)
-      const writeFailure = unsaved.length ? state.writeFailure : null
+      // Αν μένουν εκκρεμότητες, η ειδοποίηση αφορά την πιο πρόσφατη ΜΗ ανακτημένη (σωστό kind/at), όχι την τελευταία.
+      unsaved = unsaved.filter(({ key, value }) => raw[key] !== value)
+      const writeFailure = unsaved.length ? unsaved[unsaved.length - 1].failure : null
       state = freezeState({ ...state, writeFailure, courses: { ...state.courses, [courseId]: next } })
       notify()
       return true

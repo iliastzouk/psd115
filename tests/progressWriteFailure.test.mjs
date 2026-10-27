@@ -152,6 +152,50 @@ describe('ανάκαμψη και διάρκεια της ειδοποίησης
     svc.setChecklist('pavlov', [true]) // επανάληψη και του checklist
     assert.equal(svc.getSnapshot().writeFailure, null)
   })
+  test('review #13 (2ο): δύο αποτυχίες διαφορετικού τύπου, επαναλαμβάνεται μόνο η 2η → μένει η ειδοποίηση της 1ης (σωστό kind/at)', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true]) // 1η: quota
+    t += 1000
+    s.hooks.fail = (k) => (k === STUDY ? Object.assign(new Error('denied'), { name: 'SecurityError' }) : null)
+    svc.markCardSeen('fc-freud-1') // 2η: other
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null) // το checklist εξακολουθεί να μη χωρά
+    t += 1000
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'η 2η αλλαγή επαναλαμβάνεται και αποθηκεύεται')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0, kind: 'quota' }, 'η ειδοποίηση αφορά πλέον την εκκρεμή 1η αποτυχία')
+    s.hooks.fail = null
+    svc.setChecklist('pavlov', [true])
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('επανάληψη της 1ης (παλαιότερης) αποτυχίας → μένει η 2η, με το δικό της kind', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true])
+    t += 1000
+    s.hooks.fail = (k) => (k === STUDY ? new Error('x') : null)
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = (k) => (k === STUDY ? new Error('x') : null)
+    assert.equal(svc.setChecklist('pavlov', [true]), true)
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+  })
+  test('τρεις αποτυχίες (quota, other, quota), επαναλαμβάνεται μόνο η 3η → η ειδοποίηση είναι της 2ης (πιο πρόσφατης εκκρεμούς)', () => {
+    let t = T0
+    const { s, svc } = app(fakeStorage(), { now: () => t })
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true]) // 1η quota (pavlov)
+    t += 1000
+    s.hooks.fail = () => new Error('x')
+    svc.setChecklist('empiricism', [true]) // 2η other (w2/w4…)
+    t += 1000
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1') // 3η quota (study)
+    s.hooks.fail = (k) => (k === STUDY ? null : quota())
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'μόνο η 3η επαναλαμβάνεται')
+    assert.deepEqual(svc.getSnapshot().writeFailure, { at: T0 + 1000, kind: 'other' })
+  })
   test('άλλη αλλαγή στο ΙΔΙΟ κλειδί (όχι η χαμένη) δεν καθαρίζει την ειδοποίηση', () => {
     const { s, svc } = app()
     s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
