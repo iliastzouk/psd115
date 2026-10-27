@@ -7,8 +7,7 @@
  *  H4  ακρίβεια σε ολόκληρο το μάθημα: οι υπάρχοντες progress.quizCorrect / quizAnswered (ακόμα κι αν διαφέρουν από το
  *      άθροισμα του byGroup — ιστορικά δεδομένα).
  *  H1  καμία εξάρτηση από το `storage.js`· οι αναμενόμενες τιμές είναι ανεξάρτητες (όχι ο παλιός κώδικας ως oracle).
- *
- * Tests με `todo` = υλοποιούνται σε επόμενο commit του ίδιου PR (test-first)· το `todo` αφαιρείται εκεί.
+
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -126,7 +125,7 @@ describe('H1 · χωρίς storage.js — ανεξάρτητες αναμενό�
     assert.deepEqual(r.snapshot.checklists.pavlov.items, [true, false, true])
     assert.deepEqual(r.snapshot.checklists['research-methods-overview'].items, [true, true, false])
   })
-  test('το src/utils/storage.js δεν υπάρχει και κανένα αρχείο δεν το εισάγει', { todo: 'Φάση 4 H1' }, () => {
+  test('το src/utils/storage.js δεν υπάρχει και κανένα αρχείο δεν το εισάγει', () => {
     assert.equal(fs.existsSync(path.join(root, 'src/utils/storage.js')), false)
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
     for (const f of [...walk(path.join(root, 'src')), ...walk(path.join(root, 'tests')), ...walk(path.join(root, 'scripts'))]) {

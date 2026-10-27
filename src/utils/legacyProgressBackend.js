@@ -7,7 +7,7 @@
  * - Όσο εκκρεμεί σημάδι συναλλαγής (`progress-txn-v1`, μετά από αποτυχημένο rollback), ΚΑΜΙΑ εγγραφή — ούτε ενός
  *   κλειδιού: η ανάκτηση της επόμενης εκκίνησης θα επανέφερε το «before» και θα έσβηνε την εγγραφή (1E-4c-2, review PR #11).
  *   `pending()` επιτρέπει στο service να περάσει σε degraded.
- * Άγνωστα `psd115-*` κλειδιά δεν γράφονται ποτέ από εδώ. Δεν χρησιμοποιεί το storage.js.
+ * Άγνωστα `psd115-*` κλειδιά δεν γράφονται ποτέ από εδώ.
  */
 import { readProgressEntries } from './progressBackup.js'
 import { ProgressTransactionError, runTransaction, TXN_KEY } from './progressTransaction.js'

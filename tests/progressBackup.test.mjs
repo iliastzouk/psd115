@@ -299,13 +299,8 @@ describe('reset', () => {
     assert.deepEqual(downloaded.progressStore, { [EVENTS_KEY]: JSON.stringify([EV(1)]) })
     assert.equal(r.removed.length, 3)
   })
-  test('ίδιο σύνολο κλειδιών με το storage.resetProgress (όλα τα checklists που γράφει η εφαρμογή)', () => {
-    const src = fs.readFileSync(path.join(root, 'src/utils/storage.js'), 'utf8')
-    const keys = [...src.matchAll(/_KEY = '(psd115-[^']+)'/g)].map((m) => m[1]).filter((k) => k !== 'psd115-disclaimer-v1' && k !== 'psd115-w1-theme')
-    assert.equal(keys.length, 22)
-    const s = fakeStorage(Object.fromEntries([...keys, 'psd115-w1-theme', 'psd115-disclaimer-v1'].map((k) => [k, '[]'])))
-    assert.deepEqual(legacyResetKeys(s).sort(), [...keys].sort())
-  })
+  // Το σύνολο των 22 κλειδιών του reset ελέγχεται πλέον με σταθερή λίστα (χωρίς τον παλιό storage.js ως oracle):
+  // tests/progressDisplay.test.mjs, «H1 · χωρίς storage.js».
   test('αποτυχία στη μέση του reset → τίποτα δεν σβήνεται', () => {
     const s = fakeStorage({ ...LEGACY })
     let removes = 0

@@ -4,7 +4,7 @@
 
 ## 1. Σημερινό model
 
-Όλα στο `localStorage`, μέσω `src/utils/storage.js`:
+Όλα στο `localStorage` (αρχικά μέσω `src/utils/storage.js`, που αφαιρέθηκε στη Φάση 4· σήμερα μέσω του `ProgressService`):
 
 | Κλειδί | Περιεχόμενο | Τύπος δεδομένων |
 |---|---|---|
