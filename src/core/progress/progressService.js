@@ -21,8 +21,9 @@
  *   Fail-closed: αν ο ίδιος ο έλεγχος του σημαδιού αποτύχει, ισχύει το ίδιο (degraded), χωρίς εξαίρεση προς τον καλούντα.
  * - Αποτυχία εγγραφής ΧΩΡΙΣ εκκρεμές σημάδι (Φάση 2, π.χ. quota): η αλλαγή ΔΕΝ εφαρμόζεται (μνήμη ≡ storage), `false`,
  *   το status μένει `ready` και καταγράφεται `writeFailure`. Η επόμενη ενέργεια αποθηκεύει ΜΟΝΟ τη δική της αλλαγή — η
- *   αποτυχημένη δεν επαναλαμβάνεται αυτόματα. Το `writeFailure` καθαρίζει με πραγματικά επιτυχημένη εγγραφή ή με
- *   `dismissWriteFailure()` (που απλώς κρύβει την ειδοποίηση). Προγραμματιστικά σφάλματα πετούν όπως πριν.
+ *   αποτυχημένη δεν επαναλαμβάνεται αυτόματα. Το `writeFailure` καθαρίζει ΜΟΝΟ όταν ΟΛΕΣ οι τιμές που απέτυχαν έχουν
+ *   πλέον αποθηκευτεί (ο χρήστης επανέλαβε την ίδια αλλαγή) ή με `dismissWriteFailure()` (που απλώς κρύβει την
+ *   ειδοποίηση). Μια άσχετη επιτυχημένη εγγραφή ΔΕΝ το καθαρίζει. Προγραμματιστικά σφάλματα πετούν όπως πριν.
  * - Δεν ξέρει τίποτα για shadow events ή baseline: ο shadow recorder μένει στους handlers (1E-3).
  */
 import { toGlobalId } from '../academic/ids.js'
@@ -88,6 +89,11 @@ export function createProgressService({
   const listeners = new Set()
   /** Τελευταίες γνωστές raw τιμές (για διατήρηση ό,τι δεν ανήκει στο snapshot μέσα σε κοινά κλειδιά). */
   let raw = {}
+  /**
+   * Τιμές (κλειδί → raw) που δεν αποθηκεύτηκαν, από ΟΛΕΣ τις αποτυχίες μετά το τελευταίο καθάρισμα. Μια αποτυχία θεωρείται
+   * ανακτημένη μόνο όταν το κλειδί της έχει πλέον αποθηκευτεί με ΑΚΡΙΒΩΣ αυτή την τιμή. Εσωτερικό (όχι στο state).
+   */
+  let unsaved = []
 
   const freezeState = (s) => deepFreeze({ version: PROGRESS_STATE_VERSION, writeFailure: null, ...s })
   const degraded = (issues) => {
@@ -153,12 +159,15 @@ export function createProgressService({
           return false
         }
         // Αλλιώς (Φάση 2): η αλλαγή ΔΕΝ εφαρμόζεται — καμία ψευδής ένδειξη αποθήκευσης· ready, ειδοποίηση.
+        unsaved = [...unsaved, ...Object.entries(changes)]
         state = freezeState({ ...state, writeFailure: { at: now(), kind: failureKind(e) } })
         notify()
         return false
       }
-      // Πραγματικά επιτυχημένη εγγραφή → η ειδοποίηση φεύγει (no-op ενέργειες δεν φτάνουν εδώ).
-      state = freezeState({ ...state, writeFailure: null, courses: { ...state.courses, [courseId]: next } })
+      // Η ειδοποίηση φεύγει ΜΟΝΟ αν αποθηκεύτηκαν πλέον όλες οι τιμές που είχαν αποτύχει — όχι επειδή πέτυχε άλλη εγγραφή.
+      unsaved = unsaved.filter(([key, value]) => raw[key] !== value)
+      const writeFailure = unsaved.length ? state.writeFailure : null
+      state = freezeState({ ...state, writeFailure, courses: { ...state.courses, [courseId]: next } })
       notify()
       return true
     }
@@ -241,12 +250,15 @@ export function createProgressService({
     /** Κρύβει την ειδοποίηση αποτυχίας αποθήκευσης. ΔΕΝ σημαίνει ότι η αλλαγή αποθηκεύτηκε· snapshot/storage ίδια. */
     dismissWriteFailure() {
       if (!state.writeFailure) return
+      unsaved = []
       state = freezeState({ ...state, writeFailure: null })
       notify()
     },
 
     /** Ξαναδιαβάζει το backend μετά από εγγραφή υποδομής (reset). Νέο state, notify. */
     resync() {
+      // Νέα ανάγνωση από το storage (π.χ. μετά από reset): οι παλιές εκκρεμότητες δεν αφορούν πλέον τη νέα κατάσταση.
+      unsaved = []
       state = load()
       notify()
     },

@@ -3,8 +3,9 @@
  *
  *  - E1(α): η αλλαγή που δεν αποθηκεύτηκε ΔΕΝ εφαρμόζεται στη μνήμη· `false`· `ready`· μνήμη ≡ storage.
  *  - Η επόμενη ενέργεια αποθηκεύει ΜΟΝΟ τη δική της αλλαγή (καμία αυτόματη επανάληψη της αποτυχημένης).
- *  - E2: `writeFailure: { at, kind: 'quota' | 'other' } | null`· καθαρίζει ΜΟΝΟ με πραγματικά επιτυχημένη εγγραφή ή ρητή
- *    απόρριψη (που ΔΕΝ σημαίνει ότι η αλλαγή σώθηκε)· no-op ενέργεια δεν το καθαρίζει.
+ *  - E2 (διορθωμένο στο review του #13): `writeFailure: { at, kind: 'quota' | 'other' } | null`· καθαρίζει ΜΟΝΟ όταν
+ *    αποθηκευτούν όλες οι τιμές που απέτυχαν (ο χρήστης επανέλαβε την ίδια αλλαγή) ή με ρητή απόρριψη (που ΔΕΝ σημαίνει
+ *    ότι η αλλαγή σώθηκε). Άσχετη επιτυχημένη εγγραφή ή no-op ενέργεια ΔΕΝ το καθαρίζει.
  *  - `quota` μόνο από αναγνωρίσιμα στοιχεία του σφάλματος (name/code), ποτέ από το κείμενο· τυλιγμένα σφάλματα
  *    συναλλαγής (`not-started` / `rolled-back`) → `other`.
  *  - Προγραμματιστικά σφάλματα (άκυρο θέμα κ.λπ.) εξακολουθούν να πετούν.
@@ -119,17 +120,73 @@ describe('E2 · ταξινόμηση από αναγνωρίσιμα στοιχ�
 })
 
 describe('ανάκαμψη και διάρκεια της ειδοποίησης', () => {
-  test('επόμενη επιτυχημένη ενέργεια: γράφει ΜΟΝΟ τη δική της αλλαγή (καμία αυτόματη επανάληψη) και καθαρίζει το writeFailure', () => {
+  test('review #13: αποτυχία checklist, μετά ΕΠΙΤΥΧΗΣ εγγραφή κάρτας → η ειδοποίηση ΜΕΝΕΙ, το checklist αμετάβλητο στο storage', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    const failure = svc.getSnapshot().writeFailure
+    s.hooks.fail = null
+    assert.equal(svc.markCardSeen('fc-freud-1'), true, 'η άσχετη εγγραφή πετυχαίνει')
+    assert.ok(JSON.parse(s.getItem(STUDY)).flashcardSeenIds.includes('fc-freud-1'))
+    assert.equal(s.getItem(PAVLOV), PROD[PAVLOV], 'η αποτυχημένη αλλαγή ΔΕΝ επαναλήφθηκε')
+    assert.equal(svc.getSnapshot().writeFailure, failure, 'η ειδοποίηση μένει: η αλλαγή του checklist είναι ακόμα χαμένη')
+  })
+  test('ο χρήστης επαναλαμβάνει την ΙΔΙΑ αλλαγή και αποθηκεύεται → η ειδοποίηση καθαρίζει', () => {
     const { s, svc } = app()
     s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
     svc.setChecklist('pavlov', [true, true, true])
     s.hooks.fail = null
-    assert.equal(svc.markCardSeen('fc-freud-1'), true)
-    assert.equal(svc.getSnapshot().writeFailure, null)
-    assert.equal(s.getItem(PAVLOV), PROD[PAVLOV], 'η αποτυχημένη αλλαγή ΔΕΝ επαναλήφθηκε')
-    assert.ok(JSON.parse(s.getItem(STUDY)).flashcardSeenIds.includes('fc-freud-1'))
-    assert.equal(svc.setChecklist('pavlov', [true, true, true]), true, 'ο χρήστης την επαναλαμβάνει → σώζεται')
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.setChecklist('pavlov', [true, true, true]), true)
     assert.deepEqual(JSON.parse(s.getItem(PAVLOV)).slice(0, 3), [true, true, true])
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('δύο αποτυχίες σε διαφορετικά κλειδιά → η επανάληψη ΜΟΝΟ της μίας δεν καθαρίζει την ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1') // επανάληψη της κάρτας → σώζεται
+    assert.ok(svc.getSnapshot().writeFailure, 'το checklist παραμένει χαμένο')
+    svc.setChecklist('pavlov', [true]) // επανάληψη και του checklist
+    assert.equal(svc.getSnapshot().writeFailure, null)
+  })
+  test('άλλη αλλαγή στο ΙΔΙΟ κλειδί (όχι η χαμένη) δεν καθαρίζει την ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true, true, true])
+    s.hooks.fail = null
+    assert.equal(svc.setChecklist('pavlov', [false, true]), true, 'διαφορετική τιμή στο ίδιο κλειδί')
+    assert.ok(svc.getSnapshot().writeFailure, 'η αρχική αλλαγή δεν αποθηκεύτηκε ποτέ')
+  })
+  test('μετά το κλείσιμο, μια επόμενη επιτυχία δεν ξαναφέρνει παλιά ειδοποίηση· νέα αποτυχία → νέα ειδοποίηση', () => {
+    const { s, svc } = app()
+    s.hooks.fail = () => quota()
+    svc.setChecklist('pavlov', [true])
+    svc.dismissWriteFailure()
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-2')
+    assert.ok(svc.getSnapshot().writeFailure)
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-2')
+    assert.equal(svc.getSnapshot().writeFailure, null, 'η πρώτη (κλεισμένη) αποτυχία δεν μετράει πια')
+  })
+  test('resync (π.χ. μετά από reset) → νέα κατάσταση από το storage, καμία παλιά εκκρεμότητα', () => {
+    const { s, svc } = app()
+    s.hooks.fail = (k) => (k === PAVLOV ? quota() : null)
+    svc.setChecklist('pavlov', [true])
+    s.hooks.fail = null
+    svc.resync()
+    assert.equal(svc.getSnapshot().writeFailure, null)
+    s.hooks.fail = () => quota()
+    svc.markCardSeen('fc-freud-1')
+    s.hooks.fail = null
+    svc.markCardSeen('fc-freud-1')
+    assert.equal(svc.getSnapshot().writeFailure, null, 'το παλιό checklist δεν κρατά την ειδοποίηση μετά το resync')
   })
   test('no-op ενέργεια (ίδιο checklist / κάρτα που ήδη είδε) ΔΕΝ καθαρίζει το writeFailure', () => {
     const { s, svc } = app()

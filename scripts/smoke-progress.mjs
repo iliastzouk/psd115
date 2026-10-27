@@ -16,7 +16,8 @@
  *      reload → η υπάρχουσα ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
  *  W.  Αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2): γεμάτο storage → κλικ σε checkbox → ειδοποίηση (όχι degraded), το
  *      checkbox ΔΕΝ αλλάζει, καμία επιτυχής αλλαγή στο storage (έγινε απόπειρα)· κλείσιμο → κρύβεται, τίποτα δεν αλλάζει·
- *      ξανά αποτυχία, μετά ελεύθερο storage → επανάληψη της ενέργειας → σώζεται, η ειδοποίηση φεύγει· reload → μνήμη ≡ storage.
+ *      ξανά αποτυχία, μετά ελεύθερο storage → ΑΣΧΕΤΗ επιτυχημένη εγγραφή (κάρτα) → η ειδοποίηση ΜΕΝΕΙ, το checklist
+ *      αμετάβλητο (review #13)· επανάληψη της ίδιας ενέργειας → σώζεται, η ειδοποίηση φεύγει· reload → μνήμη ≡ storage.
  *  R.  Μηνύματα reset ανά αποτέλεσμα (Φάση 1, D1/D2): εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», ΚΑΜΙΑ λήψη/backup·
  *      πραγματικό rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΟΧΙ «δεν άλλαξε»·
  *      reload → ανάκτηση, αρχικές τιμές.
@@ -401,7 +402,17 @@ try {
     await page.waitForTimeout(300)
     check(await notice.isVisible(), 'W: δεύτερη αποτυχία χωρίς ειδοποίηση')
     await quotaOff()
-    await wBox.click() // ο χρήστης επαναλαμβάνει την ενέργεια με ελεύθερο storage
+    // Άσχετη επιτυχημένη εγγραφή (κάρτα): η ειδοποίηση πρέπει να ΜΕΙΝΕΙ — το checklist είναι ακόμα χαμένο.
+    const studyBefore = (await readKeys(page))['psd115-w1-study']
+    const next = page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
+    for (let i = 0; i < 8 && (await readKeys(page))['psd115-w1-study'] === studyBefore; i++) {
+      await next.click()
+      await page.waitForTimeout(150)
+    }
+    check((await readKeys(page))['psd115-w1-study'] !== studyBefore, 'W: δεν έγινε άσχετη επιτυχημένη εγγραφή (κάρτα)')
+    check(await notice.isVisible(), 'W: η ειδοποίηση χάθηκε μετά από ΑΣΧΕΤΗ επιτυχημένη εγγραφή')
+    check((await readKeys(page))['psd115-w1-pavlov-checklist'] === wBefore['psd115-w1-pavlov-checklist'], 'W: το checklist άλλαξε χωρίς επανάληψη')
+    await wBox.click() // ο χρήστης επαναλαμβάνει την ΙΔΙΑ ενέργεια με ελεύθερο storage
     await page.waitForTimeout(300)
     const wAfter = await readKeys(page)
     check(JSON.parse(wAfter['psd115-w1-pavlov-checklist'])[0] === !wChecked, 'W: η επανάληψη δεν αποθηκεύτηκε')
@@ -469,7 +480,7 @@ try {
     check(sameKeys(progressOnly(r2After), progressOnly(r2Before)), 'R2: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
     check(!('progress-txn-v1' in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, ανάκαμψη`)
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)
