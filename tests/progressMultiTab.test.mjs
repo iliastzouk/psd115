@@ -271,6 +271,45 @@ describe('G2 / G5 · guards στον κώδικα', () => {
     toggle(B, 'pavlov', 2)
     assert.deepEqual(recorded[0].items.slice(0, 3), [true, false, true], 'το B είδε το τσεκ του A')
   })
+  test('review #15: η φρέσκια ανάγνωση αποτυγχάνει μέσα στον setter → ΚΑΝΕΝΑΣ recorder, καμία εγγραφή, false', () => {
+    for (const [label, breakIt] of [
+      ['κατεστραμμένη πρόοδος από άλλο tab', (s) => s.setItem(STUDY, '{oops')],
+      ['εκκρεμές σημάδι από άλλο tab', (s) => s.setItem(TXN_KEY, JSON.stringify({ v: 1, op: 'x', before: {}, after: {} }))],
+    ]) {
+      const s = sharedStorage()
+      const B = tab(s)
+      breakIt(s)
+      const before = s.dump()
+      s.writes.length = 0
+      recorded.length = 0
+      assert.equal(toggle(B, 'pavlov', 0), false, label)
+      assert.deepEqual(recorded, [], `${label}: ο recorder ΔΕΝ καλείται`)
+      assert.deepEqual(s.writes, [], `${label}: καμία εγγραφή`)
+      assert.deepEqual(s.dump(), before)
+      assert.equal(B.getSnapshot().status, 'degraded')
+    }
+  })
+  test('review #15: handlers κουίζ/κάρτας/λαθών — refresh ΠΡΙΝ από τον recorder (σε κάθε handler)', () => {
+    const code = src('src/hooks/useStudySession.js')
+    for (const call of ['recordFlashcardSeen(', 'recordQuizAnswer(', 'recordWrongBookClear(', 'recordWrongBookRemove(']) {
+      const at = code.indexOf(call)
+      const r = code.lastIndexOf('getProgressService().refresh()', at)
+      assert.ok(r > 0 && at - r < 200 && !code.slice(r, at).includes('useCallback('), `${call}: refresh ακριβώς πριν`)
+    }
+  })
+  test('review #15: με refresh πρώτα, ο recorder είναι αδρανής όταν η πρόοδος άλλου tab είναι κατεστραμμένη (κανένα event)', async () => {
+    const { activateShadow } = await import('../src/utils/progressMigration.js')
+    const { createShadowRecorder } = await import('../src/utils/progressShadow.js')
+    const s = sharedStorage()
+    await activateShadow({ storage: s, now: () => Date.now() - 1000, backup: () => {}, content })
+    const svc = tab(s)
+    const rec = createShadowRecorder({ courseId: 'psd115', content, storage: s, enabled: true, isActive: () => svc.getSnapshot().status === 'ready', warn: () => {} })
+    s.setItem(STUDY, '{oops') // άλλο tab
+    svc.refresh() // ό,τι κάνει πλέον ο handler πρώτα
+    assert.equal((await rec.recordFlashcardSeen({ cardId: 'fc-freud-1' })).status, 'inactive')
+    assert.equal(svc.markCardSeen('fc-freud-1'), false)
+    assert.equal(s.getItem('study-progress-events-v1'), null, 'κανένα shadow event χωρίς legacy εγγραφή')
+  })
   test('useChecklist: refresh ΠΡΙΝ από τον υπολογισμό, recorder ΠΡΙΝ από το setChecklist', () => {
     const code = src('src/hooks/useProgress.js')
     const r = code.indexOf('service.refresh()')

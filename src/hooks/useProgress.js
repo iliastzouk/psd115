@@ -53,6 +53,8 @@ export function normalizeChecklist(items, length) {
  */
 export function applyChecklistUpdate({ service, courseId, topicId, length, next, record = recordChecklist }) {
   service.refresh()
+  // Η φρέσκια ανάγνωση απέτυχε (degraded) → σταματά εδώ: ούτε recorder ούτε εγγραφή (review #15).
+  if (service.getSnapshot().status !== 'ready') return false
   const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
   const items = typeof next === 'function' ? next(prev) : next
   // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
