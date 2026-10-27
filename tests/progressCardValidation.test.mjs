@@ -54,7 +54,7 @@ describe('markCardSeen: έγκυρη κάρτα', () => {
   })
 })
 
-describe('markCardSeen: άγνωστη κάρτα → false, τίποτα δεν αλλάζει', { todo: 'markCardSeen validation' }, () => {
+describe('markCardSeen: άγνωστη κάρτα → false, τίποτα δεν αλλάζει', () => {
   const UNKNOWN = {
     'ανύπαρκτο id κάρτας': 'fc-pavlov-9',
     'id ερώτησης (όχι κάρτα)': 'q-w2-var-1',
