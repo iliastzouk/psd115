@@ -206,7 +206,7 @@ describe('review PR #11 · legacy εγγραφή ΕΝΟΣ κλειδιού με 
     const before = s.dump()
     const snapBefore = svc.getSnapshot()
 
-    assert.equal(svc.markCardSeen('fc-pavlov-9'), false, 'η ενέργεια ΔΕΝ δηλώνεται ως επιτυχής')
+    assert.equal(svc.markCardSeen('fc-freud-1'), false, 'η ενέργεια ΔΕΝ δηλώνεται ως επιτυχής')
     assert.deepEqual(s.dump(), before, 'καμία εγγραφή')
     assert.equal(s.getItem(TXN_KEY), marker, 'το σημάδι δεν αγγίζεται')
     const st = svc.getSnapshot()
@@ -243,14 +243,14 @@ describe('review PR #11 · legacy εγγραφή ΕΝΟΣ κλειδιού με 
     breakAfterFirst(s, PAVLOV, W4)
     assert.throws(() => createLegacyProgressBackend(s).write(HALF), (e) => e.outcome === 'rollback-incomplete')
     s.fail(null)
-    svc.markCardSeen('fc-pavlov-9') // απορρίπτεται
+    svc.markCardSeen('fc-freud-1') // απορρίπτεται
     const recovery = recoverInterrupted(s) // όπως το main.jsx στην εκκίνηση
     assert.equal(recovery.status, 'rolled-back')
     for (const [k, v] of Object.entries(PROD)) assert.equal(s.getItem(k), v, k)
     assert.equal(s.getItem(TXN_KEY), null)
     const fresh = createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), recovery })
     assert.equal(fresh.getSnapshot().status, 'ready')
-    assert.equal(fresh.markCardSeen('fc-pavlov-9'), true, 'μετά την ανάκτηση οι εγγραφές συνεχίζουν')
+    assert.equal(fresh.markCardSeen('fc-freud-1'), true, 'μετά την ανάκτηση οι εγγραφές συνεχίζουν')
   })
 
   test('αποτυχία εγγραφής ΧΩΡΙΣ σημάδι (π.χ. quota σε ένα κλειδί) → ready, όχι degraded· Φάση 2: false + writeFailure', () => {
@@ -296,7 +296,7 @@ describe('review PR #11 · ο ΙΔΙΟΣ ο έλεγχος του σημαδιο
     assert.equal(st.status, 'degraded')
     assert.match(st.issues.join(' '), /δεν ήταν δυνατός ο έλεγχος/)
     assert.equal(svc.setChecklist('pavlov', [true]), false)
-    assert.equal(svc.markCardSeen('fc-pavlov-9'), false)
+    assert.equal(svc.markCardSeen('fc-freud-1'), false)
     assert.deepEqual(writes, [])
     assert.deepEqual(s.dump(), PROD)
   })
@@ -332,7 +332,7 @@ describe('review PR #11 · ο ΙΔΙΟΣ ο έλεγχος του σημαδιο
     const svc = service(s)
     broken.marker = true
     let r
-    assert.doesNotThrow(() => (r = svc.markCardSeen('fc-pavlov-9')))
+    assert.doesNotThrow(() => (r = svc.markCardSeen('fc-freud-1')))
     assert.equal(r, false)
     assert.equal(svc.getSnapshot().status, 'degraded')
     assert.deepEqual(writes, [])
