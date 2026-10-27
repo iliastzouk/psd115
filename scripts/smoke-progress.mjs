@@ -18,6 +18,9 @@
  *      checkbox ΔΕΝ αλλάζει, καμία επιτυχής αλλαγή στο storage (έγινε απόπειρα)· κλείσιμο → κρύβεται, τίποτα δεν αλλάζει·
  *      ξανά αποτυχία, μετά ελεύθερο storage → ΑΣΧΕΤΗ επιτυχημένη εγγραφή (κάρτα) → η ειδοποίηση ΜΕΝΕΙ, το checklist
  *      αμετάβλητο (review #13)· επανάληψη της ίδιας ενέργειας → σώζεται, η ειδοποίηση φεύγει· reload → μνήμη ≡ storage.
+ *  T.  Δύο tabs (Φάση 3): δύο πραγματικές σελίδες στο ΙΔΙΟ context (κοινό origin/localStorage, πραγματικά storage events):
+ *      τσεκ στο A → το B ενημερώνεται χωρίς reload· τσεκ άλλου στοιχείου στο B → κρατιούνται και τα δύο· κάρτα στο A και στο B
+ *      → κρατιούνται και οι δύο· reload και των δύο → μνήμη ≡ storage. 0 εγγραφές από το tab που μόνο ενημερώθηκε.
  *  R.  Μηνύματα reset ανά αποτέλεσμα (Φάση 1, D1/D2): εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», ΚΑΜΙΑ λήψη/backup·
  *      πραγματικό rollback-incomplete → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΟΧΙ «δεν άλλαξε»·
  *      reload → ανάκτηση, αρχικές τιμές.
@@ -423,6 +426,56 @@ try {
     check((await wBox.isChecked()) === JSON.parse((await readKeys(page))['psd115-w1-pavlov-checklist'])[0], 'W: μετά το reload μνήμη ≠ storage')
     await context.close()
 
+    // T: δύο tabs στο ίδιο context.
+    ;({ context, page } = await newContext(browser, PROD))
+    const tA = page
+    await tA.goto(`${base}/psd115/topics/pavlov`)
+    const tB = await context.newPage()
+    tB.on('pageerror', (e) => fail(`σφάλμα JS (B): ${e.message}`))
+    await tB.goto(`${base}/psd115/topics/pavlov`)
+    await settle(tA)
+    await settle(tB)
+    // Το B άνοιξε (και ξανα-σπόρισε το localStorage, sessionStorage ανά tab) — από εδώ και πέρα κανένα seeding.
+    const boxA = (i) => tA.locator('main input[type=checkbox]').nth(i)
+    const boxB = (i) => tB.locator('main input[type=checkbox]').nth(i)
+    const t0 = [await boxA(0).isChecked(), await boxA(2).isChecked()]
+    await tB.evaluate(() => (window.__writes.length = 0))
+    await boxA(0).click()
+    await tA.waitForTimeout(400)
+    check((await boxB(0).isChecked()) === !t0[0], 'T: το B δεν ενημερώθηκε από την αλλαγή του A (storage event)')
+    check((await tB.evaluate(() => window.__writes)).length === 0, 'T: το B έγραψε στο storage απλώς επειδή ενημερώθηκε')
+    await boxB(2).click()
+    await tB.waitForTimeout(400)
+    const items = JSON.parse((await readKeys(tA))[PAV])
+    check(items[0] === !t0[0] && items[2] === !t0[1], `T: χάθηκε τσεκ από ένα tab (storage ${JSON.stringify(items.slice(0, 3))})`)
+    check((await boxA(2).isChecked()) === !t0[1], 'T: το A δεν ενημερώθηκε από την αλλαγή του B')
+    // Κάρτες: ένα νέο «είδα» σε κάθε tab → κρατιούνται και τα δύο.
+    const seenOf = async () => JSON.parse((await readKeys(tA))['psd115-w1-study']).flashcardSeenIds
+    const addCard = async (p) => {
+      const before = new Set(await seenOf())
+      const next = p.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
+      for (let i = 0; i < 10 && (await seenOf()).length === before.size; i++) {
+        await next.click()
+        await p.waitForTimeout(150)
+      }
+      return (await seenOf()).find((id) => !before.has(id))
+    }
+    const cardA = await addCard(tA)
+    const cardB = await addCard(tB)
+    const seen = await seenOf()
+    check(cardA && cardB && seen.includes(cardA) && seen.includes(cardB), `T: χάθηκε κάρτα από ένα tab (A ${cardA}, B ${cardB})`)
+    // Reload και των δύο → μνήμη ≡ storage.
+    await tA.reload()
+    await tB.reload()
+    await settle(tA)
+    await settle(tB)
+    const stored = JSON.parse((await readKeys(tA))[PAV])
+    for (const [label, p] of [['A', tA], ['B', tB]]) {
+      const shown = await p.locator('main input[type=checkbox]').evaluateAll((els) => els.map((e) => e.checked))
+      check(JSON.stringify(shown.slice(0, 3)) === JSON.stringify(stored.slice(0, 3)), `T: μετά το reload το ${label} ≠ storage`)
+    }
+    await context.close()
+
     // R: μηνύματα reset ανά πραγματικό αποτέλεσμα (D1/D2).
     ;({ context, page } = await newContext(browser, PROD))
     await page.goto(`${base}/psd115/topics/pavlov`)
@@ -480,7 +533,7 @@ try {
     check(sameKeys(progressOnly(r2After), progressOnly(r2Before)), 'R2: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
     check(!('progress-txn-v1' in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη`)
+    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · reset: εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη · δύο tabs: ενημέρωση χωρίς reload, καμία χαμένη αλλαγή`)
   }
 
   // ------------------------------------------------------------ G2 (smoke build)

@@ -8,7 +8,6 @@
  *  G5  χωρίς cross-tab lock: πραγματικά ανταγωνιστικές εγγραφές μπορούν ακόμα να χάσουν αλλαγή (τεκμηριώνεται εδώ)
  *
  * Δύο «tabs» = δύο ανεξάρτητα ProgressService στο ΙΔΙΟ storage.
- * Tests με `todo` = υλοποιούνται σε επόμενο commit του ίδιου PR (test-first)· το `todo` αφαιρείται εκεί.
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -285,7 +284,7 @@ describe('G2 / G5 · guards στον κώδικα', () => {
   test('main.jsx εγκαθιστά τον storage listener', () => {
     assert.match(src('src/main.jsx'), /installStorageSync\(progressService/)
   })
-  test('G5: τεκμηριωμένος υπολειπόμενος κίνδυνος (χωρίς cross-tab lock)', { todo: 'Φάση 3 docs' }, () => {
+  test('G5: τεκμηριωμένος υπολειπόμενος κίνδυνος (χωρίς cross-tab lock)', () => {
     const doc = src('docs/progress-migration.md')
     assert.match(doc, /## 17\./)
     assert.match(doc, /ανταγωνιστικ/)
