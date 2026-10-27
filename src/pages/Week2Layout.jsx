@@ -3,10 +3,11 @@ import { Outlet, useOutletContext } from 'react-router-dom'
 import { useLegacyRouteKey, useRouteIdentity } from '../core/routing/hooks.js'
 import UnitSubNav from '../components/UnitSubNav.jsx'
 import Progress from '../components/Progress.jsx'
+import { progressScopeFor } from '../components/progressDisplay.js'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
 import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
-import { WEEK2_CATEGORIES, flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
+import { WEEK2_CATEGORIES, quizQuestions } from '../../content/courses/psd115/questions.js'
 import { K2_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k2/k2PptRefsByRoute.js'
 
 /** Σε Εξέταση / Λάθη το μπλοκ «Πρόοδος» αποσπά· η ροή είναι μόνο το εργαλείο. */
@@ -25,16 +26,8 @@ export default function Week2Layout() {
   const k2Slides = onUnitHome || onToolPage ? null : K2_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
-  // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα (κάρτες της ενότητας, ακρίβεια από το byGroup της).
-  const progressScope = useMemo(
-    () => ({
-      kind: 'unit',
-      courseId: 'psd115',
-      cardIds: flashcards.filter((c) => week2CategoryIds.has(c.categoryId)).map((c) => c.id),
-      groupIds: [...week2CategoryIds],
-    }),
-    [],
-  )
+  // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα — το scope το ορίζει το περιεχόμενο (progressScopeFor).
+  const progressScope = useMemo(() => progressScopeFor('psd115', 'k2'), [])
   const week2QuizTotal = useMemo(
     () => quizQuestions.filter((q) => week2CategoryIds.has(q.categoryId)).length,
     [],

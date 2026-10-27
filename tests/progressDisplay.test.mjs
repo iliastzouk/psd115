@@ -44,15 +44,12 @@ describe('H2 · κάρτες ανά scope', () => {
   })
   test('orphan κάρτες (δεν υπάρχουν στο περιεχόμενο) και κάρτες άλλου μαθήματος δεν μετρούν· X ≤ Y, ποσοστό ≤ 100%', async () => {
     const { scopedProgress, progressSummary } = await load()
-    const k4 = unit([{ id: 'w4-dummy' }].concat([])) // scope με 0 κάρτες
     const all = cardsOf(WEEK1_CATEGORIES).map((id) => `psd115/${id}`)
     const p = { ...PROD, flashcardSeenIds: [...all, 'psd115/fc-gone-1', 'psd115/fc-gone-2', 'psd125/fc-x'] }
     const s = scopedProgress(p, unit(WEEK1_CATEGORIES))
     assert.deepEqual({ seen: s.seenCards, total: s.totalCards }, { seen: 94, total: 94 })
     assert.match(progressSummary(s), /Κάρτες 94\/94 \(100%\)/)
-    const empty = scopedProgress(p, k4)
-    assert.deepEqual({ seen: empty.seenCards, total: empty.totalCards }, { seen: 0, total: 0 })
-    assert.match(progressSummary(empty), /Κάρτες 0\/0 \(0%\)/)
+    assert.match(progressSummary({ seenCards: 0, totalCards: 0, quizCorrect: 0, quizAnswered: 0 }), /Κάρτες 0\/0 \(0%\)/)
   })
   test('διπλότυπα στη λίστα των καρτών που είδε δεν μετρούν δύο φορές', async () => {
     const { scopedProgress } = await load()
@@ -131,6 +128,53 @@ describe('H1 · χωρίς storage.js — ανεξάρτητες αναμενό�
     for (const f of [...walk(path.join(root, 'src')), ...walk(path.join(root, 'tests')), ...walk(path.join(root, 'scripts'))]) {
       if (!/\.(m?js|jsx)$/.test(f) || f.endsWith('progressDisplay.test.mjs')) continue
       assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /utils\/storage\.js/, path.relative(root, f))
+    }
+  })
+})
+
+describe('review #16 · contract του scope: ορίζεται από το περιεχόμενο, άκυρο scope → σφάλμα', () => {
+  test('progressScopeFor: κάθε ενότητα = οι κάρτες και οι ομάδες της από το περιεχόμενο', async () => {
+    const { progressScopeFor } = await load()
+    const { WEEK3_CATEGORIES, WEEK4_CATEGORIES } = await import('../content/courses/psd115/questions.js')
+    for (const [unitId, cats, n] of [['k1', WEEK1_CATEGORIES, 94], ['k2', WEEK2_CATEGORIES, 56], ['k3', WEEK3_CATEGORIES, 28], ['k4', WEEK4_CATEGORIES, 20]]) {
+      const s = progressScopeFor('psd115', unitId)
+      assert.equal(s.kind, 'unit')
+      assert.deepEqual(s.cardIds, cardsOf(cats), unitId)
+      assert.deepEqual(s.groupIds, cats.map((c) => c.id), unitId)
+      assert.equal(s.cardIds.length, n)
+    }
+  })
+  test('progressScopeFor χωρίς ενότητα = ολόκληρο το μάθημα (όλες οι κάρτες και ομάδες)', async () => {
+    const { progressScopeFor } = await load()
+    const s = progressScopeFor('psd115')
+    assert.equal(s.kind, 'course')
+    assert.equal(s.cardIds.length, flashcards.length)
+    assert.deepEqual([...s.groupIds].sort(), CATEGORIES.map((c) => c.id).sort())
+  })
+  test('progressScopeFor: άγνωστο μάθημα ή ενότητα → σφάλμα', async () => {
+    const { progressScopeFor } = await load()
+    assert.throws(() => progressScopeFor('psd125', 'k1'), /άγνωστο μάθημα/)
+    assert.throws(() => progressScopeFor('psd115', 'k9'), /άγνωστη ενότητα/)
+  })
+  const INVALID = {
+    'άγνωστο kind': (s) => ({ ...s, kind: 'topic' }),
+    'άγνωστο μάθημα': (s) => ({ ...s, courseId: 'psd125' }),
+    'άγνωστη κάρτα': (s) => ({ ...s, cardIds: [...s.cardIds, 'fc-gone-1'] }),
+    'global id κάρτας αντί για local': (s) => ({ ...s, cardIds: [`psd115/${s.cardIds[0]}`] }),
+    'άγνωστη ομάδα': (s) => ({ ...s, groupIds: [...s.groupIds, 'w9-nope'] }),
+  }
+  for (const [label, broken] of Object.entries(INVALID)) {
+    test(`scopedProgress: ${label} → σφάλμα, όχι παραπλανητική μέτρηση`, async () => {
+      const { progressScopeFor, scopedProgress } = await load()
+      assert.throws(() => scopedProgress(PROD, broken(progressScopeFor('psd115', 'k1'))), /progressScope/)
+    })
+  }
+  test('callers: κανένας δεν κατασκευάζει μόνος του cardIds/groupIds — όλοι μέσω progressScopeFor', () => {
+    const files = ['src/pages/Week1Layout.jsx', 'src/pages/Week2Layout.jsx', 'src/pages/Week3Layout.jsx', 'src/pages/Week4Layout.jsx', 'src/pages/routing/registryPages.jsx']
+    for (const f of files) {
+      const code = fs.readFileSync(path.join(root, f), 'utf8')
+      assert.match(code, /progressScopeFor\(/, f)
+      assert.doesNotMatch(code, /cardIds:|groupIds:/, f)
     }
   })
 })
