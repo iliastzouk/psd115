@@ -61,7 +61,7 @@ function toggle(svc, topicId, index, length = 9) {
   return svc.setChecklist(topicId, items)
 }
 
-describe('αναπαραγωγή (αποτυγχάνει στο main): διαδοχικές ενέργειες από δύο tabs χάνονταν', { todo: 'Φάση 3 service' }, () => {
+describe('αναπαραγωγή (αποτυγχάνει στο main): διαδοχικές ενέργειες από δύο tabs χάνονταν', () => {
   test('1) το A απαντά, μετά το B απαντά → μετράνε ΚΑΙ οι δύο', () => {
     const s = sharedStorage()
     const A = tab(s)
@@ -92,7 +92,7 @@ describe('αναπαραγωγή (αποτυγχάνει στο main): διαδ�
   })
 })
 
-describe('G1 · ενέργειες πάνω στην τρέχουσα αποθηκευμένη κατάσταση', { todo: 'Φάση 3 service' }, () => {
+describe('G1 · ενέργειες πάνω στην τρέχουσα αποθηκευμένη κατάσταση', () => {
   test('αφαίρεση λάθους στο A + νέο λάθος στο B → ισχύουν και τα δύο', () => {
     const s = sharedStorage()
     const A = tab(s)
@@ -148,7 +148,7 @@ describe('G1 · ενέργειες πάνω στην τρέχουσα αποθη
   })
 })
 
-describe('G3 · refresh(): μόνο ανάγνωση', { todo: 'Φάση 3 service' }, () => {
+describe('G3 · refresh(): μόνο ανάγνωση', () => {
   test('άλλο tab άλλαξε την πρόοδο → νέο snapshot, ΕΝΑ notify, καμία εγγραφή', () => {
     const s = sharedStorage()
     const A = tab(s)
