@@ -52,13 +52,15 @@ export function normalizeChecklist(items, length) {
  * το React state), μετά recorder, μετά εγγραφή — σύγχρονα, στον setter.
  */
 export function applyChecklistUpdate({ service, courseId, topicId, length, next, record = recordChecklist }) {
+  // Φάση 5 (I1): checklist μαθήματος που δεν εξυπηρετεί το service → τίποτα (ποτέ εγγραφή στην πρόοδο άλλου μαθήματος).
+  if (courseId !== service.courseId) return false
   service.refresh()
   // Η φρέσκια ανάγνωση απέτυχε (degraded) → σταματά εδώ: ούτε recorder ούτε εγγραφή (review #15).
   if (service.getSnapshot().status !== 'ready') return false
   const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
   const items = typeof next === 'function' ? next(prev) : next
   // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
-  if (courseId === service.courseId) record({ topicId, items })
+  record({ topicId, items })
   return service.setChecklist(topicId, items)
 }
 

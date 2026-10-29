@@ -261,8 +261,11 @@ describe('διπλότυπα', () => {
     assert.equal(events(s).length, 1)
   })
   test('ο handler του hook καλεί τον recorder μία φορά, ΕΞΩ από τους setProgress updaters', () => {
-    const src = fs.readFileSync(path.join(root, 'src/hooks/useStudySession.js'), 'utf8')
-    for (const call of ['recordQuizAnswer(', 'recordFlashcardSeen(']) {
+    // Φάση 5: η κλήση του recorder είναι στο createStudyActions (src/core/study/session.js)· το hook δεν τον καλεί.
+    const hook = fs.readFileSync(path.join(root, 'src/hooks/useStudySession.js'), 'utf8')
+    assert.doesNotMatch(hook, /record(QuizAnswer|FlashcardSeen)\(/)
+    const src = fs.readFileSync(path.join(root, 'src/core/study/session.js'), 'utf8')
+    for (const call of ['record.quizAnswer(', 'record.flashcardSeen(']) {
       const at = [...src.matchAll(new RegExp(call.replace('(', '\\('), 'g'))].map((m) => m.index)
       assert.equal(at.length, 1, call)
       // Κάθε updater «setProgress((p) => { … })»: ο recorder δεν βρίσκεται μέσα σε κανέναν.

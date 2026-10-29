@@ -11,21 +11,26 @@
 import { progressItem } from '../core/progress/items.js'
 import { STUDY_CONTENT } from '../core/study/content.js'
 
-/** Οι έγκυρες κάρτες/ομάδες ενός μαθήματος, από το περιεχόμενο (STUDY_CONTENT). */
-function courseContent(courseId) {
-  const c = STUDY_CONTENT[courseId]
+/** Οι έγκυρες κάρτες/ομάδες ενός μαθήματος, από το περιεχόμενο (STUDY_CONTENT· `contentMap` μόνο για tests). */
+function courseContent(courseId, contentMap = STUDY_CONTENT) {
+  const c = contentMap[courseId]
   if (!c) throw new Error(`progressScope: άγνωστο μάθημα «${courseId}»`)
   const groups = Object.values(c.units).flatMap((u) => u.categories.map((g) => g.id))
   return { c, cards: new Set(c.flashcards.map((f) => f.id)), groups: new Set(groups) }
 }
 
+/** Όλες οι κατηγορίες ενός μαθήματος (STUDY_CONTENT)· άγνωστο μάθημα → σφάλμα. */
+export function courseCategories(courseId, contentMap = STUDY_CONTENT) {
+  return courseContent(courseId, contentMap).c.categories
+}
+
 /**
  * Το scope της μπάρας «Πρόοδος» από έγκυρα IDs (Φάση 4, review #16): οι λίστες καρτών/ομάδων τις ορίζει το περιεχόμενο,
  * όχι ο caller. Χωρίς `unitId` → ολόκληρο το μάθημα. Άγνωστο μάθημα ή ενότητα → σφάλμα.
- * @param {string} courseId @param {string} [unitId]
+ * @param {string} courseId @param {string} [unitId] @param {object} [contentMap] STUDY_CONTENT (μόνο για tests)
  */
-export function progressScopeFor(courseId, unitId) {
-  const { c, groups } = courseContent(courseId)
+export function progressScopeFor(courseId, unitId, contentMap = STUDY_CONTENT) {
+  const { c, groups } = courseContent(courseId, contentMap)
   let groupIds = [...groups]
   if (unitId !== undefined) {
     const unit = c.units[unitId]
@@ -82,4 +87,31 @@ export const pct = (part, total) => (total ? Math.round((part / total) * 100) : 
 export function progressSummary({ seenCards, totalCards, quizCorrect, quizAnswered }) {
   const quiz = quizAnswered ? `${pct(quizCorrect, quizAnswered)}%` : '—'
   return `Κουίζ ${quiz} · Κάρτες ${seenCards}/${totalCards} (${pct(seenCards, totalCards)}%)`
+}
+
+const UNSUPPORTED = Object.freeze({ kind: 'unsupported' })
+
+/**
+ * Η σελίδα `/progress?scope=…` (Φάση 5, I2): κατηγορίες, scope και πλήθος ερωτήσεων από το STUDY_CONTENT του μαθήματος
+ * της διαδρομής (κανένα fallback σε άλλο μάθημα). Μόνο όταν η συνεδρία κρατά πρόοδο ΑΥΤΟΥ του μαθήματος (`ready`)·
+ * αλλιώς «δεν υποστηρίζεται» — ποτέ μηδενικά που μοιάζουν με αποθηκευμένη πρόοδο.
+ * @param {{ courseId: string, unitId?: string, scope: { kind: string } }} identity επιλυμένη διαδρομή `progress`
+ * @param {{ courseId: string, status: string }} course το μάθημα της συνεδρίας (studyCourse)
+ * @param {object} [contentMap] STUDY_CONTENT (μόνο για tests)
+ */
+export function progressPageView(identity, course, contentMap = STUDY_CONTENT) {
+  const { courseId, scope } = identity
+  if (course?.status !== 'ready' || course.courseId !== courseId) return UNSUPPORTED
+  if (scope?.kind !== 'course' && scope?.kind !== 'unit') return UNSUPPORTED
+  const c = contentMap[courseId]
+  const unitId = scope.kind === 'unit' ? identity.unitId : undefined
+  const categories = unitId === undefined ? c.categories : c.units[unitId]?.categories
+  if (!categories) return UNSUPPORTED
+  const ids = new Set(categories.map((g) => g.id))
+  return Object.freeze({
+    kind: 'ok',
+    scope: progressScopeFor(courseId, unitId, contentMap),
+    categories,
+    totalQuiz: c.quizQuestions.filter((q) => ids.has(q.categoryId)).length,
+  })
 }

@@ -8,12 +8,10 @@ import { getCourseById, getEnrollments } from '../../core/academic/selectors.js'
 import { UNKNOWN } from '../../core/academic/schema.js'
 import { useRouteIdentity } from '../../core/routing/hooks.js'
 import { coursePath, termPath } from '../../core/routing/paths.js'
-import { CATEGORIES, quizQuestions } from '../../../content/courses/psd115/questions.js'
 import Progress from '../../components/Progress.jsx'
-import { progressScopeFor } from '../../components/progressDisplay.js'
+import { progressPageView } from '../../components/progressDisplay.js'
 import Home from '../Home.jsx'
 import NotFound from './NotFound.jsx'
-import { UI_BY_COURSE } from './psd115Ui.jsx'
 
 const card = 'block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 hover:border-teal-400'
 const shown = (v) => (v === UNKNOWN ? '—' : v)
@@ -80,18 +78,10 @@ export function ProgressPage() {
   const id = useRouteIdentity()
   const ctx = useOutletContext()
   if (id.kind !== 'progress') return <NotFound message="Άγνωστο ή μη έγκυρο scope προόδου." />
-  let categories = null
-  if (id.scope.kind === 'course' && UI_BY_COURSE[id.courseId]) categories = CATEGORIES
-  if (id.scope.kind === 'unit') categories = UI_BY_COURSE[id.courseId]?.categories[id.unitId] ?? null
-  if (!categories) return <NotFound message="Η πρόοδος δεν υποστηρίζει ακόμα αυτό το scope." />
-  const ids = new Set(categories.map((c) => c.id))
+  // Φάση 5 (I2): όλα από το STUDY_CONTENT του μαθήματος της διαδρομής, μόνο αν η συνεδρία κρατά την πρόοδό του.
+  const view = progressPageView(id, ctx.studyCourse)
+  if (view.kind !== 'ok') return <NotFound message="Η πρόοδος δεν υποστηρίζει ακόμα αυτό το scope." />
   return (
-    <Progress
-      progress={ctx.progress}
-      scope={progressScopeFor(id.courseId, id.scope.kind === 'unit' ? id.unitId : undefined)}
-      totalQuiz={quizQuestions.filter((q) => ids.has(q.categoryId)).length}
-      defaultExpanded
-      categories={categories}
-    />
+    <Progress progress={ctx.progress} scope={view.scope} totalQuiz={view.totalQuiz} defaultExpanded categories={view.categories} />
   )
 }

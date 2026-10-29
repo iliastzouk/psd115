@@ -376,10 +376,12 @@ describe('G9 · κανονικό build: μηδέν study-progress-*', () => {
 describe('G11 · σειρά: recorder ΠΡΙΝ από το service σε κάθε handler', () => {
   const src = (f) => fs.readFileSync(path.join(root, f), 'utf8')
   const PAIRS = [
-    ['src/hooks/useStudySession.js', 'recordQuizAnswer(', 'getProgressService().answerQuestion('],
-    ['src/hooks/useStudySession.js', 'recordFlashcardSeen(', 'getProgressService().markCardSeen('],
-    ['src/hooks/useStudySession.js', 'recordWrongBookRemove(', 'getProgressService().removeWrong('],
-    ['src/hooks/useStudySession.js', 'recordWrongBookClear(', 'getProgressService().clearWrongBook('],
+    // Φάση 5: οι handlers του useStudySession καλούν το createStudyActions (src/core/study/session.js), όπου η σειρά
+    // είναι `run(() => record.X(…), () => service.Y(…))` και το run εκτελεί recordFn() πριν από act().
+    ['src/core/study/session.js', 'record.quizAnswer(', 'service.answerQuestion('],
+    ['src/core/study/session.js', 'record.flashcardSeen(', 'service.markCardSeen('],
+    ['src/core/study/session.js', 'record.wrongBookRemove(', 'service.removeWrong('],
+    ['src/core/study/session.js', 'record.wrongBookClear(', 'service.clearWrongBook('],
     // Φάση 3: ο setter είναι η applyChecklistUpdate· `record` = recordChecklist (παράμετρος μόνο για τα tests).
     ['src/hooks/useProgress.js', 'record({ topicId, items })', 'service.setChecklist('],
   ]
@@ -397,7 +399,20 @@ describe('G11 · σειρά: recorder ΠΡΙΝ από το service σε κάθε
   test('handleSelectOption: το ΙΔΙΟ αντικείμενο `wrong` (με uid) πηγαίνει και στους δύο', () => {
     const code = src('src/hooks/useStudySession.js')
     assert.match(code, /uid: newEventId\(\)/)
-    assert.match(code, /recordQuizAnswer\(\{ questionId: currentQuestion\.id, ok: correct, wrong \}\)/)
-    assert.match(code, /answerQuestion\(\{ questionId: currentQuestion\.id, ok: correct, wrong \}\)/)
+    assert.match(code, /actions\.answer\(\{ questionId: currentQuestion\.id, ok: correct, wrong \}\)/)
+    const actions = src('src/core/study/session.js')
+    assert.match(actions, /record\.quizAnswer\(\{ questionId, ok, wrong \}\)/)
+    assert.match(actions, /service\.answerQuestion\(\{ questionId, ok, wrong \}\)/)
+  })
+  test('run: recordFn() πριν από act(), και τα δύο μετά το refresh', () => {
+    const code = src('src/core/study/session.js')
+    const run = code.slice(code.indexOf('const run = '), code.indexOf('return {', code.indexOf('const run = ')))
+    const [g, r, rec, act] = ['if (!course.canRecord) return false', 'service.refresh()', 'recordFn()', 'return act()'].map((x) => run.indexOf(x))
+    assert.ok(g >= 0 && g < r && r < rec && rec < act, run)
+  })
+  test('το useStudySession δεν καλεί απευθείας recorder ή ενέργεια του service (μόνο μέσω του createStudyActions)', () => {
+    const code = src('src/hooks/useStudySession.js')
+    assert.doesNotMatch(code, /record(QuizAnswer|FlashcardSeen|WrongBookClear|WrongBookRemove)\(/)
+    assert.doesNotMatch(code, /getProgressService\(\)\.(answerQuestion|markCardSeen|removeWrong|clearWrongBook|refresh)\(/)
   })
 })

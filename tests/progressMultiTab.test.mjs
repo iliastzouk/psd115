@@ -290,11 +290,12 @@ describe('G2 / G5 · guards στον κώδικα', () => {
     }
   })
   test('review #15: handlers κουίζ/κάρτας/λαθών — refresh ΠΡΙΝ από τον recorder (σε κάθε handler)', () => {
-    const code = src('src/hooks/useStudySession.js')
-    for (const call of ['recordFlashcardSeen(', 'recordQuizAnswer(', 'recordWrongBookClear(', 'recordWrongBookRemove(']) {
-      const at = code.indexOf(call)
-      const r = code.lastIndexOf('getProgressService().refresh()', at)
-      assert.ok(r > 0 && at - r < 200 && !code.slice(r, at).includes('useCallback('), `${call}: refresh ακριβώς πριν`)
+    // Φάση 5: η σειρά είναι στο run του createStudyActions (κοινό για όλους τους handlers): refresh → recordFn → act.
+    const code = src('src/core/study/session.js')
+    const run = code.slice(code.indexOf('const run = '))
+    assert.ok(run.indexOf('service.refresh()') > 0 && run.indexOf('service.refresh()') < run.indexOf('recordFn()'), 'refresh ακριβώς πριν από τον recorder')
+    for (const call of ['record.flashcardSeen(', 'record.quizAnswer(', 'record.wrongBookClear(', 'record.wrongBookRemove(']) {
+      assert.match(code, new RegExp(`run\\(\\(\\) => ${call.replace(/[.(]/g, '\\$&')}`), `${call}: μέσα από το run`)
     }
   })
   test('review #15: με refresh πρώτα, ο recorder είναι αδρανής όταν η πρόοδος άλλου tab είναι κατεστραμμένη (κανένα event)', async () => {

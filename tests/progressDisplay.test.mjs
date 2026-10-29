@@ -170,11 +170,17 @@ describe('review #16 · contract του scope: ορίζεται από το πε
     })
   }
   test('callers: κανένας δεν κατασκευάζει μόνος του cardIds/groupIds — όλοι μέσω progressScopeFor', () => {
-    const files = ['src/pages/Week1Layout.jsx', 'src/pages/Week2Layout.jsx', 'src/pages/Week3Layout.jsx', 'src/pages/Week4Layout.jsx', 'src/pages/routing/registryPages.jsx']
+    const files = ['src/pages/Week1Layout.jsx', 'src/pages/Week2Layout.jsx', 'src/pages/Week3Layout.jsx', 'src/pages/Week4Layout.jsx']
     for (const f of files) {
       const code = fs.readFileSync(path.join(root, f), 'utf8')
       assert.match(code, /progressScopeFor\(/, f)
       assert.doesNotMatch(code, /cardIds:|groupIds:/, f)
     }
+    // Φάση 5: η σελίδα προόδου παίρνει το scope από το progressPageView (που καλεί το progressScopeFor).
+    const page = fs.readFileSync(path.join(root, 'src/pages/routing/registryPages.jsx'), 'utf8')
+    assert.match(page, /progressPageView\(/)
+    assert.doesNotMatch(page, /cardIds:|groupIds:/)
+    const view = fs.readFileSync(path.join(root, 'src/components/progressDisplay.js'), 'utf8')
+    assert.match(view.slice(view.indexOf('export function progressPageView')), /scope: progressScopeFor\(courseId, unitId, contentMap\)/)
   })
 })
