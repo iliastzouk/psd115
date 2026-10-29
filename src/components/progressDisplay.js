@@ -19,6 +19,11 @@ function courseContent(courseId) {
   return { c, cards: new Set(c.flashcards.map((f) => f.id)), groups: new Set(groups) }
 }
 
+/** Όλες οι κατηγορίες ενός μαθήματος (STUDY_CONTENT)· άγνωστο μάθημα → σφάλμα. */
+export function courseCategories(courseId) {
+  return courseContent(courseId).c.categories
+}
+
 /**
  * Το scope της μπάρας «Πρόοδος» από έγκυρα IDs (Φάση 4, review #16): οι λίστες καρτών/ομάδων τις ορίζει το περιεχόμενο,
  * όχι ο caller. Χωρίς `unitId` → ολόκληρο το μάθημα. Άγνωστο μάθημα ή ενότητα → σφάλμα.
@@ -82,4 +87,30 @@ export const pct = (part, total) => (total ? Math.round((part / total) * 100) : 
 export function progressSummary({ seenCards, totalCards, quizCorrect, quizAnswered }) {
   const quiz = quizAnswered ? `${pct(quizCorrect, quizAnswered)}%` : '—'
   return `Κουίζ ${quiz} · Κάρτες ${seenCards}/${totalCards} (${pct(seenCards, totalCards)}%)`
+}
+
+const UNSUPPORTED = Object.freeze({ kind: 'unsupported' })
+
+/**
+ * Η σελίδα `/progress?scope=…` (Φάση 5, I2): κατηγορίες, scope και πλήθος ερωτήσεων από το STUDY_CONTENT του μαθήματος
+ * της διαδρομής (κανένα fallback σε άλλο μάθημα). Μόνο όταν η συνεδρία κρατά πρόοδο ΑΥΤΟΥ του μαθήματος (`ready`)·
+ * αλλιώς «δεν υποστηρίζεται» — ποτέ μηδενικά που μοιάζουν με αποθηκευμένη πρόοδο.
+ * @param {{ courseId: string, unitId?: string, scope: { kind: string } }} identity επιλυμένη διαδρομή `progress`
+ * @param {{ courseId: string, status: string }} course το μάθημα της συνεδρίας (studyCourse)
+ */
+export function progressPageView(identity, course) {
+  const { courseId, scope } = identity
+  if (course?.status !== 'ready' || course.courseId !== courseId) return UNSUPPORTED
+  if (scope?.kind !== 'course' && scope?.kind !== 'unit') return UNSUPPORTED
+  const c = STUDY_CONTENT[courseId]
+  const unitId = scope.kind === 'unit' ? identity.unitId : undefined
+  const categories = unitId === undefined ? c.categories : c.units[unitId]?.categories
+  if (!categories) return UNSUPPORTED
+  const ids = new Set(categories.map((g) => g.id))
+  return Object.freeze({
+    kind: 'ok',
+    scope: progressScopeFor(courseId, unitId),
+    categories,
+    totalQuiz: c.quizQuestions.filter((q) => ids.has(q.categoryId)).length,
+  })
 }

@@ -263,6 +263,16 @@ export default function AppShell() {
             </button>
           </div>
         ) : null}
+        {study.studyCourseNotice ? (
+          // Φάση 5 (I1): υλικό χωρίς υποστήριξη προόδου → ρητό μήνυμα· καμία ένδειξη αποθήκευσης.
+          <div
+            role="status"
+            data-testid="progress-not-saved"
+            className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-700 dark:text-slate-200"
+          >
+            {study.studyCourseNotice}
+          </div>
+        ) : null}
         <Outlet context={study} />
       </main>
 

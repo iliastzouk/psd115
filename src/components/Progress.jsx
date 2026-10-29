@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CATEGORIES as ALL_CATEGORIES } from '../../content/courses/psd115/questions.js'
-import { pct, progressSummary, scopedProgress } from './progressDisplay.js'
+import { courseCategories, pct, progressSummary, scopedProgress } from './progressDisplay.js'
 
 /**
  * @param {object} props
@@ -9,10 +8,11 @@ import { pct, progressSummary, scopedProgress } from './progressDisplay.js'
  *   οι τιμές (κάρτες, ακρίβεια κουίζ) αφορούν ΜΟΝΟ αυτό το scope (βλ. progressDisplay.js)
  * @param {number} props.totalQuiz
  * @param {boolean} [props.defaultExpanded] — false σελίδες ενότητας: συμπαγής μπάρα, ανοιχτό σε hub & εργαλεία
- * @param {{ id: string, label: string }[]} [props.categories] — ανά εβδομάδα (προεπιλογή: όλες)
+ * @param {{ id: string, label: string }[]} [props.categories] — ανά εβδομάδα (προεπιλογή: όλες του μαθήματος του scope)
  */
 export default function Progress({ progress, scope, totalQuiz, defaultExpanded = true, categories }) {
-  const categoryList = categories?.length ? categories : ALL_CATEGORIES
+  // Φάση 5 (I2): προεπιλογή οι κατηγορίες του μαθήματος του scope (STUDY_CONTENT), όχι του PSD115.
+  const categoryList = categories?.length ? categories : courseCategories(scope.courseId)
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [catOpen, setCatOpen] = useState(false)
 
