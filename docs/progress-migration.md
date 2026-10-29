@@ -463,3 +463,30 @@ Tests: `tests/progressMultiTab.test.mjs`· smoke: `scripts/smoke-progress.mjs` (
 ορίστηκαν αναλυτικά.
 
 Tests: `tests/progressDisplay.test.mjs`· smoke: `scripts/smoke-progress.mjs` (boot cases k1, k2, course).
+
+## 19. Μελέτη και εμφάνιση προόδου ανά μάθημα (Φάση 5, επίπεδο Α)
+
+Η συνεδρία μελέτης (`useStudySession`) δεν είναι πια δεμένη στο PSD115: παίρνει το μάθημα από τη διαδρομή
+(`activeCourseId`, όπως η κεφαλίδα) και το περιεχόμενο από το `STUDY_CONTENT`. Το storage, τα κλειδιά `psd115-*`, το
+ProgressService ενός μαθήματος, backup/export, migration και shadow ΔΕΝ αλλάζουν (επίπεδο Β: Φάση 6, `docs/roadmap.md`).
+
+- **Συμβόλαιο ανά μάθημα (`STUDY_CONTENT`):** `flashcards`, `quizQuestions`, `categories`, `getCategoryLabel`, `units`.
+- **I1 — καταστάσεις** (`studyCourse`, `src/core/study/session.js`):
+  - `ready`: περιεχόμενο + πρόοδος από το service· οι ενέργειες όπως πριν (refresh → recorder → service).
+  - `no-content`: χωρίς περιεχόμενο μελέτης (π.χ. psd200)· κενό περιεχόμενο.
+  - `no-progress`: με περιεχόμενο, αλλά το service δεν κρατά πρόοδο για αυτό το μάθημα· ρητό μήνυμα «Η πρόοδος για αυτό
+    το μάθημα δεν αποθηκεύεται ακόμα.» (σήμερα δεν συμβαίνει στο production: μόνο το PSD115 έχει περιεχόμενο).
+  - Εκτός `ready`: κενή, παγωμένη πρόοδος του ΙΔΙΟΥ μαθήματος, και καμία ενέργεια (`createStudyActions`: ούτε refresh,
+    ούτε recorder, ούτε εγγραφή). Το ίδιο για checklist μαθήματος που δεν εξυπηρετεί το service (`applyChecklistUpdate`).
+- **I2 — περιεχόμενο από το μάθημα:** η σελίδα `/progress` (`progressPageView`), το `Progress` (fallback κατηγοριών του
+  μαθήματος του scope) και το `WrongAnswersReview` (`getCategoryLabel` ως prop). Κανένα κρυφό fallback στο PSD115· η σελίδα
+  προόδου μαθήματος χωρίς `ready` → «δεν υποστηρίζεται», όχι μηδενικά.
+- **I4 — guard:** απευθείας import από `content/courses/psd115/` μόνο στους adapters (`study/content.js`,
+  `routing/catalog.js`, `progress/adapters/psd115.js`) και στις σελίδες του PSD115 (Week*, Lessons, PptSlideDeck,
+  coursePresentation).
+- **I5 — ισοδυναμία PSD115:** ίδιες τιμές στα k1/k2/όλο το μάθημα (Φάση 4), ίδιες ετικέτες στο wrongBook.
+
+Παρατήρηση: η διαδρομή `/study/review?scope=psd200` ήδη έδειχνε «Δεν υπάρχει ακόμα περιεχόμενο μελέτης», άρα τα λάθη του
+PSD115 δεν εμφανίζονταν εκεί· ο κίνδυνος ήταν μόνο εσωτερικός στο hook (πρόοδος PSD115 για κάθε μάθημα).
+
+Tests: `tests/studyCourse.test.mjs`· smoke: `scripts/smoke-progress.mjs` (ετικέτα λάθους στην k2, review του psd200).
