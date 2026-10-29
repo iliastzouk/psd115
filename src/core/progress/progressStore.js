@@ -1,5 +1,5 @@
 /**
- * progressStore — νέα υποδομή προόδου (Phase 0B). ΠΑΡΑΛΛΗΛΗ με το υπάρχον `utils/storage.js`,
+ * progressStore — νέα υποδομή προόδου (Phase 0B). ΠΑΡΑΛΛΗΛΗ με τα legacy κλειδιά `psd115-*` (ProgressService),
  * ΔΕΝ το αντικαθιστά: η εφαρμογή δεν τη χρησιμοποιεί ακόμα.
  *
  * - events: append-only log (δες ./events.js). Ποτέ update/overwrite/delete.

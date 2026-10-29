@@ -3,10 +3,11 @@ import { Outlet, useOutletContext } from 'react-router-dom'
 import { useLegacyRouteKey, useRouteIdentity } from '../core/routing/hooks.js'
 import UnitSubNav from '../components/UnitSubNav.jsx'
 import Progress from '../components/Progress.jsx'
+import { progressScopeFor } from '../components/progressDisplay.js'
 import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
 import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
-import { WEEK1_CATEGORIES, flashcards, quizQuestions } from '../../content/courses/psd115/questions.js'
+import { WEEK1_CATEGORIES, quizQuestions } from '../../content/courses/psd115/questions.js'
 import { K1_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k1/k1PptRefsByRoute.js'
 
 /** Σε Εξέταση / Λάθη το μπλοκ «Πρόοδος» αποσπά· η ροή είναι μόνο το εργαλείο. */
@@ -25,10 +26,8 @@ export default function Week1Layout() {
   const k1Slides = onUnitHome || onToolPage ? null : K1_PPT_SLIDES_BY_ROUTE[p] ?? null
   const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
-  const week1FlashTotal = useMemo(
-    () => flashcards.filter((c) => week1CategoryIds.has(c.categoryId)).length,
-    [],
-  )
+  // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα — το scope το ορίζει το περιεχόμενο (progressScopeFor).
+  const progressScope = useMemo(() => progressScopeFor('psd115', 'k1'), [])
   const week1QuizTotal = useMemo(
     () => quizQuestions.filter((q) => week1CategoryIds.has(q.categoryId)).length,
     [],
@@ -40,7 +39,7 @@ export default function Week1Layout() {
       {showProgress && (
         <Progress
           progress={ctx.progress}
-          totalFlashcards={week1FlashTotal}
+          scope={progressScope}
           totalQuiz={week1QuizTotal}
           defaultExpanded={progressExpandedByDefault}
           categories={WEEK1_CATEGORIES}

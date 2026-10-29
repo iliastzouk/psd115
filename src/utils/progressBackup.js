@@ -353,7 +353,7 @@ export function importWithBackup(data, { storage = defaultStorage(), download = 
   return { backup, keys: Object.keys(plan.targets).length, changed: changed.length, store: plan.store }
 }
 
-/** Τα κλειδιά που σβήνει το reset της legacy προόδου (ίδια με το storage.resetProgress). Theme/disclaimer μένουν. */
+/** Τα κλειδιά που σβήνει το reset της legacy προόδου (study + όλα τα checklists). Theme/disclaimer μένουν. */
 export function legacyResetKeys(storage = defaultStorage()) {
   return Object.keys(readProgressEntries(storage)).filter((key) => {
     const kind = classifyKey(key)

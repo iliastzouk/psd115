@@ -8,8 +8,9 @@ import { getCourseById, getEnrollments } from '../../core/academic/selectors.js'
 import { UNKNOWN } from '../../core/academic/schema.js'
 import { useRouteIdentity } from '../../core/routing/hooks.js'
 import { coursePath, termPath } from '../../core/routing/paths.js'
-import { CATEGORIES, flashcards, quizQuestions } from '../../../content/courses/psd115/questions.js'
+import { CATEGORIES, quizQuestions } from '../../../content/courses/psd115/questions.js'
 import Progress from '../../components/Progress.jsx'
+import { progressScopeFor } from '../../components/progressDisplay.js'
 import Home from '../Home.jsx'
 import NotFound from './NotFound.jsx'
 import { UI_BY_COURSE } from './psd115Ui.jsx'
@@ -87,7 +88,7 @@ export function ProgressPage() {
   return (
     <Progress
       progress={ctx.progress}
-      totalFlashcards={flashcards.filter((c) => ids.has(c.categoryId)).length}
+      scope={progressScopeFor(id.courseId, id.scope.kind === 'unit' ? id.unitId : undefined)}
       totalQuiz={quizQuestions.filter((q) => ids.has(q.categoryId)).length}
       defaultExpanded
       categories={categories}

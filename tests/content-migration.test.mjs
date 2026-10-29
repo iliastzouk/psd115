@@ -92,23 +92,8 @@ describe('Δομή μετά το migration', () => {
 })
 
 describe('Συμβατότητα με την υπάρχουσα πρόοδο', () => {
-  test('το storage.js φορτώνει αυτούσια την πρόοδο του δείγματος (κλειδιά psd115-*)', async () => {
-    const sample = JSON.parse(fs.readFileSync(`${root}tests/fixtures/progress-export.sample.json`, 'utf8'))
-    const map = new Map(Object.entries(sample.keys))
-    const prev = globalThis.localStorage
-    globalThis.localStorage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, v), removeItem: (k) => map.delete(k) }
-    try {
-      const storage = await import('../src/utils/storage.js')
-      const loaded = storage.loadProgress()
-      assert.deepEqual(loaded, JSON.parse(sample.keys['psd115-w1-study']))
-      assert.deepEqual(storage.loadPavlovChecklist(3), [true, false, true])
-      assert.deepEqual(storage.loadWeek2TopicChecklist('overview', 3), [true, true, false])
-    } finally {
-      if (prev === undefined) delete globalThis.localStorage
-      else globalThis.localStorage = prev
-    }
-    assert.deepEqual(Object.fromEntries(map), sample.keys, 'η φόρτωση δεν έγραψε τίποτα')
-  })
+  // Η φόρτωση του δείγματος ελέγχεται πλέον με τον reader της εφαρμογής και τις τιμές του fixture (χωρίς τον παλιό
+  // storage.js): tests/progressDisplay.test.mjs, «H1 · χωρίς storage.js».
   // Η συμβατότητα των IDs της προόδου αποδεικνύεται από τα SET(before) === SET(after) παραπάνω.
   // Εδώ ελέγχεται η ακεραιότητα του fixture: κάθε ID που αναφέρει πρέπει να υπάρχει στο περιεχόμενο.
   test('το δείγμα προόδου αναφέρει μόνο πραγματικά IDs περιεχομένου', () => {
