@@ -181,6 +181,6 @@ describe('review #16 · contract του scope: ορίζεται από το πε
     assert.match(page, /progressPageView\(/)
     assert.doesNotMatch(page, /cardIds:|groupIds:/)
     const view = fs.readFileSync(path.join(root, 'src/components/progressDisplay.js'), 'utf8')
-    assert.match(view.slice(view.indexOf('export function progressPageView')), /scope: progressScopeFor\(courseId, unitId\)/)
+    assert.match(view.slice(view.indexOf('export function progressPageView')), /scope: progressScopeFor\(courseId, unitId, contentMap\)/)
   })
 })

@@ -14,7 +14,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { createProgressService } from '../src/core/progress/progressService.js'
 import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
 import { createLegacyProgressBackend } from '../src/utils/legacyProgressBackend.js'
@@ -23,17 +23,13 @@ import { applyChecklistUpdate } from '../src/hooks/useProgress.js'
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 import { scopedProgress } from '../src/components/progressDisplay.js'
 import * as psd115Questions from '../content/courses/psd115/questions.js'
+import * as session from '../src/core/study/session.js'
+import * as display from '../src/components/progressDisplay.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
 const STUDY = 'psd115-w1-study'
 
-// Test-first: το νέο module δεν υπάρχει πριν από την υλοποίηση → τα αντίστοιχα tests είναι `todo`.
-const session = await import(pathToFileURL(path.join(root, 'src/core/study/session.js')).href).catch(() => null)
-const display = await import('../src/components/progressDisplay.js')
-const pending = { todo: !session }
-const pendingView = { todo: typeof display.progressPageView !== 'function' }
-const pendingLabels = { todo: typeof STUDY_CONTENT.psd115.getCategoryLabel !== 'function' }
 
 function storage(init = PROD) {
   const m = new Map(Object.entries(init))
@@ -84,7 +80,7 @@ const DEMO = Object.freeze({
     quizQuestions: [{ id: 'q-def-1', categoryId: 'demo-cat', question: 'Q', options: ['A', 'B'], correctIndex: 0, explanation: 'E' }],
     categories: [{ id: 'demo-cat', label: 'Δοκιμαστική κατηγορία' }],
     getCategoryLabel: (id) => (id === 'demo-cat' ? 'Δοκιμαστική κατηγορία' : id),
-    units: {},
+    units: { u1: { categories: [{ id: 'demo-cat', label: 'Δοκιμαστική κατηγορία' }], examQuestions: () => [] } },
   }),
 })
 
@@ -108,7 +104,7 @@ function assertUntouched(s, svc, before) {
 }
 
 describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
-  test('psd115 με το service του psd115 → ready, περιεχόμενο από το STUDY_CONTENT', pending, () => {
+  test('psd115 με το service του psd115 → ready, περιεχόμενο από το STUDY_CONTENT', () => {
     const c = session.studyCourse('psd115', 'psd115')
     assert.equal(c.status, 'ready')
     assert.equal(c.canRecord, true)
@@ -119,7 +115,7 @@ describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
     assert.ok(Object.isFrozen(c))
   })
 
-  test('μάθημα του registry χωρίς περιεχόμενο (psd200) → no-content, κενό περιεχόμενο, καμία εγγραφή', pending, () => {
+  test('μάθημα του registry χωρίς περιεχόμενο (psd200) → no-content, κενό περιεχόμενο, καμία εγγραφή', () => {
     const c = session.studyCourse('psd200', 'psd115')
     assert.equal(c.status, 'no-content')
     assert.equal(c.canRecord, false)
@@ -129,7 +125,7 @@ describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
     assert.equal(c.content.getCategoryLabel('w2-variables'), 'w2-variables')
   })
 
-  test('άγνωστο ή κενό μάθημα → no-content (ποτέ fallback στο PSD115)', pending, () => {
+  test('άγνωστο ή κενό μάθημα → no-content (ποτέ fallback στο PSD115)', () => {
     for (const id of ['nope', '', undefined, null]) {
       const c = session.studyCourse(id, 'psd115')
       assert.equal(c.status, 'no-content', String(id))
@@ -137,7 +133,7 @@ describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
     }
   })
 
-  test('μάθημα με περιεχόμενο που δεν το εξυπηρετεί το service → no-progress (διακριτό από το no-content)', pending, () => {
+  test('μάθημα με περιεχόμενο που δεν το εξυπηρετεί το service → no-progress (διακριτό από το no-content)', () => {
     const c = session.studyCourse('demo', 'psd115', DEMO)
     assert.equal(c.status, 'no-progress')
     assert.equal(c.canRecord, false)
@@ -147,7 +143,7 @@ describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
     assert.equal(session.studyCourse('demo', 'demo', DEMO).status, 'ready')
   })
 
-  test('ειδοποίηση: μόνο στο no-progress, ότι η πρόοδος ΔΕΝ αποθηκεύεται', pending, () => {
+  test('ειδοποίηση: μόνο στο no-progress, ότι η πρόοδος ΔΕΝ αποθηκεύεται', () => {
     assert.equal(session.studyCourseNotice(session.studyCourse('psd115', 'psd115')), null)
     assert.equal(session.studyCourseNotice(session.studyCourse('psd200', 'psd115')), null)
     const msg = session.studyCourseNotice(session.studyCourse('demo', 'psd115', DEMO))
@@ -157,13 +153,13 @@ describe('Φάση 5 I1 — καταστάσεις μαθήματος', () => {
 })
 
 describe('Φάση 5 I1 — πρόοδος της συνεδρίας', () => {
-  test('ready → το snapshot του service (ίδιο αντικείμενο)', pending, () => {
+  test('ready → το snapshot του service (ίδιο αντικείμενο)', () => {
     const svc = serviceOn(storage())
     const state = svc.getSnapshot()
     assert.equal(session.sessionProgress(state, session.studyCourse('psd115', svc.courseId)), state.courses.psd115)
   })
 
-  test('no-content / no-progress → κενή, παγωμένη πρόοδος του ίδιου μαθήματος· όχι του PSD115', pending, () => {
+  test('no-content / no-progress → κενή, παγωμένη πρόοδος του ίδιου μαθήματος· όχι του PSD115', () => {
     const svc = serviceOn(storage())
     const state = svc.getSnapshot()
     assert.equal(state.courses.psd115.wrongBook.length, 1, 'το fixture έχει λάθος στο PSD115')
@@ -180,7 +176,7 @@ describe('Φάση 5 I1 — πρόοδος της συνεδρίας', () => {
 })
 
 describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () => {
-  test('ready (psd115): ίδια σειρά με πριν — refresh → recorder → service — και αποθηκεύεται', pending, () => {
+  test('ready (psd115): ίδια σειρά με πριν — refresh → recorder → service — και αποθηκεύεται', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
@@ -202,7 +198,7 @@ describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () =>
     assert.deepEqual(JSON.parse(s.getItem(STUDY)).wrongBook, [])
   })
 
-  test('no-content (psd200): καμία ενέργεια δεν φτάνει στο service ή στον recorder· τα δεδομένα PSD115 ανέγγιχτα', pending, () => {
+  test('no-content (psd200): καμία ενέργεια δεν φτάνει στο service ή στον recorder· τα δεδομένα PSD115 ανέγγιχτα', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
@@ -213,7 +209,7 @@ describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () =>
     assertUntouched(s, svc, before)
   })
 
-  test('no-progress (ids που υπάρχουν στο PSD115): καμία εγγραφή, κανένας recorder, καμία αλλαγή στο PSD115', pending, () => {
+  test('no-progress (ids που υπάρχουν στο PSD115): καμία εγγραφή, κανένας recorder, καμία αλλαγή στο PSD115', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
@@ -224,7 +220,7 @@ describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () =>
     assertUntouched(s, svc, before)
   })
 
-  test('checklist άλλου μαθήματος: ούτε refresh, ούτε recorder, ούτε εγγραφή στο PSD115', pending, () => {
+  test('checklist άλλου μαθήματος: ούτε refresh, ούτε recorder, ούτε εγγραφή στο PSD115', () => {
     const s = storage()
     const svc = serviceOn(s)
     const before = svc.getSnapshot()
@@ -240,14 +236,14 @@ describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () =>
 })
 
 describe('Φάση 5 I2 / I5 — περιεχόμενο από το STUDY_CONTENT, ισοδυναμία PSD115', () => {
-  test('STUDY_CONTENT.psd115: κατηγορίες και ετικέτες του μαθήματος', pendingLabels, () => {
+  test('STUDY_CONTENT.psd115: κατηγορίες και ετικέτες του μαθήματος', () => {
     assert.equal(STUDY_CONTENT.psd115.categories, psd115Questions.CATEGORIES)
     assert.equal(STUDY_CONTENT.psd115.categories.length, 49)
     for (const c of psd115Questions.CATEGORIES) assert.equal(STUDY_CONTENT.psd115.getCategoryLabel(c.id), c.label)
     assert.equal(STUDY_CONTENT.psd115.getCategoryLabel('άγνωστη'), 'άγνωστη')
   })
 
-  test('ετικέτα wrongBook του production fixture: ίδια με πριν', pending, () => {
+  test('ετικέτα wrongBook του production fixture: ίδια με πριν', () => {
     const svc = serviceOn(storage())
     const c = session.studyCourse('psd115', svc.courseId)
     const [w] = session.sessionProgress(svc.getSnapshot(), c).wrongBook
@@ -255,8 +251,8 @@ describe('Φάση 5 I2 / I5 — περιεχόμενο από το STUDY_CONTEN
     assert.equal(c.content.getCategoryLabel(w.group), 'Εβδ.2 — Μεταβλητές & συσχέτιση')
   })
 
-  test('σελίδα προόδου: όλο το PSD115 = 49 κατηγορίες / 208 ερωτήσεις· k2 = κατηγορίες της k2', pendingView, () => {
-    const ready = session?.studyCourse('psd115', 'psd115')
+  test('σελίδα προόδου: όλο το PSD115 = 49 κατηγορίες / 208 ερωτήσεις· k2 = κατηγορίες της k2', () => {
+    const ready = session.studyCourse('psd115', 'psd115')
     const all = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'psd115' }, courseId: 'psd115' }, ready)
     assert.equal(all.categories, psd115Questions.CATEGORIES)
     assert.equal(all.totalQuiz, 208)
@@ -275,14 +271,26 @@ describe('Φάση 5 I2 / I5 — περιεχόμενο από το STUDY_CONTEN
     assert.deepEqual(scopedProgress(p, all.scope), { quizCorrect: 0, quizAnswered: 1, seenCards: 21, totalCards: 198 })
   })
 
-  test('σελίδα προόδου: μάθημα χωρίς περιεχόμενο ή χωρίς πρόοδο → «δεν υποστηρίζεται», όχι μηδενικά', pendingView, () => {
-    const none = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'psd200' }, courseId: 'psd200' }, session?.studyCourse('psd200', 'psd115'))
+  test('σελίδα προόδου δεύτερου μαθήματος (ready): κατηγορίες, ερωτήσεις και κάρτες ΜΟΝΟ αυτού του μαθήματος', () => {
+    const ready = session.studyCourse('demo', 'demo', DEMO)
+    for (const [scope, unitId] of [[{ kind: 'course', courseId: 'demo' }], [{ kind: 'unit', courseId: 'demo', unitId: 'u1' }, 'u1']]) {
+      const v = display.progressPageView({ kind: 'progress', scope, courseId: 'demo', unitId }, ready, DEMO)
+      assert.equal(v.kind, 'ok', scope.kind)
+      assert.deepEqual(v.categories, DEMO.demo.categories)
+      assert.equal(v.totalQuiz, 1)
+      assert.deepEqual([v.scope.courseId, [...v.scope.cardIds], [...v.scope.groupIds]], ['demo', ['fc-freud-1'], ['demo-cat']])
+    }
+    assert.deepEqual(display.courseCategories('demo', DEMO), DEMO.demo.categories)
+  })
+
+  test('σελίδα προόδου: μάθημα χωρίς περιεχόμενο ή χωρίς πρόοδο → «δεν υποστηρίζεται», όχι μηδενικά', () => {
+    const none = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'psd200' }, courseId: 'psd200' }, session.studyCourse('psd200', 'psd115'))
     assert.equal(none.kind, 'unsupported')
-    const demoCourse = session?.studyCourse('demo', 'psd115', DEMO)
+    const demoCourse = session.studyCourse('demo', 'psd115', DEMO)
     const demo = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'demo' }, courseId: 'demo' }, demoCourse)
     assert.equal(demo.kind, 'unsupported')
     // Ασυμφωνία διαδρομής / μαθήματος συνεδρίας → επίσης unsupported (ποτέ πρόοδος άλλου μαθήματος).
-    const mismatch = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'psd115' }, courseId: 'psd115' }, session?.studyCourse('psd200', 'psd115'))
+    const mismatch = display.progressPageView({ kind: 'progress', scope: { kind: 'course', courseId: 'psd115' }, courseId: 'psd115' }, session.studyCourse('psd200', 'psd115'))
     assert.equal(mismatch.kind, 'unsupported')
   })
 })
@@ -305,7 +313,7 @@ describe('Φάση 5 I4 — guard για απευθείας imports περιεχ
   ]
   const MUST_NOT = ['src/hooks/useStudySession.js', 'src/components/Progress.jsx', 'src/components/WrongAnswersReview.jsx', 'src/pages/routing/registryPages.jsx']
 
-  test('μελέτη/εμφάνιση προόδου χωρίς απευθείας import ή σταθερό «psd115»', { todo: MUST_NOT.some((f) => importsPsd115Content(fs.readFileSync(path.join(root, f), 'utf8'))) }, () => {
+  test('μελέτη/εμφάνιση προόδου χωρίς απευθείας import ή σταθερό «psd115»', () => {
     for (const f of MUST_NOT) {
       const src = fs.readFileSync(path.join(root, f), 'utf8')
       assert.equal(importsPsd115Content(src), false, `${f}: import από content/courses/psd115/`)
@@ -313,7 +321,7 @@ describe('Φάση 5 I4 — guard για απευθείας imports περιεχ
     }
   })
 
-  test('κανένα άλλο αρχείο του src/ δεν εισάγει απευθείας περιεχόμενο PSD115', { todo: MUST_NOT.some((f) => importsPsd115Content(fs.readFileSync(path.join(root, f), 'utf8'))) }, () => {
+  test('κανένα άλλο αρχείο του src/ δεν εισάγει απευθείας περιεχόμενο PSD115', () => {
     const offenders = files.filter((f) => importsPsd115Content(fs.readFileSync(f, 'utf8'))).map(rel).filter((f) => !ALLOWED.some((re) => re.test(f)))
     assert.deepEqual(offenders, [])
   })
