@@ -376,12 +376,14 @@ describe('1E-4b · guards', () => {
   })
 
   test('το useStudySession: ο shadow recorder ΠΡΙΝ από την αλλαγή στο service, στον ίδιο handler', () => {
+    // Φάση 5: οι handlers → createStudyActions (src/core/study/session.js)· εκεί ο recorder πριν από το service.
     const code = fs.readFileSync(path.join(root, 'src/hooks/useStudySession.js'), 'utf8')
-    const quiz = code.slice(code.indexOf('const handleSelectOption'))
-    assert.ok(quiz.indexOf('recordQuizAnswer(') < quiz.indexOf('getProgressService().answerQuestion('))
-    const card = code.slice(code.indexOf('const markFlashSeen'))
-    assert.ok(card.indexOf('recordFlashcardSeen(') < card.indexOf('getProgressService().markCardSeen('))
-    assert.doesNotMatch(code, /\b(setProgress|saveProgress|loadProgress)\b/)
+    assert.match(code.slice(code.indexOf('const handleSelectOption')), /actions\.answer\(/)
+    assert.match(code.slice(code.indexOf('const markFlashSeen')), /actions\.markCardSeen\(/)
+    const actions = fs.readFileSync(path.join(root, 'src/core/study/session.js'), 'utf8')
+    assert.ok(actions.indexOf('record.quizAnswer(') < actions.indexOf('service.answerQuestion('))
+    assert.ok(actions.indexOf('record.flashcardSeen(') < actions.indexOf('service.markCardSeen('))
+    assert.doesNotMatch(code + actions, /\b(setProgress|saveProgress|loadProgress)\b/)
   })
 
   test('install: δεύτερη εγκατάσταση → σφάλμα', async () => {
