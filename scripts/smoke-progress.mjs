@@ -230,6 +230,7 @@ async function bootGate(browser, base, keys, route, expect) {
   return out
 }
 
+const WRONG_RE = new RegExp(PROD_WRONG.question.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 const pad = (items, n) => [...items, ...Array(Math.max(0, n - items.length)).fill(false)].slice(0, n)
 const BOOT_CASES = [
   // Φάση 4: τιμές ανά scope. k1 (pavlov): 21 κάρτες της k1, καμία απάντηση της k1 → «Κουίζ —». Το «όχι Κάρτες 0/» μένει
@@ -239,7 +240,10 @@ const BOOT_CASES = [
   [PROD, '/psd115/units/k2', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 0\/56/], notText: [/μελετήθηκαν 21\//] }],
   // Ολόκληρο μάθημα: οι συνολικοί μετρητές όπως πριν (0/1) και όλες οι κάρτες του μαθήματος.
   [PROD, '/progress?scope=psd115', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 21\/198/] }],
-  [PROD, '/study/review?scope=unit:psd115/k2', { text: [new RegExp(PROD_WRONG.question.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))] }],
+  // Φάση 5 (I5): η ετικέτα του λάθους από το STUDY_CONTENT του μαθήματος (κεφαλαία μέσω CSS → χωρίς διάκριση πεζών).
+  [PROD, '/study/review?scope=unit:psd115/k2', { text: [WRONG_RE, /Εβδ\.2 — Μεταβλητ/iu] }],
+  // Φάση 5 (I1): μάθημα χωρίς περιεχόμενο → κανένα λάθος του PSD115 και καμία ενέργεια καθαρισμού, 0 εγγραφές.
+  [PROD, '/study/review?scope=psd200', { text: [/Δεν υπάρχει ακόμα περιεχόμενο μελέτης/], notText: [WRONG_RE, /Καθαρισμός λίστας/] }],
   [SAMPLE, '/psd115/topics/pavlov', { text: [/Κάρτες 1\/94/], checks: (n) => pad([true, false, true], n) }],
   [SAMPLE, '/psd115/topics/research-methods-overview', { checks: (n) => pad([true, true, false], n) }],
 ]
