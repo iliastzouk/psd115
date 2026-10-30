@@ -8,7 +8,7 @@
  * Υλοποίηση (1E-4c-2): στην ΙΔΙΑ εγγραφή γράφονται και τα state namespaces wrongBook / checklists του μαθήματος
  * (stateFromSnapshot του legacy snapshot), ώστε ο recorder να τα ενημερώνει χωρίς να τα δημιουργεί ποτέ.
  */
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../core/progress/legacyProgressStore.js'
 import { SHADOW_STATE_KEY } from '../core/progress/keys.js'
 import { reconcileShadow } from '../core/progress/reconcile.js'
 import { stateFromSnapshot } from '../core/progress/snapshot.js'

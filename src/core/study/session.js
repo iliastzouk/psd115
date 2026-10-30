@@ -10,7 +10,7 @@
  * Εκτός ready: κενή πρόοδος μόνο για ανάγνωση και ΚΑΜΙΑ ενέργεια (ούτε refresh, ούτε recorder, ούτε εγγραφή).
  * Ποτέ fallback σε περιεχόμενο ή πρόοδο άλλου μαθήματος.
  */
-import { emptySnapshot } from '../progress/snapshot.js'
+import { emptySnapshot } from '../progress/snapshotShape.js'
 import { STUDY_CONTENT } from './content.js'
 
 const EMPTY_CONTENT = Object.freeze({

@@ -4,7 +4,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { newEventId } from '../src/core/progress/events.js'
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/legacyProgressStore.js'
 import { MIGRATION_MARKER_KEY } from '../src/core/progress/keys.js'
 import { resetStateKey, wrongBookStateKey } from '../src/core/progress/namespaces.js'
 import { recoverInterrupted, TXN_KEY } from '../src/core/progress/transaction.js'

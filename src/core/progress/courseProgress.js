@@ -24,7 +24,7 @@ import { parseGlobalId } from '../academic/ids.js'
 import { sameEvent, validateEvent } from './events.js'
 import { checkContentAdapter } from './contentAdapter.js'
 import { checklistsStateKey, resetStateKey, wrongBookStateKey } from './namespaces.js'
-import { emptySnapshot } from './snapshot.js'
+import { emptySnapshot } from './snapshotShape.js'
 
 export const WRONG_BOOK_VERSION = 1
 /** v2 (Φάση 6a): κάθε θέμα έχει και `t` (τελευταία αλλαγή), ώστε το reset να εφαρμόζεται και στα checklists. */

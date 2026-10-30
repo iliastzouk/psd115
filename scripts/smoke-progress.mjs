@@ -104,7 +104,7 @@ const MUTATIONS = {
   // M2: άδειο service στο boot, hydration σε effect μετά το πρώτο render.
   m2: {
     'src/core/progress/storeProgressService.js': [
-      ["import { toGlobalId } from '../academic/ids.js'", "import { toGlobalId } from '../academic/ids.js'\nimport { emptySnapshot } from './snapshot.js'"],
+      ["import { toGlobalId } from '../academic/ids.js'", "import { toGlobalId } from '../academic/ids.js'\nimport { emptySnapshot } from './snapshotShape.js'"],
       ['  let state = load()\n', '  let state = freezeState({ courses: Object.fromEntries(Object.keys(adapters).map((c) => [c, emptySnapshot(c)])) })\n'],
     ],
     'src/hooks/useProgress.js': [

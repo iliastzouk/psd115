@@ -42,6 +42,11 @@ const LEGACY = [
   'src/core/progress/reconcile.js',
   'src/core/progress/progressService.js',
   'src/core/progress/adapters/psd115.js',
+  // review #18: ούτε ο μηχανισμός migration ούτε οι legacy μετατροπές του snapshot ούτε το legacy async store.
+  'src/core/progress/boundary.js',
+  'src/core/progress/keys.js',
+  'src/core/progress/snapshot.js',
+  'src/core/progress/legacyProgressStore.js',
 ]
 
 describe('Φάση 6a · runtime', () => {
@@ -77,6 +82,12 @@ describe('Φάση 6a · runtime', () => {
     for (const f of [...graph].filter((x) => /^src\/(components|pages|layouts|hooks)\//.test(x))) {
       assert.doesNotMatch(src(f), /\b(localStorage|sessionStorage|indexedDB)\b|createStoreCore|createProgressStore/, f)
     }
+  })
+  test('ο πυρήνας του store δεν ξέρει migration: μόνο το όριο reset, κανένα σημάδι / baseline migration', () => {
+    const core = src('src/core/progress/progressStore.js')
+    assert.doesNotMatch(core, /boundary\.js|keys\.js|migration:|MIGRATION_MARKER|migrationBoundary|importBoundary|boundaryViolations/)
+    assert.match(core, /from '\.\/resetBoundary\.js'/)
+    for (const f of [...graph].filter((x) => x.startsWith('src/'))) assert.doesNotMatch(src(f), /MIGRATION_MARKER_KEY|LEGACY_BASELINE_KEY|SHADOW_STATE_KEY/, f)
   })
   test('progressSync: μόνο τα δύο κλειδιά του store και το σημάδι', () => {
     const code = src('src/utils/progressSync.js')

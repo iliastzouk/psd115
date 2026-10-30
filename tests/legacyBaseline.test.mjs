@@ -13,7 +13,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { newEventId } from '../src/core/progress/events.js'
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/legacyProgressStore.js'
 import {
   buildLegacyBaseline,
   LEGACY_BASELINE_KEY,

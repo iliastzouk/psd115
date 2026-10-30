@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/legacyProgressStore.js'
 import {
   applyImport,
   buildExport,
