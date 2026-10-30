@@ -22,8 +22,7 @@ import {
   resetTime,
 } from '../src/core/progress/courseProgress.js'
 import { createStudyContentAdapter, studyContentAdapters } from '../src/core/progress/adapters/studyContent.js'
-import { psd115ProgressAdapter } from '../src/core/progress/adapters/psd115.js'
-import { flashcards, quizQuestions } from '../content/courses/psd115/questions.js'
+import { CATEGORIES, flashcards, quizQuestions } from '../content/courses/psd115/questions.js'
 import { topics } from '../content/courses/psd115/topics.js'
 import { DEMO_ADAPTERS, T0, answer, flip, self, uuid, wrongEntry } from './helpers/progressFixtures.mjs'
 
@@ -36,12 +35,27 @@ const iso = (ms) => new Date(ms).toISOString()
 const run = (events, state = {}) => courseProgress({ courseId: 'demo-a', content: A, events, state })
 
 describe('adapter από το STUDY_CONTENT', () => {
-  test('PSD115: ίδιες απαντήσεις με τον adapter της προηγούμενης υποδομής, για κάθε id του περιεχομένου', () => {
-    const generic = studyContentAdapters().psd115
-    const ids = [...quizQuestions.map((q) => q.id), ...flashcards.map((c) => c.id), ...topics.map((t) => t.id), 'nope']
-    for (const id of ids) {
-      for (const f of ['isQuestion', 'isCard', 'hasTopic', 'groupOf', 'hasGroup']) assert.equal(generic[f](id), psd115ProgressAdapter[f](id), `${f}(${id})`)
+  test('PSD115: ανεξάρτητες αναμενόμενες τιμές από το περιεχόμενο (ερωτήσεις, κάρτες, θέματα, κατηγορίες, άγνωστο id)', () => {
+    const a = studyContentAdapters().psd115
+    for (const q of quizQuestions) {
+      assert.deepEqual([a.isQuestion(q.id), a.isCard(q.id), a.hasTopic(q.id), a.groupOf(q.id), a.hasGroup(q.categoryId)], [true, false, false, q.categoryId, true], q.id)
     }
+    for (const c of flashcards) assert.deepEqual([a.isCard(c.id), a.isQuestion(c.id), a.hasTopic(c.id), a.groupOf(c.id)], [true, false, false, null], c.id)
+    for (const t of topics) assert.deepEqual([a.hasTopic(t.id), a.isQuestion(t.id), a.isCard(t.id)], [true, false, false], t.id)
+    // Κάθε κατηγορία του περιεχομένου είναι ομάδα — και όσες δεν έχουν ερώτηση στο συγκεκριμένο σύνολο.
+    for (const g of CATEGORIES) assert.equal(a.hasGroup(g.id), true, g.id)
+    for (const f of ['isQuestion', 'isCard', 'hasTopic', 'hasGroup']) assert.equal(a[f]('nope'), false, f)
+    assert.equal(a.groupOf('nope'), null)
+  })
+  test('κατηγορία χωρίς ερώτηση είναι ομάδα· categoryId ερώτησης εκτός κατηγοριών ΔΕΝ γίνεται ομάδα', () => {
+    const a = createStudyContentAdapter('demo-x', {
+      categories: [{ id: 'g-with' }, { id: 'g-empty' }],
+      quizQuestions: [{ id: 'q1', categoryId: 'g-with' }, { id: 'q2', categoryId: 'g-stray' }],
+      flashcards: [],
+      topics: [],
+    })
+    assert.deepEqual([a.hasGroup('g-with'), a.hasGroup('g-empty'), a.hasGroup('g-stray')], [true, true, false])
+    assert.equal(a.groupOf('q2'), 'g-stray')
   })
   test('ένας adapter ανά μάθημα του STUDY_CONTENT (μόνο psd115 σήμερα)', () => {
     assert.deepEqual(Object.keys(studyContentAdapters()), ['psd115'])

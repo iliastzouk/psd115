@@ -17,10 +17,21 @@ import { fileURLToPath } from 'node:url'
 import { flashcards, WEEK1_CATEGORIES, WEEK2_CATEGORIES, CATEGORIES } from '../content/courses/psd115/questions.js'
 import { legacyToSnapshot } from '../src/core/progress/snapshot.js'
 import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
+import { courseProgress } from '../src/core/progress/courseProgress.js'
+import { studyContentAdapters } from '../src/core/progress/adapters/studyContent.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures', name), 'utf8')).keys
-const PROD = legacyToSnapshot(fixture('progress-export.production-2026-10-05.json'), { content, mode: 'runtime' }).snapshot
+/**
+ * Φάση 6b: το snapshot μέσω της ενεργής υποδομής (courseProgress + adapter του STUDY_CONTENT) από το
+ * study-progress.sample.json — ίδιο με το snapshot του παλιού production fixture (21 κάρτες της k1, 1 λάθος της k2).
+ */
+const SAMPLE = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/study-progress.sample.json'), 'utf8'))
+const PROD = (() => {
+  const r = courseProgress({ courseId: 'psd115', content: studyContentAdapters().psd115, events: SAMPLE.events.filter((e) => e.item.startsWith('psd115/')), state: SAMPLE.state })
+  assert.equal(r.status, 'ready')
+  return r.snapshot
+})()
 const cardsOf = (cats) => {
   const ids = new Set(cats.map((c) => c.id))
   return flashcards.filter((c) => ids.has(c.categoryId)).map((c) => c.id)
@@ -30,14 +41,18 @@ const course = { kind: 'course', courseId: 'psd115', cardIds: cardsOf(CATEGORIES
 const load = () => import('../src/components/progressDisplay.js')
 
 describe('H2 · κάρτες ανά scope', () => {
-  test('k2 με το production fixture (καμία κάρτα της k2) → 0/56, ανεξάρτητα από τις κάρτες άλλων ενοτήτων', async () => {
+  test('το δείγμα της νέας μορφής: 1 απάντηση (λάθος, k2), 21 κάρτες της k1', () => {
+    assert.deepEqual({ a: PROD.quizAnswered, c: PROD.quizCorrect, byGroup: PROD.byGroup }, { a: 1, c: 0, byGroup: { 'w2-variables': { correct: 0, wrong: 1 } } })
+    assert.equal(new Set(PROD.flashcardSeenIds).size, 21)
+  })
+  test('k2 με το δείγμα (καμία κάρτα της k2) → 0/56, ανεξάρτητα από τις κάρτες άλλων ενοτήτων', async () => {
     const { scopedProgress, progressSummary } = await load()
     const s = scopedProgress(PROD, unit(WEEK2_CATEGORIES))
-    assert.equal(PROD.flashcardSeenIds.length, 21, 'το fixture έχει 21 κάρτες (όλες της k1)')
+    assert.equal(PROD.flashcardSeenIds.length, 21, 'το δείγμα έχει 21 κάρτες (όλες της k1)')
     assert.deepEqual({ seen: s.seenCards, total: s.totalCards }, { seen: 0, total: 56 })
     assert.match(progressSummary(s), /Κάρτες 0\/56 \(0%\)/)
   })
-  test('k1 με το production fixture → 21/94', async () => {
+  test('k1 με το δείγμα → 21/94', async () => {
     const { scopedProgress } = await load()
     const s = scopedProgress(PROD, unit(WEEK1_CATEGORIES))
     assert.deepEqual({ seen: s.seenCards, total: s.totalCards }, { seen: 21, total: 94 })
@@ -59,7 +74,7 @@ describe('H2 · κάρτες ανά scope', () => {
 })
 
 describe('H3 · ακρίβεια κουίζ σε ενότητα (από το byGroup της ενότητας)', () => {
-  test('k1 με το production fixture (η μόνη απάντηση είναι της k2) → «—», όχι η ακρίβεια της k2', async () => {
+  test('k1 με το δείγμα (η μόνη απάντηση είναι της k2) → «—», όχι η ακρίβεια της k2', async () => {
     const { scopedProgress, progressSummary } = await load()
     const s = scopedProgress(PROD, unit(WEEK1_CATEGORIES))
     assert.deepEqual({ c: s.quizCorrect, a: s.quizAnswered }, { c: 0, a: 0 })
@@ -82,7 +97,7 @@ describe('H4 · ολόκληρο μάθημα: οι υπάρχοντες συν�
     assert.deepEqual({ c: s.quizCorrect, a: s.quizAnswered }, { c: 7, a: 10 })
     assert.match(progressSummary(s), /^Κουίζ 70% ·/)
   })
-  test('production fixture: Κουίζ 0% (0/1) · Κάρτες 21/198 — όπως σήμερα, μόνο χωρίς orphan κάρτες', async () => {
+  test('δείγμα: Κουίζ 0% (0/1) · Κάρτες 21/198 — όπως σήμερα, μόνο χωρίς orphan κάρτες', async () => {
     const { scopedProgress, progressSummary } = await load()
     const s = scopedProgress(PROD, course)
     assert.equal(s.totalCards, flashcards.length)
