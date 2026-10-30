@@ -110,23 +110,6 @@ describe('H4 · ολόκληρο μάθημα: οι υπάρχοντες συν�
 })
 
 describe('H1 · χωρίς storage.js — ανεξάρτητες αναμενόμενες τιμές', () => {
-  /** Τα κλειδιά προόδου που σβήνει το reset (σταθερό fixture· όχι παραγόμενο από κώδικα). Theme/disclaimer ΔΕΝ σβήνονται. */
-  const RESET_KEYS = [
-    'psd115-w1-behaviorism-checklist', 'psd115-w1-chomsky-checklist', 'psd115-w1-cognitive-checklist',
-    'psd115-w1-definition-checklist', 'psd115-w1-educational-psychology-checklist', 'psd115-w1-evolutionary-checklist',
-    'psd115-w1-functionalism-checklist', 'psd115-w1-gestalt-checklist', 'psd115-w1-humanistic-checklist',
-    'psd115-w1-little-albert-checklist', 'psd115-w1-neuroscience-checklist', 'psd115-w1-other-branches-checklist',
-    'psd115-w1-pavlov-checklist', 'psd115-w1-psychoanalysis-checklist', 'psd115-w1-skinner-checklist',
-    'psd115-w1-social-psychology-checklist', 'psd115-w1-study', 'psd115-w1-thorndike-checklist',
-    'psd115-w1-wundt-checklist', 'psd115-w2-checklists', 'psd115-w3-checklists', 'psd115-w4-checklists',
-  ]
-  test('το reset σβήνει ακριβώς τα 22 κλειδιά προόδου (όχι theme/disclaimer)', async () => {
-    const { legacyResetKeys } = await import('../src/utils/progressBackup.js')
-    const m = new Map([...RESET_KEYS, 'psd115-w1-theme', 'psd115-disclaimer-v1'].map((k) => [k, '[]']))
-    const storage = { get length() { return m.size }, key: (i) => [...m.keys()][i] ?? null, getItem: (k) => m.get(k) ?? null }
-    assert.equal(RESET_KEYS.length, 22)
-    assert.deepEqual(legacyResetKeys(storage).sort(), [...RESET_KEYS].sort())
-  })
   test('ο reader της εφαρμογής φορτώνει αυτούσια την πρόοδο του δείγματος (τιμές του fixture)', () => {
     const keys = fixture('progress-export.sample.json')
     const r = legacyToSnapshot(keys, { content, mode: 'runtime' })

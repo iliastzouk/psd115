@@ -49,6 +49,33 @@ const LEGACY = [
   'src/core/progress/legacyProgressStore.js',
 ]
 
+/** Φάση 6b: τα legacy modules έχουν αφαιρεθεί από το repository (όχι μόνο από τον γράφο της εφαρμογής). */
+const REMOVED = [
+  'src/utils/legacyProgressBackend.js',
+  'src/utils/progressShadow.js',
+  'src/utils/progressMigration.js',
+  'src/utils/progressBackup.js',
+  'src/utils/progressValidate.js',
+  'src/utils/progressTransaction.js',
+  'src/core/progress/progressService.js',
+  'src/core/progress/reconcile.js',
+  'src/core/progress/legacyBaseline.js',
+]
+
+describe('Φάση 6b · ο legacy κώδικας αφαιρέθηκε', () => {
+  test('τα αρχεία δεν υπάρχουν', () => {
+    assert.deepEqual(REMOVED.filter((f) => fs.existsSync(path.join(root, f))), [])
+  })
+  test('κανένα αρχείο του src/, scripts/ ή tests/ δεν τα εισάγει', () => {
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+    const names = REMOVED.map((f) => path.basename(f, '.js'))
+    const re = new RegExp(`from\\s+['"][^'"]*/(${names.join('|')})\\.js['"]|import\\(\\s*['"][^'"]*/(${names.join('|')})\\.js['"]`)
+    for (const f of ['src', 'scripts', 'tests'].flatMap((d) => walk(path.join(root, d))).filter((x) => /\.(m?js|jsx)$/.test(x))) {
+      assert.doesNotMatch(fs.readFileSync(f, 'utf8'), re, path.relative(root, f))
+    }
+  })
+})
+
 describe('Φάση 6a · runtime', () => {
   const graph = runtimeGraph()
   test('ο γράφος της εφαρμογής βρίσκεται (sanity)', () => {
