@@ -5,8 +5,7 @@
  */
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { useRouteIdentity } from '../core/routing/hooks.js'
-import { createdServiceCount } from '../core/progress/progressService.js'
-import { recordChecklist } from '../utils/progressShadow.js'
+import { createdServiceCount } from '../core/progress/storeProgressService.js'
 
 let installed = null
 
@@ -49,19 +48,18 @@ export function normalizeChecklist(items, length) {
 /**
  * Ο setter του checklist (καθαρή συνάρτηση, για να ελέγχεται χωρίς React). Φάση 3 (G2): πρώτα η τρέχουσα αποθηκευμένη
  * κατάσταση (άλλο tab μπορεί να άλλαξε το ίδιο checklist), μετά το toggle πάνω στα ΦΡΕΣΚΑ items από το service (όχι από
- * το React state), μετά recorder, μετά εγγραφή — σύγχρονα, στον setter.
+ * το React state), μετά εγγραφή μέσω `forCourse` (Φάση 6a) — σύγχρονα, στον setter.
  */
-export function applyChecklistUpdate({ service, courseId, topicId, length, next, record = recordChecklist }) {
-  // Φάση 5 (I1): checklist μαθήματος που δεν εξυπηρετεί το service → τίποτα (ποτέ εγγραφή στην πρόοδο άλλου μαθήματος).
-  if (courseId !== service.courseId) return false
+export function applyChecklistUpdate({ service, courseId, topicId, length, next }) {
+  // Μάθημα που δεν εξυπηρετεί το service → τίποτα (ποτέ εγγραφή στην πρόοδο άλλου μαθήματος).
+  if (!service.supports(courseId)) return false
   service.refresh()
-  // Η φρέσκια ανάγνωση απέτυχε (degraded) → σταματά εδώ: ούτε recorder ούτε εγγραφή (review #15).
-  if (service.getSnapshot().status !== 'ready') return false
-  const prev = normalizeChecklist(service.getSnapshot().courses[courseId]?.checklists[topicId]?.items, length)
+  // Η φρέσκια ανάγνωση απέτυχε (degraded) ή το μάθημα δεν διαβάζεται (unavailable) → σταματά εδώ, καμία εγγραφή.
+  const course = service.getSnapshot().status === 'ready' ? service.getSnapshot().courses[courseId] : undefined
+  if (!course) return false
+  const prev = normalizeChecklist(course.checklists[topicId]?.items, length)
   const items = typeof next === 'function' ? next(prev) : next
-  // Shadow (1E-4c-2): πριν από την αλλαγή του service, στον setter (όχι σε updater/effect).
-  record({ topicId, items })
-  return service.setChecklist(topicId, items)
+  return service.forCourse(courseId).setChecklist(topicId, items)
 }
 
 export function useChecklist(courseId, topicId, length) {

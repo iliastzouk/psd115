@@ -1,6 +1,7 @@
 /**
  * Μάθημα της συνεδρίας μελέτης (Φάση 5, I1): το μάθημα της διαδρομής → περιεχόμενο από το STUDY_CONTENT και αν η
  * πρόοδός του εξυπηρετείται από το ProgressService. Pure — χωρίς React· το useStudySession μόνο το καλεί.
+ * Φάση 6a: οι ενέργειες πηγαίνουν στο `service.forCourse(courseId)` (δεμένες στο μάθημα· χωρίς shadow recorder).
  *
  * Καταστάσεις:
  *  - ready        περιεχόμενο + πρόοδος από το service· οι ενέργειες αποθηκεύονται όπως πριν
@@ -9,7 +10,7 @@
  * Εκτός ready: κενή πρόοδος μόνο για ανάγνωση και ΚΑΜΙΑ ενέργεια (ούτε refresh, ούτε recorder, ούτε εγγραφή).
  * Ποτέ fallback σε περιεχόμενο ή πρόοδο άλλου μαθήματος.
  */
-import { emptySnapshot } from '../progress/snapshot.js'
+import { emptySnapshot } from '../progress/snapshotShape.js'
 import { STUDY_CONTENT } from './content.js'
 
 const EMPTY_CONTENT = Object.freeze({
@@ -20,14 +21,14 @@ const EMPTY_CONTENT = Object.freeze({
 })
 
 /**
- * @param {string} courseId          το μάθημα της διαδρομής
- * @param {string} progressCourseId  το μάθημα που εξυπηρετεί το ProgressService (`service.courseId`)
- * @param {object} [contentMap]      STUDY_CONTENT (παράμετρος μόνο για tests)
+ * @param {string} courseId                                 το μάθημα της διαδρομής
+ * @param {string | ((courseId: string) => boolean)} served  αν το ProgressService εξυπηρετεί το μάθημα (`service.supports`)
+ * @param {object} [contentMap]                             STUDY_CONTENT (παράμετρος μόνο για tests)
  */
-export function studyCourse(courseId, progressCourseId, contentMap = STUDY_CONTENT) {
+export function studyCourse(courseId, served, contentMap = STUDY_CONTENT) {
   const course = typeof courseId === 'string' && Object.hasOwn(contentMap, courseId) ? contentMap[courseId] : null
   if (!course) return Object.freeze({ courseId: courseId ?? null, status: 'no-content', canRecord: false, content: EMPTY_CONTENT })
-  const status = courseId === progressCourseId ? 'ready' : 'no-progress'
+  const status = (typeof served === 'function' ? served(courseId) : courseId === served) ? 'ready' : 'no-progress'
   return Object.freeze({
     courseId,
     status,
@@ -49,36 +50,39 @@ function readOnlyEmpty(courseId) {
 }
 const emptyByCourse = new Map()
 
-/** Η πρόοδος που βλέπει η συνεδρία: του service για ready, αλλιώς σταθερή κενή πρόοδος του ίδιου μαθήματος. */
+/**
+ * Η πρόοδος που βλέπει η συνεδρία: του service για ready, αλλιώς σταθερή κενή πρόοδος του ίδιου μαθήματος (και όταν το
+ * service είναι degraded ή το μάθημα unavailable — Φάση 6a, J4).
+ */
 export function sessionProgress(state, course) {
-  if (course.canRecord) return state.courses[course.courseId]
+  if (course.canRecord && state.courses[course.courseId]) return state.courses[course.courseId]
   if (!emptyByCourse.has(course.courseId)) emptyByCourse.set(course.courseId, readOnlyEmpty(course.courseId))
   return emptyByCourse.get(course.courseId)
 }
 
-/** Μήνυμα για τον χρήστη: μόνο όταν υπάρχει υλικό που μπορεί να μελετήσει αλλά η πρόοδός του δεν αποθηκεύεται. */
-export function studyCourseNotice(course) {
-  return course.status === 'no-progress' ? 'Η πρόοδος για αυτό το μάθημα δεν αποθηκεύεται ακόμα.' : null
+/**
+ * Μήνυμα για τον χρήστη όταν υπάρχει υλικό που μπορεί να μελετήσει αλλά η πρόοδός του δεν αποθηκεύεται: μάθημα χωρίς
+ * υποστήριξη προόδου, ή (Φάση 6a, J4) μάθημα που η πρόοδός του δεν διαβάζεται με ασφάλεια (`state.unavailable`).
+ */
+export function studyCourseNotice(course, state) {
+  if (course.status === 'no-progress') return 'Η πρόοδος για αυτό το μάθημα δεν αποθηκεύεται ακόμα.'
+  if (course.status === 'ready' && state?.status === 'ready' && state.unavailable?.[course.courseId]) {
+    return 'Η πρόοδος αυτού του μαθήματος δεν μπορεί να διαβαστεί με ασφάλεια· οι αλλαγές του δεν αποθηκεύονται. Τα υπόλοιπα μαθήματα αποθηκεύονται κανονικά.'
+  }
+  return null
 }
 
 /**
- * Οι ενέργειες της συνεδρίας, με την ίδια σειρά όπως πριν (Φάση 3): refresh → recorder (shadow) → service.
- * Εκτός ready → false χωρίς καμία κλήση.
- * @param {{ course: ReturnType<typeof studyCourse>, service: object,
- *   record: { flashcardSeen: Function, quizAnswer: Function, wrongBookClear: Function, wrongBookRemove: Function } }} deps
+ * Οι ενέργειες της συνεδρίας → `service.forCourse(courseId)` (Φάση 6a). Το service κάνει μόνο του τη φρέσκια ανάγνωση
+ * πριν από κάθε αλλαγή. Εκτός ready → false χωρίς καμία κλήση.
+ * @param {{ course: ReturnType<typeof studyCourse>, service: { forCourse: (courseId: string) => object } }} deps
  */
-export function createStudyActions({ course, service, record }) {
-  const run = (recordFn, act) => {
-    if (!course.canRecord) return false
-    service.refresh()
-    recordFn()
-    return act()
-  }
+export function createStudyActions({ course, service }) {
+  const run = (act) => (course.canRecord ? act(service.forCourse(course.courseId)) : false)
   return {
-    markCardSeen: (cardId) => run(() => record.flashcardSeen({ cardId }), () => service.markCardSeen(cardId)),
-    answer: ({ questionId, ok, wrong }) =>
-      run(() => record.quizAnswer({ questionId, ok, wrong }), () => service.answerQuestion({ questionId, ok, wrong })),
-    clearWrongBook: () => run(() => record.wrongBookClear(), () => service.clearWrongBook()),
-    removeWrong: (uid) => run(() => record.wrongBookRemove({ uid }), () => service.removeWrong(uid)),
+    markCardSeen: (cardId) => run((a) => a.markCardSeen(cardId)),
+    answer: ({ questionId, ok, wrong }) => run((a) => a.answerQuestion({ questionId, ok, wrong })),
+    clearWrongBook: () => run((a) => a.clearWrongBook()),
+    removeWrong: (uid) => run((a) => a.removeWrong(uid)),
   }
 }

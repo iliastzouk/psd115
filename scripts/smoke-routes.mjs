@@ -8,7 +8,7 @@
  *     δ. πλοήγηση (1C-C): κανένα εσωτερικό link προς /week/· τα θέματα κάθε unit δείχνουν σε
  *        /psd115/topics/<topicId> με τη σειρά του topics.js· το header ανήκει στο ενεργό μάθημα.
  *  2. Ελέγχει τον κύκλο προστασίας προόδου: εξαγωγή → αλλοίωση → απόρριψη άκυρου αρχείου →
- *     εισαγωγή με backup → επαναφορά (reset) με backup.
+ *     εισαγωγή με προεπισκόπηση και backup → reset του μαθήματος με backup (Φάση 6a: νέα μορφή study-progress).
  *  3. Ανακάτεμα επιλογών: απαντά με βάση το κείμενο της σωστής επιλογής και ελέγχει ότι μετράει σωστά.
  *
  * Προϋπόθεση: `npm run build` (χρησιμοποιεί το dist/ μέσω `vite preview`).
@@ -267,7 +267,7 @@ const browser = await launch()
     for (const e of pageErrors) fail(`${label}: ${e}`)
     counts[r.group] = (counts[r.group] ?? 0) + 1
   }
-  // Η πλοήγηση δεν γράφει στο νέο progress store (καμία εγγραφή γεγονότων σε αυτή τη φάση).
+  // Η πλοήγηση μόνο (χωρίς ενέργειες μελέτης) δεν γράφει τίποτα στο progress store.
   const newStoreKeys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('study-progress-')))
   if (newStoreKeys.length) fail(`routes: γράφτηκαν κλειδιά του νέου store: ${newStoreKeys.join(', ')}`)
   await context.close()
@@ -277,95 +277,85 @@ const browser = await launch()
   )
 }
 
-// ---------- 2. Προστασία προόδου ----------
+// ---------- 2. Προστασία προόδου (Φάση 6a: νέα μορφή study-progress) ----------
 const before = failures.length
 {
-  const fixture = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.sample.json'), 'utf8'))
+  const sample = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/study-progress.sample.json'), 'utf8'))
+  const legacyFile = fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.sample.json'))
+  const EV = 'study-progress-events-v1'
+  const ST = 'study-progress-state-v1'
+  // Πρόοδος της νέας μορφής + ένα παλιό legacy κλειδί και ρυθμίσεις, που ΔΕΝ πρέπει να αγγιχτούν ποτέ.
+  const seed = { [EV]: JSON.stringify(sample.events), [ST]: JSON.stringify(sample.state), 'psd115-w1-study': '{"legacy":true}', 'psd115-disclaimer-v1': '1' }
   const context = await browser.newContext({ acceptDownloads: true })
-  // Η πρόοδος γράφεται ΠΡΙΝ τρέξει η εφαρμογή (μία φορά), όπως θα την έβρισκε σε έναν πραγματικό browser.
-  // Αν γραφτεί ενώ η εφαρμογή τρέχει, η εφαρμογή τη γράφει από πάνω από τη μνήμη (γνωστός κίνδυνος multi-tab).
   await context.addInitScript((keys) => {
     if (sessionStorage.getItem('smoke-seeded')) return
     for (const [k, v] of Object.entries(keys)) localStorage.setItem(k, v)
     sessionStorage.setItem('smoke-seeded', '1')
-  }, fixture.keys)
+  }, seed)
   const page = await context.newPage()
   page.on('pageerror', (e) => fail(`backup: σφάλμα JS: ${e.message}`))
-
-  const readStore = () =>
-    page.evaluate(() => {
-      const out = {}
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)
-        if (k.startsWith('psd115-')) out[k] = localStorage.getItem(k)
-      }
-      return out
-    })
-  const progressOnly = (store) => Object.fromEntries(Object.entries(store).filter(([k]) => !k.startsWith('psd115-backup-')))
+  const readAll = () => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])))
   const readDownload = async (download) => JSON.parse(fs.readFileSync(await download.path(), 'utf8'))
-  const same = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
+  const message = () => page.getByTestId('progress-backup-message').textContent()
 
-  // Seed: υπάρχουσα πρόοδος όπως θα την είχε ένας χρήστης.
   await page.goto(BASE + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
-  const original = progressOnly(await readStore())
-  if (!same(original, fixture.keys)) fail('backup: η εφαρμογή άλλαξε την υπάρχουσα πρόοδο κατά τη φόρτωση')
+  const original = await readAll()
+  for (const [k, v] of Object.entries(seed)) if (original[k] !== v) fail(`backup: η εφαρμογή άλλαξε το «${k}» κατά τη φόρτωση`)
 
-  // Εξαγωγή
-  const [exportDl] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Εξαγωγή προόδου (JSON)' }).click(),
-  ])
+  // Εξαγωγή: η νέα μορφή, ακριβώς τα δεδομένα του store.
+  const [exportDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Εξαγωγή προόδου (JSON)' }).click()])
   const exported = await readDownload(exportDl)
-  if (exported.format !== 'psd115-progress-export' || exported.version !== 2) fail('backup: λάθος format/version στο export')
-  if (JSON.stringify(exported.progressStore) !== '{}') fail('backup: το export v2 έχει δεδομένα νέου store ενώ δεν υπάρχουν')
-  if (!same(exported.keys, original)) fail('backup: το export δεν περιέχει ακριβώς την τρέχουσα πρόοδο')
+  if (exported.format !== 'study-progress' || exported.version !== 1) fail('backup: λάθος format/version στο export')
+  if (JSON.stringify(exported.events) !== seed[EV] || JSON.stringify(exported.state) !== seed[ST]) fail('backup: το export δεν περιέχει ακριβώς την τρέχουσα πρόοδο')
 
-  // Αλλοίωση + άγνωστο κλειδί που δεν πρέπει να σβηστεί
-  await page.evaluate(() => {
-    localStorage.setItem('psd115-w1-study', JSON.stringify({ quizAnswered: 999, quizCorrect: 0, byCategory: {}, flashcardSeenIds: [], wrongBook: [] }))
-    localStorage.setItem('psd115-extra-unknown', 'keep-me')
-  })
-  const tampered = await readStore()
+  // Η τοπική πρόοδος «χάνεται» (άδειο log) — το αρχείο θα την επαναφέρει.
+  await page.evaluate((k) => localStorage.setItem(k, '[]'), EV)
+  await page.reload({ waitUntil: 'networkidle' })
+  const tampered = await readAll()
 
-  // Άκυρο αρχείο → απόρριψη, τίποτα δεν αλλάζει
+  // Άκυρο αρχείο και αρχείο της παλιάς μορφής → απόρριψη, τίποτα δεν αλλάζει.
   const input = page.getByTestId('progress-import-input')
   await input.setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"format":"nope"}') })
   await page.getByText('Το αρχείο απορρίφθηκε').waitFor({ timeout: 5000 }).catch(() => fail('backup: δεν εμφανίστηκε μήνυμα απόρριψης'))
-  if (!same(await readStore(), tampered)) fail('backup: το άκυρο αρχείο άλλαξε το localStorage')
+  await input.setInputFiles({ name: 'legacy.json', mimeType: 'application/json', buffer: legacyFile })
+  await page.getByText('παλιά μορφή').waitFor({ timeout: 5000 }).catch(() => fail('backup: το παλιό αρχείο δεν απορρίφθηκε με σαφές μήνυμα'))
+  if (JSON.stringify(await readAll()) !== JSON.stringify(tampered)) fail('backup: τα απορριφθέντα αρχεία άλλαξαν το localStorage')
 
-  // Έγκυρο αρχείο → επιβεβαίωση → backup → εισαγωγή → reload
+  // Έγκυρο αρχείο → προεπισκόπηση → επιβεβαίωση → raw backup → εισαγωγή (χωρίς reload).
   await input.setInputFiles({ name: 'ok.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) })
-  const confirm = page.getByRole('button', { name: 'Ναι, εισαγωγή' })
-  await confirm.waitFor({ timeout: 5000 })
-  if (!same(await readStore(), tampered)) fail('backup: άλλαξαν δεδομένα πριν από την επιβεβαίωση')
-  const [backupDl] = await Promise.all([page.waitForEvent('download'), page.waitForEvent('load'), confirm.click()])
+  await page.getByTestId('import-preview').waitFor({ timeout: 5000 }).catch(() => fail('backup: δεν εμφανίστηκε προεπισκόπηση'))
+  const previewText = (await page.getByTestId('import-preview').textContent().catch(() => '')) ?? ''
+  if (!/PSD115/.test(previewText) || !/\+21 κάρτες/.test(previewText)) fail(`backup: η προεπισκόπηση δεν δείχνει τι προστίθεται («${previewText.slice(0, 120)}»)`)
+  // review #18: οι λεπτομέρειες (σε ανάπτυξη) έχουν τα ίδια τα στοιχεία — κάρτες και καταγραφές με id.
+  const detailsText = (await page.getByTestId('import-details-psd115').textContent().catch(() => '')) ?? ''
+  const firstCard = sample.events.find((e) => e.kind === 'flip')
+  if (!detailsText.includes(firstCard.item.split('/')[1]) || !detailsText.includes(firstCard.id)) fail('backup: οι λεπτομέρειες της προεπισκόπησης δεν δείχνουν τα ίδια τα στοιχεία')
+  if (JSON.stringify(await readAll()) !== JSON.stringify(tampered)) fail('backup: άλλαξαν δεδομένα πριν από την επιβεβαίωση')
+  const [backupDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, εισαγωγή' }).click()])
   const backup = await readDownload(backupDl)
-  if (backup.reason !== 'import' || !same(backup.keys, progressOnly(tampered))) {
-    fail('backup: το αυτόματο αντίγραφο πριν από την εισαγωγή δεν είναι η πρόοδος της στιγμής εκείνης')
+  if (backup.format !== 'study-progress-raw' || backup.reason !== 'import' || backup.keys[EV] !== '[]' || backup.keys[ST] !== tampered[ST]) {
+    fail('backup: το αυτόματο αντίγραφο πριν από την εισαγωγή δεν είναι τα αυτούσια δεδομένα της στιγμής εκείνης')
   }
-  await page.waitForTimeout(500)
-  const afterImport = await readStore()
-  for (const [k, v] of Object.entries(original)) {
-    if (afterImport[k] !== v) fail(`backup: μετά την εισαγωγή το «${k}» δεν επανήλθε`)
-  }
-  if (afterImport['psd115-extra-unknown'] !== 'keep-me') fail('backup: η εισαγωγή έσβησε άγνωστο κλειδί')
-  if (!Object.keys(afterImport).some((k) => k.startsWith('psd115-backup-'))) fail('backup: δεν κρατήθηκε αντίγραφο στο localStorage')
+  await page.waitForTimeout(300)
+  if (!/ολοκληρώθηκε/.test((await message().catch(() => '')) ?? '')) fail('backup: δεν εμφανίστηκε μήνυμα ολοκλήρωσης')
+  const afterImport = await readAll()
+  if (afterImport[EV] !== seed[EV]) fail('backup: μετά την εισαγωγή τα events δεν επανήλθαν')
+  if (afterImport['psd115-w1-study'] !== seed['psd115-w1-study']) fail('backup: η εισαγωγή άγγιξε legacy κλειδί')
+  if (!Object.keys(afterImport).some((k) => k.startsWith('study-progress-backup-'))) fail('backup: δεν κρατήθηκε αντίγραφο στο localStorage')
 
-  // Reset → πρώτα backup
-  await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
-  const [resetDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()])
+  // Reset ΜΟΝΟ του PSD115 → πρώτα raw backup· τα events μένουν, γράφεται όριο reset.
+  await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+  const [resetDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()])
   const resetBackup = await readDownload(resetDl)
-  if (resetBackup.reason !== 'reset' || resetBackup.keys['psd115-w1-study'] !== original['psd115-w1-study']) {
-    fail('backup: το αντίγραφο πριν από το reset δεν περιέχει την πρόοδο')
-  }
-  // 1E-1: όλος ο κύκλος export → import → reset δεν γράφει στο νέο store και δεν αφήνει σημάδι συναλλαγής.
-  const leftovers = await page.evaluate(() =>
-    Object.keys(localStorage).filter((k) => k.startsWith('study-progress-') || k === 'progress-txn-v1'),
-  )
-  if (leftovers.length) fail(`backup: έμειναν κλειδιά ${leftovers.join(', ')}`)
+  if (resetBackup.reason !== 'reset' || resetBackup.keys[EV] !== seed[EV]) fail('backup: το αντίγραφο πριν από το reset δεν περιέχει την πρόοδο')
+  const afterReset = await readAll()
+  if (afterReset[EV] !== seed[EV]) fail('backup: το reset έσβησε events (το log είναι append-only)')
+  if (!JSON.parse(afterReset[ST] ?? '{}')['progress:reset:psd115']?.at) fail('backup: το reset δεν έγραψε όριο')
+  if (afterReset['psd115-w1-study'] !== seed['psd115-w1-study'] || afterReset['psd115-disclaimer-v1'] !== '1') fail('backup: το reset άγγιξε legacy κλειδί / ρυθμίσεις')
+  if ('progress-txn-v1' in afterReset) fail('backup: έμεινε σημάδι συναλλαγής')
   await context.close()
-  console.log(`${failures.length > before ? '✗' : '✓'} Προστασία προόδου: export · απόρριψη άκυρου · import με backup · reset με backup`)
+  console.log(`${failures.length > before ? '✗' : '✓'} Προστασία προόδου: export · απόρριψη άκυρου και παλιού αρχείου · import με προεπισκόπηση και backup · reset μαθήματος με backup`)
 }
 
 // ---------- 3. Ανακάτεμα επιλογών: η σωστή απάντηση μετράει σωστά ----------
@@ -416,10 +406,10 @@ const beforeShuffle = failures.length
     await cont.click()
     if (last) break
   }
-  const study = JSON.parse((await page.evaluate(() => localStorage.getItem('psd115-w1-study'))) ?? '{}')
-  if (study.quizAnswered !== answered || study.quizCorrect !== answered) {
-    fail(`shuffle: απαντήθηκαν σωστά ${answered}, η πρόοδος γράφει ${study.quizCorrect}/${study.quizAnswered}`)
-  }
+  // Φάση 6a: η πρόοδος είναι events στο νέο store.
+  const events = JSON.parse((await page.evaluate(() => localStorage.getItem('study-progress-events-v1'))) ?? '[]').filter((e) => e.kind === 'answer' && e.ctx === 'quiz')
+  const correct = events.filter((e) => e.ok === 1).length
+  if (events.length !== answered || correct !== answered) fail(`shuffle: απαντήθηκαν σωστά ${answered}, η πρόοδος γράφει ${correct}/${events.length}`)
   if (mcqCount >= 8 && mcqNotAtOriginalSlot === 0) fail('shuffle: καμία επιλογή δεν άλλαξε θέση — το ανακάτεμα δεν εφαρμόζεται')
 
   // Mini κουίζ μέσα σε μάθημα (Εβδ. 2) και σε custom μάθημα (Εβδ. 1).

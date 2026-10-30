@@ -231,6 +231,44 @@ const studyUnits = Object.keys(STUDY_CONTENT.psd115?.units ?? {})
 if (studyUnits.join('|') !== courseDef.units.map((u) => u.id).join('|')) {
   err(`Study adapter: units ${studyUnits.join(',')} ≠ course.js ${courseDef.units.map((u) => u.id).join(',')}`)
 }
+// Μητρώο IDs (Φάση 6a, J4): κάθε μάθημα με περιεχόμενο μελέτης έχει μητρώο· κανένα id δεν επαναχρησιμοποιείται.
+const { checkLedger, checkLedgerHistory, ledgerPath, readLedger } = await imp('scripts/id-ledger.mjs')
+const { execFileSync } = await import('child_process')
+const git = (...args) => execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
+// Βάση σύγκρισης του ιστορικού: το origin/main. Στο GitHub Actions (checkout με fetch-depth: 0) ΠΡΕΠΕΙ να υπάρχει — αλλιώς η
+// απαγόρευση επαναχρησιμοποίησης retired ids δεν επιβάλλεται και ο έλεγχος αποτυγχάνει. Αλλού (τοπικά, build του Vercel, που
+// θέτει CI=1 αλλά κάνει clone χωρίς origin/main): μόνο ενημέρωση — το ιστορικό το επιβάλλει το GitHub CI του PR.
+let baseRef = null
+try {
+  git('rev-parse', '--verify', '--quiet', 'origin/main^{commit}')
+  baseRef = 'origin/main'
+} catch {
+  if (process.env.GITHUB_ACTIONS === 'true') err('Μητρώο IDs: δεν υπάρχει origin/main για τον έλεγχο ιστορικού (στο CI χρειάζεται checkout με fetch-depth: 0)')
+}
+let ledgerIds = 0
+const ledgerHistory = []
+for (const [courseId, c] of Object.entries(STUDY_CONTENT)) {
+  const ledger = readLedger(courseId)
+  if (!ledger) {
+    err(`Μητρώο IDs: λείπει το ${path.relative(root, ledgerPath(courseId))}`)
+    continue
+  }
+  ledgerIds += Object.keys(ledger.ids ?? {}).length
+  for (const e of checkLedger(ledger, { courseId, cards: c.flashcards.map((x) => x.id), questions: c.quizQuestions.map((x) => x.id) })) err(`Μητρώο IDs (${courseId}): ${e}`)
+  if (!baseRef) {
+    ledgerHistory.push(`${courseId}: δεν ελέγχθηκε (χωρίς origin/main)`)
+    continue
+  }
+  const rel = path.relative(root, ledgerPath(courseId)).split(path.sep).join('/')
+  let prev = null
+  try {
+    prev = JSON.parse(git('show', `${baseRef}:${rel}`))
+  } catch {
+    // Το μητρώο δεν υπάρχει ακόμα στη βάση: πρώτη εισαγωγή του (επιτρέπεται· δεν υπάρχει ιστορικό να παραβιαστεί).
+  }
+  if (prev) for (const e of checkLedgerHistory(prev, ledger)) err(`Μητρώο IDs (${courseId}): ${e}`)
+  ledgerHistory.push(`${courseId}: ${prev ? `έναντι του ${baseRef}` : `πρώτη εισαγωγή (δεν υπάρχει στο ${baseRef})`}`)
+}
 let legacyRoutes = new Map()
 try {
   const legacy = await imp('src/core/routing/legacy.js')
@@ -272,3 +310,4 @@ console.log(
     `${registry.enrollments.length} εγγραφές · ${contentIds.length} IDs περιεχομένου συμβατά ως ${CONTENT_COURSE}/<id>`,
 )
 console.log(`✓ Routing έγκυρο: ${topicMap.length} topics · ${legacyRoutes.size} legacy διαδρομές → canonical`)
+console.log(`✓ Μητρώο IDs έγκυρο: ${ledgerIds} ids · ιστορικό: ${ledgerHistory.join(' · ')}`)

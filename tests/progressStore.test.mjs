@@ -10,7 +10,7 @@ import {
   EVENTS_KEY,
   STATE_KEY,
   ProgressStoreError,
-} from '../src/core/progress/progressStore.js'
+} from '../src/core/progress/legacyProgressStore.js'
 import { requestPersistentStorage } from '../src/core/progress/persist.js'
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0)

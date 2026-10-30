@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { quizQuestions } from '../content/courses/psd115/questions.js'
 import { newEventId } from '../src/core/progress/events.js'
 import { MIGRATION_MARKER_KEY, RESET_MARKER_KEY, SHADOW_STATE_KEY, LEGACY_BASELINE_KEY } from '../src/core/progress/keys.js'
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/legacyProgressStore.js'
 import { reconcileShadow } from '../src/core/progress/reconcile.js'
 import { applyImport, resetProgressSafely } from '../src/utils/progressBackup.js'
 import { activateShadow, deactivateShadow, shadowReconciliation } from '../src/utils/progressMigration.js'
@@ -260,21 +260,7 @@ describe('διπλότυπα', () => {
     assert.equal((await r.recordQuizAnswer({ questionId: 'q-w2-var-1', ok: true })).status, 'failed')
     assert.equal(events(s).length, 1)
   })
-  test('ο handler του hook καλεί τον recorder μία φορά, ΕΞΩ από τους setProgress updaters', () => {
-    // Φάση 5: η κλήση του recorder είναι στο createStudyActions (src/core/study/session.js)· το hook δεν τον καλεί.
-    const hook = fs.readFileSync(path.join(root, 'src/hooks/useStudySession.js'), 'utf8')
-    assert.doesNotMatch(hook, /record(QuizAnswer|FlashcardSeen)\(/)
-    const src = fs.readFileSync(path.join(root, 'src/core/study/session.js'), 'utf8')
-    for (const call of ['record.quizAnswer(', 'record.flashcardSeen(']) {
-      const at = [...src.matchAll(new RegExp(call.replace('(', '\\('), 'g'))].map((m) => m.index)
-      assert.equal(at.length, 1, call)
-      // Κάθε updater «setProgress((p) => { … })»: ο recorder δεν βρίσκεται μέσα σε κανέναν.
-      for (const m of src.matchAll(/setProgress\(\(p\) => \{/g)) {
-        const end = src.indexOf('\n    })', m.index)
-        assert.ok(!(at[0] > m.index && at[0] < end), `${call} μέσα σε setProgress updater`)
-      }
-    }
-  })
+  // Φάση 6a: το hook δεν καλεί πια τον shadow recorder (βλ. tests/progressRuntime.test.mjs).
 })
 
 describe('reconciliation', () => {

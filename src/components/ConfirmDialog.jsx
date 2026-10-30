@@ -10,6 +10,7 @@ export default function ConfirmDialog({
   confirmLabel = 'Επιβεβαίωση',
   cancelLabel = 'Άκυρο',
   variant = 'neutral',
+  children = null,
 }) {
   const titleId = useId()
   const descId = useId()
@@ -65,6 +66,7 @@ export default function ConfirmDialog({
         <p id={descId} className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
           {description}
         </p>
+        {children ? <div className="mt-3 max-h-[40vh] overflow-y-auto overscroll-contain text-xs text-slate-700 dark:text-slate-200">{children}</div> : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             ref={cancelRef}

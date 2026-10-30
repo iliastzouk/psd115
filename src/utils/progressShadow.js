@@ -17,7 +17,7 @@
 import { progressItem } from '../core/progress/items.js'
 import { newEventId } from '../core/progress/events.js'
 import { MIGRATION_MARKER_KEY, SHADOW_STATE_KEY } from '../core/progress/keys.js'
-import { createProgressStore, STATE_KEY } from '../core/progress/progressStore.js'
+import { createProgressStore, STATE_KEY } from '../core/progress/legacyProgressStore.js'
 import { CHECKLISTS_STATE_VERSION, checklistsStateKey, WRONG_BOOK_STATE_VERSION, wrongBookStateKey } from '../core/progress/namespaces.js'
 import { WRONG_BOOK_LIMIT } from '../core/progress/progressService.js'
 

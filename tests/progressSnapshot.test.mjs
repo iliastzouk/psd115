@@ -105,6 +105,7 @@ describe('1E-4a · ο engine δεν ξέρει μάθημα, storage, React ή U
       'src/core/progress/events.js',
       'src/core/progress/namespaces.js',
       'src/core/progress/snapshot.js',
+      'src/core/progress/snapshotShape.js',
     ])
   })
 

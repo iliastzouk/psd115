@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/progressStore.js'
+import { createProgressStore, EVENTS_KEY, STATE_KEY } from '../src/core/progress/legacyProgressStore.js'
 import {
   applyImport,
   buildExport,
@@ -336,11 +336,7 @@ describe('reset: δεν παρουσιάζεται ως πλήρες όταν μ
     assert.deepEqual(r.keptStoreKeys, [STATE_KEY])
     assert.equal(s.getItem(STATE_KEY), '{"a":1}')
   })
-  test('το UI παίρνει το κείμενο του reset από το describeReset (όχι σταθερό «όλη η πρόοδος»)', () => {
-    const src = fs.readFileSync(path.join(root, 'src/layouts/AppShell.jsx'), 'utf8')
-    assert.match(src, /describeReset\(\)\.description/)
-    assert.doesNotMatch(src, /όλη η αποθηκευμένη πρόοδος/)
-  })
+  // Φάση 6a: το UI κάνει πλέον reset ανά μάθημα με το studyProgressBackup (βλ. tests/progressRuntime.test.mjs).
 })
 
 describe('καμία εγγραφή στο νέο store στην κανονική εκτέλεση', () => {
@@ -350,17 +346,7 @@ describe('καμία εγγραφή στο νέο store στην κανονικ�
     buildExport('export', s)
     assert.deepEqual(storeKeysIn(s.dump()), [])
   })
-  test('ο κώδικας της εφαρμογής δεν δημιουργεί το νέο store (μόνο το DEV block του main.jsx)', () => {
-    const walk = (dir) =>
-      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]))
-    const users = walk(path.join(root, 'src'))
-      .filter((f) => !f.includes(`${path.sep}core${path.sep}progress${path.sep}`))
-      .filter((f) => /getProgressStore\(|createProgressStore\(/.test(fs.readFileSync(f, 'utf8')))
-      .map((f) => path.relative(root, f))
-    // main.jsx: μόνο στο DEV block. progressMigration: δεν εισάγεται από την εφαρμογή. progressShadow: πίσω από build flag (1E-3).
-    assert.deepEqual(users, ['src/main.jsx', 'src/utils/progressMigration.js', 'src/utils/progressShadow.js'])
-    assert.match(fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8'), /if \(import\.meta\.env\.DEV\) \{[\s\S]*getProgressStore\(\)/)
-  })
+  // Φάση 6a: το νέο store είναι η ενεργή πηγή της εφαρμογής (βλ. tests/progressRuntime.test.mjs).
   test('μόνο το applyImport γράφει κλειδιά του νέου store, και μόνο ως στόχους συναλλαγής', () => {
     const src = fs.readFileSync(path.join(root, 'src/utils/progressBackup.js'), 'utf8')
     assert.doesNotMatch(src, /setItem\((EVENTS_KEY|STATE_KEY)/)

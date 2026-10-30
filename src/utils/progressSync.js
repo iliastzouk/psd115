@@ -4,8 +4,11 @@
  * `service.refresh()` — μόνο ανάγνωση· το service κρίνει μόνο του την τρέχουσα κατάσταση (και το σημάδι) από το storage.
  * Ο listener δεν γράφει ποτέ και δεν συμπεραίνει τίποτα από τα `oldValue`/`newValue` του event.
  */
-import { isProgressKey } from './progressValidate.js'
-import { TXN_KEY } from './progressTransaction.js'
+import { EVENTS_KEY, STATE_KEY } from '../core/progress/progressStore.js'
+import { TXN_KEY } from '../core/progress/transaction.js'
+
+/** Φάση 6a: η πρόοδος είναι ΜΟΝΟ τα δύο κλειδιά του store (+ το σημάδι συναλλαγής). */
+const WATCHED = new Set([EVENTS_KEY, STATE_KEY, TXN_KEY])
 
 /**
  * @param {{ refresh: () => unknown }} service
@@ -16,7 +19,7 @@ export function installStorageSync(service, { target = globalThis.window, storag
   if (!target?.addEventListener) return () => {}
   const onStorage = (e) => {
     if (storage && e.storageArea !== storage) return
-    if (e.key === null || e.key === TXN_KEY || isProgressKey(e.key)) service.refresh()
+    if (e.key === null || WATCHED.has(e.key)) service.refresh()
   }
   target.addEventListener('storage', onStorage)
   return () => target.removeEventListener('storage', onStorage)

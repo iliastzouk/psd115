@@ -1,11 +1,11 @@
 /**
- * Φάση 5 — μελέτη και εμφάνιση προόδου ανά μάθημα (επίπεδο Α, I1–I5). Το storage ΔΕΝ αλλάζει.
+ * Φάση 5 — μελέτη και εμφάνιση προόδου ανά μάθημα (επίπεδο Α, I1–I5). Από τη Φάση 6a πάνω στη νέα υποδομή προόδου.
  *
  *  I1  το μάθημα της συνεδρίας από τη διαδρομή· τρεις ρητές καταστάσεις:
  *        ready        περιεχόμενο + πρόοδος από το service
  *        no-content   χωρίς περιεχόμενο μελέτης (π.χ. psd200)
  *        no-progress  με περιεχόμενο αλλά χωρίς υποστήριξη προόδου από το service
- *      εκτός ready: κενή πρόοδος μόνο για ανάγνωση· καμία εγγραφή, κανένας recorder, καμία αλλαγή στα δεδομένα PSD115
+ *      εκτός ready: κενή πρόοδος μόνο για ανάγνωση· καμία εγγραφή, καμία αλλαγή στα δεδομένα PSD115
  *  I2  κατηγορίες / ετικέτες / ερωτήσεις από το STUDY_CONTENT του μαθήματος· κανένα κρυφό fallback στο PSD115
  *  I4  guard: απευθείας imports από content/courses/psd115/ μόνο σε ρητή allowlist
  *  I5  ισοδυναμία για το PSD115 (k1, k2, όλο το μάθημα, ετικέτες wrongBook)
@@ -15,61 +15,35 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createProgressService } from '../src/core/progress/progressService.js'
-import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
-import { createLegacyProgressBackend } from '../src/utils/legacyProgressBackend.js'
-import { TXN_KEY } from '../src/utils/progressTransaction.js'
+import { TXN_KEY } from '../src/core/progress/transaction.js'
 import { applyChecklistUpdate } from '../src/hooks/useProgress.js'
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 import { scopedProgress } from '../src/components/progressDisplay.js'
 import * as psd115Questions from '../content/courses/psd115/questions.js'
 import * as session from '../src/core/study/session.js'
 import * as display from '../src/components/progressDisplay.js'
+import { studyContentAdapters } from '../src/core/progress/adapters/studyContent.js'
+import { EVENTS_KEY, STATE_KEY, fakeStorage, service } from './helpers/progressFixtures.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const PROD = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.production-2026-10-05.json'), 'utf8')).keys
-const STUDY = 'psd115-w1-study'
+// Φάση 6a: η πρόοδος του PSD115 στη νέα μορφή — ίδια δεδομένα με το production fixture της Φάσης 4, ως πραγματικά events
+// (21 κάρτες της k1, μία λάθος απάντηση της k2 με την εγγραφή της στο wrongBook, δύο checklists).
+const SAMPLE = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/study-progress.sample.json'), 'utf8'))
+const INIT = { [EVENTS_KEY]: JSON.stringify(SAMPLE.events), [STATE_KEY]: JSON.stringify(SAMPLE.state) }
+const storage = () => fakeStorage(INIT)
+const serviceOn = (s) => service(s, { adapters: studyContentAdapters() })
 
-
-function storage(init = PROD) {
-  const m = new Map(Object.entries(init))
-  const writes = []
+/** Spy: ποιες ενέργειες έφτασαν στο service (forCourse + ενέργεια). */
+function spied(svc, log) {
   return {
-    get length() {
-      return m.size
+    ...svc,
+    refresh: () => (log.push(['refresh']), svc.refresh()),
+    forCourse(courseId) {
+      const a = svc.forCourse(courseId)
+      const wrap = (name) => (...args) => (log.push([name, courseId, ...args]), a[name](...args))
+      return { markCardSeen: wrap('markCardSeen'), answerQuestion: wrap('answerQuestion'), clearWrongBook: wrap('clearWrongBook'), removeWrong: wrap('removeWrong'), setChecklist: wrap('setChecklist') }
     },
-    key: (i) => [...m.keys()][i] ?? null,
-    getItem: (k) => (m.has(k) ? m.get(k) : null),
-    setItem(k, v) {
-      writes.push(k)
-      m.set(k, String(v))
-    },
-    removeItem(k) {
-      writes.push(`-${k}`)
-      m.delete(k)
-    },
-    dump: () => Object.fromEntries(m),
-    writes,
   }
-}
-const serviceOn = (s) => createProgressService({ courseId: 'psd115', content, backend: createLegacyProgressBackend(s), warn: () => {} })
-
-/** Recorders (shadow) με καταγραφή κλήσεων· ίδια ονόματα με το useStudySession. */
-function recorders(log) {
-  return {
-    flashcardSeen: (a) => log.push(['flashcardSeen', a]),
-    quizAnswer: (a) => log.push(['quizAnswer', a]),
-    wrongBookClear: () => log.push(['wrongBookClear']),
-    wrongBookRemove: (a) => log.push(['wrongBookRemove', a]),
-  }
-}
-/** Spy στο service: σειρά κλήσεων (refresh → recorder → ενέργεια). */
-function spied(service, log) {
-  const wrap = (name) => (...a) => {
-    log.push([name])
-    return service[name](...a)
-  }
-  return { ...service, refresh: wrap('refresh'), markCardSeen: wrap('markCardSeen'), answerQuestion: wrap('answerQuestion'), clearWrongBook: wrap('clearWrongBook'), removeWrong: wrap('removeWrong') }
 }
 
 // Μάθημα με περιεχόμενο αλλά χωρίς πρόοδο στο service. Επίτηδες με ids ΚΑΡΤΑΣ/ΕΡΩΤΗΣΗΣ που υπάρχουν και στο PSD115:
@@ -87,7 +61,7 @@ const DEMO = Object.freeze({
 const wrong = { uid: 'u-phase5', question: 'Q', explanation: 'E', userLabel: 'A', correctLabel: 'B' }
 /** Όλες οι ενέργειες της συνεδρίας μία φορά, με ids που υπάρχουν στο PSD115. */
 function runAll(actions) {
-  const PROD_UID = JSON.parse(PROD[STUDY]).wrongBook[0].uid
+  const PROD_UID = SAMPLE.state['progress:wrongbook:psd115'].entries[0].uid
   return [
     actions.markCardSeen('fc-freud-1'),
     actions.answer({ questionId: 'q-def-1', ok: false, wrong }),
@@ -98,8 +72,8 @@ function runAll(actions) {
 }
 function assertUntouched(s, svc, before) {
   assert.deepEqual(s.writes, [], 'καμία εγγραφή/διαγραφή στο storage')
-  assert.deepEqual(s.dump(), PROD, 'τα κλειδιά byte-identical')
-  assert.equal(Object.keys(s.dump()).some((k) => k.startsWith('study-progress-') || k === TXN_KEY), false, 'κανένα migration / σημάδι')
+  assert.deepEqual(s.dump(), INIT, 'τα κλειδιά byte-identical')
+  assert.equal(TXN_KEY in s.dump(), false, 'κανένα σημάδι')
   assert.equal(svc.getSnapshot(), before, 'το snapshot του service ίδιο αντικείμενο')
 }
 
@@ -156,7 +130,7 @@ describe('Φάση 5 I1 — πρόοδος της συνεδρίας', () => {
   test('ready → το snapshot του service (ίδιο αντικείμενο)', () => {
     const svc = serviceOn(storage())
     const state = svc.getSnapshot()
-    assert.equal(session.sessionProgress(state, session.studyCourse('psd115', svc.courseId)), state.courses.psd115)
+    assert.equal(session.sessionProgress(state, session.studyCourse('psd115', svc.supports)), state.courses.psd115)
   })
 
   test('no-content / no-progress → κενή, παγωμένη πρόοδος του ίδιου μαθήματος· όχι του PSD115', () => {
@@ -176,61 +150,53 @@ describe('Φάση 5 I1 — πρόοδος της συνεδρίας', () => {
 })
 
 describe('Φάση 5 I1 — ενέργειες της συνεδρίας', () => {
-  test('ready (psd115): ίδια σειρά με πριν — refresh → recorder → service — και αποθηκεύεται', () => {
+  test('ready (psd115): κάθε ενέργεια → forCourse(psd115) του service (Φάση 6a, χωρίς recorder) — και αποθηκεύεται', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
-    const actions = session.createStudyActions({ course: session.studyCourse('psd115', svc.courseId), service: spied(svc, log), record: recorders(log) })
+    const actions = session.createStudyActions({ course: session.studyCourse('psd115', svc.supports), service: spied(svc, log) })
     assert.equal(actions.markCardSeen('fc-freud-1'), true)
-    assert.deepEqual(log.map((x) => x[0]), ['refresh', 'flashcardSeen', 'markCardSeen'])
-    assert.ok(JSON.parse(s.getItem(STUDY)).flashcardSeenIds.includes('fc-freud-1'))
-
-    log.length = 0
     assert.equal(actions.answer({ questionId: 'q-def-1', ok: false, wrong }), true)
-    assert.deepEqual(log.map((x) => x[0]), ['refresh', 'quizAnswer', 'answerQuestion'])
-    assert.deepEqual(log[1][1], { questionId: 'q-def-1', ok: false, wrong })
-    log.length = 0
     assert.equal(actions.removeWrong('u-phase5'), true)
-    assert.deepEqual(log.map((x) => x[0]), ['refresh', 'wrongBookRemove', 'removeWrong'])
-    log.length = 0
     assert.equal(actions.clearWrongBook(), true)
-    assert.deepEqual(log.map((x) => x[0]), ['refresh', 'wrongBookClear', 'clearWrongBook'])
-    assert.deepEqual(JSON.parse(s.getItem(STUDY)).wrongBook, [])
+    assert.deepEqual(log.map((x) => x.slice(0, 2)), [['markCardSeen', 'psd115'], ['answerQuestion', 'psd115'], ['removeWrong', 'psd115'], ['clearWrongBook', 'psd115']])
+    assert.deepEqual(log[1][2], { questionId: 'q-def-1', ok: false, wrong })
+    const p = svc.getSnapshot().courses.psd115
+    assert.ok(p.flashcardSeenIds.includes('psd115/fc-freud-1'))
+    assert.deepEqual([p.quizAnswered, p.wrongBook], [2, []])
   })
 
-  test('no-content (psd200): καμία ενέργεια δεν φτάνει στο service ή στον recorder· τα δεδομένα PSD115 ανέγγιχτα', () => {
+  test('no-content (psd200): καμία ενέργεια δεν φτάνει στο service· τα δεδομένα PSD115 ανέγγιχτα', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
     const before = svc.getSnapshot()
-    const actions = session.createStudyActions({ course: session.studyCourse('psd200', svc.courseId), service: spied(svc, log), record: recorders(log) })
+    const actions = session.createStudyActions({ course: session.studyCourse('psd200', svc.supports), service: spied(svc, log) })
     assert.deepEqual(runAll(actions), [false, false, false, false, false])
-    assert.deepEqual(log, [], 'ούτε refresh, ούτε recorder, ούτε service')
+    assert.deepEqual(log, [], 'καμία κλήση στο service')
     assertUntouched(s, svc, before)
   })
 
-  test('no-progress (ids που υπάρχουν στο PSD115): καμία εγγραφή, κανένας recorder, καμία αλλαγή στο PSD115', () => {
+  test('no-progress (ids που υπάρχουν στο PSD115): καμία εγγραφή, καμία αλλαγή στο PSD115', () => {
     const s = storage()
     const log = []
     const svc = serviceOn(s)
     const before = svc.getSnapshot()
-    const actions = session.createStudyActions({ course: session.studyCourse('demo', svc.courseId, DEMO), service: spied(svc, log), record: recorders(log) })
+    const actions = session.createStudyActions({ course: session.studyCourse('demo', svc.supports, DEMO), service: spied(svc, log) })
     assert.deepEqual(runAll(actions), [false, false, false, false, false])
     assert.deepEqual(log, [])
     assertUntouched(s, svc, before)
   })
 
-  test('checklist άλλου μαθήματος: ούτε refresh, ούτε recorder, ούτε εγγραφή στο PSD115', () => {
+  test('checklist άλλου μαθήματος: ούτε refresh, ούτε εγγραφή στο PSD115', () => {
     const s = storage()
     const svc = serviceOn(s)
     const before = svc.getSnapshot()
-    const rec = []
-    let refreshed = 0
-    const service = { ...svc, refresh: () => void (refreshed += 1) }
+    const log = []
     // Υπαρκτό topic του PSD115 (pavlov): χωρίς τον έλεγχο, θα γραφόταν στο checklist του PSD115.
-    const r = applyChecklistUpdate({ service, courseId: 'psd200', topicId: 'pavlov', length: 9, next: (p) => p.map(() => true), record: (x) => rec.push(x) })
+    const r = applyChecklistUpdate({ service: spied(svc, log), courseId: 'psd200', topicId: 'pavlov', length: 9, next: (p) => p.map(() => true) })
     assert.equal(r, false)
-    assert.deepEqual([rec, refreshed], [[], 0])
+    assert.deepEqual(log, [])
     assertUntouched(s, svc, before)
   })
 })
@@ -243,9 +209,9 @@ describe('Φάση 5 I2 / I5 — περιεχόμενο από το STUDY_CONTEN
     assert.equal(STUDY_CONTENT.psd115.getCategoryLabel('άγνωστη'), 'άγνωστη')
   })
 
-  test('ετικέτα wrongBook του production fixture: ίδια με πριν', () => {
+  test('ετικέτα wrongBook του fixture (ίδιο λάθος με το production fixture): ίδια με πριν', () => {
     const svc = serviceOn(storage())
-    const c = session.studyCourse('psd115', svc.courseId)
+    const c = session.studyCourse('psd115', svc.supports)
     const [w] = session.sessionProgress(svc.getSnapshot(), c).wrongBook
     assert.equal(w.group, 'w2-variables')
     assert.equal(c.content.getCategoryLabel(w.group), 'Εβδ.2 — Μεταβλητές & συσχέτιση')
@@ -263,7 +229,7 @@ describe('Φάση 5 I2 / I5 — περιεχόμενο από το STUDY_CONTEN
     assert.equal(k2.totalQuiz, psd115Questions.quizQuestions.filter((q) => k2ids.has(q.categoryId)).length)
     assert.deepEqual([k2.scope.kind, k2.scope.cardIds.length], ['unit', 56])
 
-    // Τιμές με το production fixture, όπως στη Φάση 4.
+    // Τιμές από τα events του fixture (ίδια δεδομένα με το production fixture της Φάσης 4).
     const p = serviceOn(storage()).getSnapshot().courses.psd115
     const k1 = display.progressPageView({ kind: 'progress', scope: { kind: 'unit', courseId: 'psd115', unitId: 'k1' }, courseId: 'psd115', unitId: 'k1' }, ready)
     assert.deepEqual(scopedProgress(p, k1.scope), { quizCorrect: 0, quizAnswered: 0, seenCards: 21, totalCards: 94 })
