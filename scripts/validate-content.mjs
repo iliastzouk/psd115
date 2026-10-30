@@ -235,14 +235,15 @@ if (studyUnits.join('|') !== courseDef.units.map((u) => u.id).join('|')) {
 const { checkLedger, checkLedgerHistory, ledgerPath, readLedger } = await imp('scripts/id-ledger.mjs')
 const { execFileSync } = await import('child_process')
 const git = (...args) => execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
-// Βάση σύγκρισης του ιστορικού: το origin/main. Στο CI (checkout με fetch-depth: 0) ΠΡΕΠΕΙ να υπάρχει — αλλιώς η απαγόρευση
-// επαναχρησιμοποίησης retired ids δεν επιβάλλεται και ο έλεγχος αποτυγχάνει. Τοπικά, χωρίς origin/main: μόνο ενημέρωση.
+// Βάση σύγκρισης του ιστορικού: το origin/main. Στο GitHub Actions (checkout με fetch-depth: 0) ΠΡΕΠΕΙ να υπάρχει — αλλιώς η
+// απαγόρευση επαναχρησιμοποίησης retired ids δεν επιβάλλεται και ο έλεγχος αποτυγχάνει. Αλλού (τοπικά, build του Vercel, που
+// θέτει CI=1 αλλά κάνει clone χωρίς origin/main): μόνο ενημέρωση — το ιστορικό το επιβάλλει το GitHub CI του PR.
 let baseRef = null
 try {
   git('rev-parse', '--verify', '--quiet', 'origin/main^{commit}')
   baseRef = 'origin/main'
 } catch {
-  if (process.env.CI) err('Μητρώο IDs: δεν υπάρχει origin/main για τον έλεγχο ιστορικού (στο CI χρειάζεται checkout με fetch-depth: 0)')
+  if (process.env.GITHUB_ACTIONS === 'true') err('Μητρώο IDs: δεν υπάρχει origin/main για τον έλεγχο ιστορικού (στο CI χρειάζεται checkout με fetch-depth: 0)')
 }
 let ledgerIds = 0
 const ledgerHistory = []

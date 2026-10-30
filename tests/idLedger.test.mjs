@@ -70,9 +70,11 @@ describe('review #18 · το ιστορικό ελέγχεται αξιόπισ�
   test('το CI κάνει checkout με fetch-depth: 0 (υπάρχει το origin/main)', () => {
     assert.match(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8'), /actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/)
   })
-  test('validate:content: στο CI, χωρίς origin/main → σφάλμα· με μητρώο στη βάση → checkLedgerHistory', () => {
+  test('validate:content: στο GitHub Actions, χωρίς origin/main → σφάλμα· με μητρώο στη βάση → checkLedgerHistory', () => {
     const v = fs.readFileSync(path.join(root, 'scripts/validate-content.mjs'), 'utf8')
-    assert.match(v, /if \(process\.env\.CI\) err\('Μητρώο IDs: δεν υπάρχει origin\/main/)
+    assert.match(v, /if \(process\.env\.GITHUB_ACTIONS === 'true'\) err\('Μητρώο IDs: δεν υπάρχει origin\/main/)
+    // Το Vercel θέτει CI=1 και κάνει clone χωρίς origin/main: εκεί ΔΕΝ πρέπει να σταματά το build (review #18, deploy).
+    assert.doesNotMatch(v, /process\.env\.CI\b/)
     assert.match(v, /if \(prev\) for \(const e of checkLedgerHistory\(prev, ledger\)\) err\(/)
   })
 })

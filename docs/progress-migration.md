@@ -571,8 +571,9 @@ checklists κενά }`· τα events δεν σβήνονται (append-only, κ�
   migration και το async API του store είναι στο `legacyProgressStore.js`, που το χρησιμοποιεί μόνο ο legacy κώδικας μέχρι
   το 6b. Το σχήμα του Snapshot είναι στο `snapshotShape.js`· η εφαρμογή δεν φορτώνει πια ούτε `boundary.js` / `keys.js` ούτε
   τις legacy μετατροπές του `snapshot.js` (guard: `progressRuntime`).
-- Μητρώο IDs: το CI κάνει checkout με `fetch-depth: 0` και ο `validate:content` αποτυγχάνει στο CI αν λείπει το
-  `origin/main`· η πρώτη εισαγωγή ενός μητρώου (δεν υπάρχει ακόμα στη βάση) αναφέρεται ρητά.
+- Μητρώο IDs: το GitHub CI κάνει checkout με `fetch-depth: 0` και ο `validate:content` αποτυγχάνει στο GitHub Actions αν
+  λείπει το `origin/main`· η πρώτη εισαγωγή ενός μητρώου (δεν υπάρχει ακόμα στη βάση) αναφέρεται ρητά. Στο build του Vercel
+  (CI=1, χωρίς origin/main) ο έλεγχος ιστορικού παραλείπεται με μήνυμα, ώστε να μη σταματά το deploy.
 
 Tests: `courseProgress`, `storeProgressService`, `progressResetImport`, `progressMultiTab`, `progressRuntime`, `idLedger`,
 `studyCourse`· smoke: `smoke-progress` (ξαναγράφτηκε για το νέο store), `smoke-routes` (export / import / reset).
