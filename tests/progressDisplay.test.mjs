@@ -15,13 +15,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { flashcards, WEEK1_CATEGORIES, WEEK2_CATEGORIES, CATEGORIES } from '../content/courses/psd115/questions.js'
-import { legacyToSnapshot } from '../src/core/progress/snapshot.js'
-import { psd115ProgressAdapter as content } from '../src/core/progress/adapters/psd115.js'
 import { courseProgress } from '../src/core/progress/courseProgress.js'
 import { studyContentAdapters } from '../src/core/progress/adapters/studyContent.js'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const fixture = (name) => JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures', name), 'utf8')).keys
 /**
  * Φάση 6b: το snapshot μέσω της ενεργής υποδομής (courseProgress + adapter του STUDY_CONTENT) από το
  * study-progress.sample.json — ίδιο με το snapshot του παλιού production fixture (21 κάρτες της k1, 1 λάθος της k2).
@@ -109,17 +106,7 @@ describe('H4 · ολόκληρο μάθημα: οι υπάρχοντες συν�
   })
 })
 
-describe('H1 · χωρίς storage.js — ανεξάρτητες αναμενόμενες τιμές', () => {
-  test('ο reader της εφαρμογής φορτώνει αυτούσια την πρόοδο του δείγματος (τιμές του fixture)', () => {
-    const keys = fixture('progress-export.sample.json')
-    const r = legacyToSnapshot(keys, { content, mode: 'runtime' })
-    assert.equal(r.ok, true)
-    const study = JSON.parse(keys['psd115-w1-study'])
-    assert.deepEqual({ a: r.snapshot.quizAnswered, c: r.snapshot.quizCorrect }, { a: study.quizAnswered, c: study.quizCorrect })
-    assert.deepEqual([...r.snapshot.flashcardSeenIds].sort(), study.flashcardSeenIds.map((id) => `psd115/${id}`).sort())
-    assert.deepEqual(r.snapshot.checklists.pavlov.items, [true, false, true])
-    assert.deepEqual(r.snapshot.checklists['research-methods-overview'].items, [true, true, false])
-  })
+describe('H1 · χωρίς storage.js', () => {
   test('το src/utils/storage.js δεν υπάρχει και κανένα αρχείο δεν το εισάγει', () => {
     assert.equal(fs.existsSync(path.join(root, 'src/utils/storage.js')), false)
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))

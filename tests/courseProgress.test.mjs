@@ -182,10 +182,10 @@ describe('J5 · canonicalWrongBook — μία κανονικοποίηση', () 
   })
   test('guard: καμία άλλη ταξινόμηση ή αποκοπή wrongBook στο src/', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
-    const legacy = /(progressService|legacyProgressBackend|progressShadow|progressMigration|snapshot|legacyBaseline|reconcile|progressBackup|progressValidate)\.js$/
-    for (const f of walk(path.join(root, 'src')).filter((x) => /\.(js|jsx)$/.test(x) && !legacy.test(x))) {
+    for (const f of walk(path.join(root, 'src')).filter((x) => /\.(js|jsx)$/.test(x))) {
       const code = fs.readFileSync(f, 'utf8')
-      if (f.endsWith('courseProgress.js')) continue
+      // Η ΜΟΝΗ εξαίρεση: η ίδια η κανονικοποίηση (canonicalWrongBook: sort, slice, WRONG_BOOK_LIMIT).
+      if (path.relative(root, f) === 'src/core/progress/courseProgress.js') continue
       assert.doesNotMatch(code, /wrongBook[^\n]*\.(sort|slice\(-)/, path.relative(root, f))
       assert.doesNotMatch(code, /WRONG_BOOK_LIMIT/, `${path.relative(root, f)}: το όριο εφαρμόζεται μόνο στο canonicalWrongBook`)
     }
