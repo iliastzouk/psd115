@@ -4,11 +4,11 @@
  * - events: append-only log (δες ./events.js). Ποτέ update/overwrite/delete.
  * - state: μικρές μεταβλητές τιμές που δεν είναι events (checklists, ρυθμίσεις…).
  * - Backend: localStorage, σε δικό του namespace (ΟΧΙ `psd115-*`).
- * - API async ώστε αργότερα να αλλάξει backend (IndexedDB / server) χωρίς αλλαγές στους καλούντες.
+ * - API σύγχρονο (createStoreCore)· βλ. το trade-off παρακάτω για μελλοντικό async backend.
  *
  * Παράγωγες τιμές (ακρίβεια, mastery, σύνολα…) δεν αποθηκεύονται ποτέ — υπολογίζονται από τα events.
  */
-import { sameEvent, validateEvent } from './events.js'
+import { validateEvent } from './events.js'
 import { resetViolations } from './resetBoundary.js'
 import { ProgressTransactionError, runTransaction, TXN_KEY } from './transaction.js'
 
@@ -33,20 +33,16 @@ export class ProgressStoreError extends Error {
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /**
- * Σύγχρονος πυρήνας του store (Φάση 6a, J2): ΜΙΑ υλοποίηση ανάγνωσης, επικύρωσης και εγγραφής. Ο ProgressService τον
- * χρησιμοποιεί απευθείας (σύγχρονη ανάγνωση πριν από το πρώτο render)· οι async μέθοδοι του createProgressStore
- * (legacyProgressStore.js) είναι λεπτά περιτυλίγματα του ίδιου πυρήνα.
+ * Σύγχρονος πυρήνας του store (Φάση 6a, J2): ΜΙΑ υλοποίηση ανάγνωσης, επικύρωσης και εγγραφής. Τον χρησιμοποιούν ο
+ * ProgressService (σύγχρονη ανάγνωση πριν από το πρώτο render) και το studyProgressBackup (export, reset).
  *
  * Trade-off: η εφαρμογή εξαρτάται πλέον από σύγχρονο storage (localStorage). Μετάβαση σε IndexedDB θα χρειαστεί async
  * εκκίνηση με κατάσταση «φόρτωση», όχι απλή αλλαγή backend.
- * Ο πυρήνας δεν ξέρει τίποτα για το migration — ο μόνος έλεγχος ορίου είναι το reset ανά μάθημα. Ο legacy κώδικας
- * (legacyProgressStore.js, μέχρι το 6b) προσθέτει τους δικούς του ελέγχους μέσω των προαιρετικών hooks.
+ * Ο μόνος έλεγχος ορίου είναι το reset ανά μάθημα (resetBoundary.js).
  * @param {Storage} storage
- * @param {{ now?: () => number,
- *           extraViolations?: (events: object[], nextState: object) => string[],  // legacy: όριο migration
- *           importCheck?: (currentState: object, data: object) => void }} [opts]  // legacy: πετάει ProgressStoreError
+ * @param {{ now?: () => number }} [opts]
  */
-export function createStoreCore(storage, { now = () => Date.now(), extraViolations, importCheck } = {}) {
+export function createStoreCore(storage, { now = () => Date.now() } = {}) {
   const store = storage
   if (!store) throw new ProgressStoreError('Δεν υπάρχει διαθέσιμο storage')
 
@@ -82,7 +78,7 @@ export function createStoreCore(storage, { now = () => Date.now(), extraViolatio
   /**
    * Γράφει events και/ή state. Το localStorage δεν έχει συναλλαγές· η εγγύηση είναι της εφαρμογής:
    *  - ΕΝΑ κλειδί: ένα setItem (είτε γράφεται είτε μένει η παλιά τιμή) → αποτυχία = `not-started`.
-   *  - ΔΥΟ κλειδιά (commit event + state, importAll): μέσω runTransaction (σημάδι → εγγραφή → επαλήθευση → rollback με
+   *  - ΔΥΟ κλειδιά (commit events + state): μέσω runTransaction (σημάδι → εγγραφή → επαλήθευση → rollback με
    *    επαλήθευση). Αν και το rollback δεν ολοκληρωθεί, το σφάλμα λέει ρητά `rollback-incomplete` (ΟΧΙ «δεν άλλαξε τίποτα»)
    *    και το σημάδι μένει: το recoverInterrupted της εκκίνησης ολοκληρώνει ή επαναφέρει.
    *  - Όσο υπάρχει σημάδι μη ολοκληρωμένης αλλαγής, ΚΑΜΙΑ εγγραφή του store (η ανάκτηση θα έσβηνε ό,τι γραφτεί ενδιάμεσα).
@@ -119,9 +115,8 @@ export function createStoreCore(storage, { now = () => Date.now(), extraViolatio
   }
 
   /**
-   * Ατομική εγγραφή events ΚΑΙ state (Phase 1E-4c-2): είτε γράφονται όλα, είτε τίποτα.
-   * Ίδιοι έλεγχοι με το παλιό append για κάθε event (schema, μοναδικό id στο log και στο batch, όριο migration)
-   * + όριο reset ανά μάθημα. `state`: patch ανά κλειδί (`undefined` = αφαίρεση· τα άλλα κλειδιά μένουν).
+   * Ατομική εγγραφή events ΚΑΙ state: είτε γράφονται όλα, είτε τίποτα. Για κάθε event: schema, μοναδικό id στο log και
+   * στο batch, όριο reset ανά μάθημα. `state`: patch ανά κλειδί (`undefined` = αφαίρεση· τα άλλα κλειδιά μένουν).
    * @param {{ events?: import('./events.js').ProgressEvent[], state?: Record<string, unknown> }} change
    */
   function commitSync({ events = [], state = {} } = {}) {
@@ -148,54 +143,16 @@ export function createStoreCore(storage, { now = () => Date.now(), extraViolatio
         nextState[key] = JSON.parse(json)
       }
     }
-    // Όριο reset ανά μάθημα (1E-4c-2) — και, μόνο για τον legacy κώδικα, όριο migration — με το state μετά το commit.
-    const late = [...(extraViolations?.(events, nextState) ?? []), ...resetViolations(events, nextState)]
+    // Όριο reset ανά μάθημα, με το state μετά το commit (ένα reset στο ίδιο commit ισχύει για τα events του).
+    const late = resetViolations(events, nextState)
     if (late.length) {
-      const e = new ProgressStoreError('Event πριν από το όριο migration/reset· δεν γράφτηκε τίποτα', late)
+      const e = new ProgressStoreError('Event πριν από το όριο reset του μαθήματος· δεν γράφτηκε τίποτα', late)
       e.code = 'boundary'
       throw e
     }
 
     writeAtomic(events.length ? [...current, ...events.map((e) => ({ ...e }))] : null, Object.keys(state).length ? nextState : null)
     return { events: events.length, stateKeys: Object.keys(state).length }
-  }
-
-  function importAllSync(data) {
-    const errors = []
-    if (!isPlainObject(data)) throw new ProgressStoreError('Το αρχείο δεν είναι αντικείμενο')
-    if (data.format !== EXPORT_FORMAT) errors.push(`άγνωστο format ${JSON.stringify(data.format)}`)
-    if (data.version !== EXPORT_VERSION) errors.push(`μη υποστηριζόμενη έκδοση ${JSON.stringify(data.version)}`)
-    if (!Array.isArray(data.events)) errors.push('λείπει ο πίνακας events')
-    if (!isPlainObject(data.state)) errors.push('λείπει το αντικείμενο state')
-    if (errors.length) throw new ProgressStoreError('Μη συμβατό αρχείο', errors)
-
-    const seen = new Set()
-    data.events.forEach((ev, i) => {
-      const r = validateEvent(ev)
-      if (!r.ok) errors.push(`events[${i}]: ${r.errors.join(', ')}`)
-      else if (seen.has(ev.id)) errors.push(`events[${i}]: διπλό id ${ev.id} μέσα στο αρχείο`)
-      seen.add(ev?.id)
-    })
-    if (errors.length) throw new ProgressStoreError('Άκυρα events· δεν εισήχθη τίποτα', errors)
-
-    const currentState = readState()
-    importCheck?.(currentState, data)
-
-    const current = readEvents()
-    const byId = new Map(current.map((e) => [e.id, e]))
-    const added = []
-    let skipped = 0
-    for (const ev of data.events) {
-      const existing = byId.get(ev.id)
-      if (!existing) added.push({ ...ev })
-      else if (sameEvent(existing, ev)) skipped += 1
-      else errors.push(`το id ${ev.id} υπάρχει ήδη με διαφορετικό περιεχόμενο`)
-    }
-    if (errors.length) throw new ProgressStoreError('Σύγκρουση με υπάρχοντα events· δεν εισήχθη τίποτα', errors)
-
-    const state = { ...currentState, ...JSON.parse(JSON.stringify(data.state)) }
-    writeAtomic([...current, ...added], state)
-    return { added: added.length, skipped, stateKeys: Object.keys(data.state).length }
   }
 
   return Object.freeze({
@@ -207,10 +164,8 @@ export function createStoreCore(storage, { now = () => Date.now(), extraViolatio
     parseRaw: (raw) => ({ events: parseEvents(raw.events), state: parseState(raw.state) }),
     /** Υπάρχει σημάδι μη ολοκληρωμένης συναλλαγής (εκκρεμές ή κατεστραμμένο); Αν το storage πετάξει, πετάει. */
     pending: () => store.getItem(TXN_KEY) !== null,
-    readEvents,
     readState,
     commitSync,
-    importAllSync,
     exportSync: () => ({
       format: EXPORT_FORMAT,
       version: EXPORT_VERSION,

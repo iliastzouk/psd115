@@ -18,7 +18,7 @@
  * Όλες οι συναρτήσεις παίρνουν `storage` (getItem/setItem/removeItem) ώστε να ελέγχονται σε Node.
  */
 
-/** Εκτός `psd115-*` (δεν μπαίνει σε export) και εκτός `study-progress-*` (δεν είναι πρόοδος). */
+/** Εκτός `study-progress-*`: δεν είναι πρόοδος (το raw export / backup το κρατά αυτούσιο). */
 export const TXN_KEY = 'progress-txn-v1'
 const TXN_VERSION = 1
 

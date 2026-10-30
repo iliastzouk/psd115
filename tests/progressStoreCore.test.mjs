@@ -50,6 +50,21 @@ describe('validateEvent', () => {
   })
 })
 
+describe('createStoreCore · API (Φάση 6b: χωρίς τα legacy readEvents / importAllSync / hooks)', () => {
+  test('ακριβώς οι μέθοδοι της ενεργής υποδομής', () => {
+    assert.deepEqual(Object.keys(createStoreCore(fakeStorage())), ['readRaw', 'readSync', 'parseRaw', 'pending', 'readState', 'commitSync', 'exportSync'])
+    assert.ok(Object.isFrozen(createStoreCore(fakeStorage())))
+  })
+  test('παλιά hooks (extraViolations / importCheck) δεν έχουν καμία επίδραση', () => {
+    const s = fakeStorage()
+    const calls = []
+    const c = createStoreCore(s, { now: () => T0, extraViolations: () => (calls.push('extra'), ['x']), importCheck: () => calls.push('import') })
+    c.commitSync({ events: [ev()], state: { x: 1 } })
+    assert.deepEqual(calls, [])
+    assert.equal(JSON.parse(s.getItem(EVENTS_KEY)).length, 1)
+  })
+})
+
 describe('createStoreCore · ανάγνωση', () => {
   test('χωρίς storage → ProgressStoreError', () => {
     assert.throws(() => createStoreCore(null), ProgressStoreError)
@@ -164,7 +179,7 @@ describe('commitSync · όριο reset ανά μάθημα', () => {
   test('event του μαθήματος πριν από το reset του → απόρριψη (code boundary), τίποτα δεν γράφεται', () => {
     const before = { [STATE_KEY]: JSON.stringify(state) }
     const s = fakeStorage(before)
-    assert.throws(() => core(s).commitSync({ events: [ev(at - 1)] }), (e) => e.code === 'boundary' && /reset/.test(e.message) && e.details.length === 1)
+    assert.throws(() => core(s).commitSync({ events: [ev(at - 1)] }), (e) => e.code === 'boundary' && e.message.startsWith('Event πριν από το όριο reset του μαθήματος· δεν γράφτηκε τίποτα') && !/migration/.test(e.message) && e.details.length === 1)
     assert.deepEqual(s.dump(), before)
   })
   test('στο όριο (t === at) και μετά → δεκτό· άλλο μάθημα → ανεπηρέαστο', () => {

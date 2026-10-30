@@ -7,8 +7,6 @@
  *   progress:wrongbook:<courseId>    { version: 1, entries: WrongEntry[] }
  *   progress:checklists:<courseId>   { version: 1, topics: { [topicId]: { items: boolean[] } } }
  *   progress:reset:<courseId>        { at: ISO 8601, reason?: string }
- *
- * Τα ιστορικά artifacts του migration (baseline, σημάδι, shadow) κρατούν τα δικά τους κλειδιά (keys.js).
  */
 import { isCourseId } from '../academic/ids.js'
 

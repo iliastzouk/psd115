@@ -1,5 +1,5 @@
 /**
- * Σχήμα του Snapshot προόδου ενός μαθήματος (v1) — κοινό για την ενεργή υποδομή (courseProgress) και τον legacy κώδικα.
+ * Σχήμα του Snapshot προόδου ενός μαθήματος (v1), όπως το υπολογίζει το courseProgress.
  *
  *   { format: 'progress-snapshot', version: 1, courseId, quizAnswered, quizCorrect, byGroup, flashcardSeenIds, wrongBook, checklists }
  */

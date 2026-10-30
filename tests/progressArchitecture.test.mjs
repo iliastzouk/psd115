@@ -81,12 +81,33 @@ describe('contract του content adapter', () => {
     const { isCard: _isCard, ...missing } = a
     assert.match(checkContentAdapter(missing, 'psd115').join(), /λείπει το isCard\(\)/)
   })
+  test('Φάση 6b: κανένα legacy πεδίο στο contract — οι adapters δεν έχουν `legacy`, ο έλεγχος δεν το εξετάζει', () => {
+    for (const a of Object.values(studyContentAdapters())) assert.equal('legacy' in a, false)
+    assert.equal('legacy' in unknownCourseAdapter('psd125'), false)
+    assert.deepEqual(checkContentAdapter({ ...studyContentAdapters().psd115, legacy: {} }, 'psd115'), [])
+    assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/core/progress/contentAdapter.js'), 'utf8'), /legacy|LegacyCodec|decode\(|encode\(/i)
+  })
   test('unknownCourseAdapter: δεν επινοεί τίποτα· άκυρο courseId → σφάλμα', () => {
     const u = unknownCourseAdapter('psd210')
     assert.ok(Object.isFrozen(u))
     for (const f of ['hasGroup', 'isQuestion', 'isCard', 'hasTopic']) assert.equal(u[f]('x'), false, f)
     assert.equal(u.groupOf('x'), null)
     assert.throws(() => unknownCourseAdapter('PSD210'), /Άκυρο courseId/)
+  })
+})
+
+describe('Φάση 6b · καμία αναφορά σε αφαιρεμένα modules ή στο legacy API', () => {
+  test('ούτε σε σχόλια: ονόματα των αφαιρεμένων modules και του LegacyCodec', () => {
+    const RE = /legacyProgressStore|legacyProgressBackend|progressMigration|progressShadow|legacyBaseline|\breconcile\b|progressValidate|\bprogressBackup\b|utils\/progressTransaction|\b(boundary|keys|snapshot)\.js\b|adapters\/psd115|LegacyCodec/
+    for (const f of walk(path.join(root, 'src')).filter((x) => /\.(m?js|jsx)$/.test(x))) {
+      const hit = fs.readFileSync(f, 'utf8').match(RE)
+      assert.equal(hit, null, `${rel(f)}: ${hit?.[0]}`)
+    }
+  })
+  test('καμία κλήση των αφαιρεμένων μεθόδων του store (.readEvents( / .importAllSync( ) στο src/ και scripts/', () => {
+    for (const f of ['src', 'scripts'].flatMap((d) => walk(path.join(root, d))).filter((x) => /\.(m?js|jsx)$/.test(x))) {
+      assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /\.(readEvents|importAllSync)\(/, rel(f))
+    }
   })
 })
 

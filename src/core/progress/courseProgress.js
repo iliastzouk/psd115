@@ -29,7 +29,7 @@ import { emptySnapshot } from './snapshotShape.js'
 export const WRONG_BOOK_VERSION = 1
 /** v2 (Φάση 6a): κάθε θέμα έχει και `t` (τελευταία αλλαγή), ώστε το reset να εφαρμόζεται και στα checklists. */
 export const CHECKLISTS_VERSION = 2
-/** Ίδιο όριο με το legacy wrongBook (τα πρώτα στη σειρά (t, uid) φεύγουν). */
+/** Όριο του wrongBook ανά μάθημα: πάνω από αυτό φεύγουν τα πρώτα στη σειρά (t, uid). */
 export const WRONG_BOOK_LIMIT = 60
 const MIN_T = Date.UTC(2020, 0, 1)
 const WRONG_TEXT_FIELDS = ['question', 'explanation', 'userLabel', 'correctLabel']
