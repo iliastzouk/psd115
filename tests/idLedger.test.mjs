@@ -4,6 +4,9 @@
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { checkLedger, checkLedgerHistory, readLedger, withNewIds } from '../scripts/id-ledger.mjs'
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 
@@ -59,5 +62,17 @@ describe('ιστορικό: το μητρώο είναι append-only', () => {
   })
   test('αλλαγή τύπου στο μητρώο → σφάλμα', () => {
     assert.match(checkLedgerHistory(ledger(base()), ledger({ ...base(), q1: { type: 'card', status: 'active' } })).join(), /άλλαξε τύπο/)
+  })
+})
+
+describe('review #18 · το ιστορικό ελέγχεται αξιόπιστα στο CI', () => {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+  test('το CI κάνει checkout με fetch-depth: 0 (υπάρχει το origin/main)', () => {
+    assert.match(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8'), /actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/)
+  })
+  test('validate:content: στο CI, χωρίς origin/main → σφάλμα· με μητρώο στη βάση → checkLedgerHistory', () => {
+    const v = fs.readFileSync(path.join(root, 'scripts/validate-content.mjs'), 'utf8')
+    assert.match(v, /if \(process\.env\.CI\) err\('Μητρώο IDs: δεν υπάρχει origin\/main/)
+    assert.match(v, /if \(prev\) for \(const e of checkLedgerHistory\(prev, ledger\)\) err\(/)
   })
 })
