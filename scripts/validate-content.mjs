@@ -231,6 +231,29 @@ const studyUnits = Object.keys(STUDY_CONTENT.psd115?.units ?? {})
 if (studyUnits.join('|') !== courseDef.units.map((u) => u.id).join('|')) {
   err(`Study adapter: units ${studyUnits.join(',')} ≠ course.js ${courseDef.units.map((u) => u.id).join(',')}`)
 }
+// Μητρώο IDs (Φάση 6a, J4): κάθε μάθημα με περιεχόμενο μελέτης έχει μητρώο· κανένα id δεν επαναχρησιμοποιείται.
+const { checkLedger, checkLedgerHistory, ledgerPath, readLedger } = await imp('scripts/id-ledger.mjs')
+let ledgerIds = 0
+let ledgerHistory = 'δεν ελέγχθηκε (δεν υπάρχει μητρώο στο origin/main ή δεν υπάρχει git)'
+for (const [courseId, c] of Object.entries(STUDY_CONTENT)) {
+  const ledger = readLedger(courseId)
+  if (!ledger) {
+    err(`Μητρώο IDs: λείπει το ${path.relative(root, ledgerPath(courseId))}`)
+    continue
+  }
+  ledgerIds += Object.keys(ledger.ids ?? {}).length
+  for (const e of checkLedger(ledger, { courseId, cards: c.flashcards.map((x) => x.id), questions: c.quizQuestions.map((x) => x.id) })) err(`Μητρώο IDs (${courseId}): ${e}`)
+  // Ιστορικό: έναντι του μητρώου στο origin/main, αν είναι διαθέσιμο (best effort· τοπικά και σε πλήρες clone).
+  try {
+    const { execFileSync } = await import('child_process')
+    const rel = path.relative(root, ledgerPath(courseId)).split(path.sep).join('/')
+    const prev = JSON.parse(execFileSync('git', ['show', `origin/main:${rel}`], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString())
+    for (const e of checkLedgerHistory(prev, ledger)) err(`Μητρώο IDs (${courseId}): ${e}`)
+    ledgerHistory = 'έναντι του origin/main'
+  } catch {
+    /* δεν υπάρχει στο origin/main (π.χ. πρώτη φορά) ή δεν υπάρχει git: μόνο ο έλεγχος περιεχομένου ↔ μητρώου */
+  }
+}
 let legacyRoutes = new Map()
 try {
   const legacy = await imp('src/core/routing/legacy.js')
@@ -272,3 +295,4 @@ console.log(
     `${registry.enrollments.length} εγγραφές · ${contentIds.length} IDs περιεχομένου συμβατά ως ${CONTENT_COURSE}/<id>`,
 )
 console.log(`✓ Routing έγκυρο: ${topicMap.length} topics · ${legacyRoutes.size} legacy διαδρομές → canonical`)
+console.log(`✓ Μητρώο IDs έγκυρο: ${ledgerIds} ids · ιστορικό ${ledgerHistory}`)

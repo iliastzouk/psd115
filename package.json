@@ -8,6 +8,7 @@
     "build": "npm run validate:content && vite build",
     "validate:content": "node scripts/validate-content.mjs",
     "validate:progress": "node scripts/validate-progress-export.mjs",
+    "content:ledger": "node scripts/id-ledger.mjs",
     "smoke": "node scripts/smoke-routes.mjs",
     "smoke:shadow": "node scripts/smoke-shadow.mjs",
     "smoke:progress": "node scripts/smoke-progress.mjs",
