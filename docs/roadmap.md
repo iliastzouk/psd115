@@ -1,7 +1,8 @@
 # Roadmap
 
 Κοινή πηγή αλήθειας για τις φάσεις του project. Διαβάζεται πριν από κάθε νέα φάση και ενημερώνεται όταν μια φάση γίνει
-merge. Λεπτομέρειες υλοποίησης ανά φάση: `docs/progress-migration.md`.
+merge. Ενεργή αρχιτεκτονική της προόδου: `docs/progress.md`· ιστορικό σχέδιο migration και φάσεις έως την 6a:
+`docs/history/progress-migration.md`.
 
 ## Στόχος
 
@@ -45,7 +46,7 @@ merge. Λεπτομέρειες υλοποίησης ανά φάση: `docs/prog
 |---|---|---|
 | 1–4 | Ασφάλεια backup/εγγραφών, ειδοποίηση αποτυχιών, πολλά tabs, εμφάνιση ανά scope | merged (#12–#16) |
 | 5 | Γενίκευση μελέτης και εμφάνισης: `courseId` της διαδρομής + `STUDY_CONTENT` (useStudySession, Progress, WrongAnswersReview, registryPages)· ισοδυναμία PSD115· storage εκτός scope | merged (#17) |
-| 6a | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery (συμβόλαιο J1–J9: docs/progress-migration.md §20) | merged (#18) |
+| 6a | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery (συμβόλαιο J1–J9: `docs/progress.md`· αρχική διατύπωση: `docs/history/progress-migration.md` §20) | merged (#18) |
 | 6b | Αφαίρεση του legacy κώδικα (backend, shadow, migration, baseline, validators, fixtures) αφού δεν έχει runtime εξαρτήσεις | — |
 | 7 | PSD125 ως δεύτερο μάθημα, με πλήρες περιεχόμενο και ανεξάρτητη πρόοδο | — |
 | 8 | PSD200, PSD210, PSD215, PSD110 με το ίδιο συμβόλαιο, χωρίς κώδικα αποθήκευσης ανά μάθημα | — |

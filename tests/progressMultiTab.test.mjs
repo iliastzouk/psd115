@@ -268,9 +268,14 @@ describe('guards στον κώδικα', () => {
   test('main.jsx εγκαθιστά τον storage listener', () => {
     assert.match(src('src/main.jsx'), /installStorageSync\(progressService/)
   })
-  test('G5: τεκμηριωμένος υπολειπόμενος κίνδυνος (χωρίς cross-tab lock)', () => {
-    const doc = src('docs/progress-migration.md')
-    assert.match(doc, /## 20\./)
-    assert.match(doc.slice(doc.indexOf('## 20.')), /ταυτόχρον/)
+  test('G5: τεκμηριωμένος υπολειπόμενος κίνδυνος (χωρίς cross-tab lock) στην ενεργή τεκμηρίωση', () => {
+    const doc = src('docs/progress.md')
+    const at = doc.indexOf('## Υπολειπόμενος κίνδυνος: ταυτόχρονα tabs (χωρίς cross-tab lock)')
+    assert.ok(at >= 0, 'λείπει η ενότητα του υπολειπόμενου κινδύνου')
+    const body = doc.slice(at).split('\n## ')[0].split('\n').slice(1).join('\n') // χωρίς τον τίτλο
+    assert.match(body, /cross-tab lock/)
+    assert.match(body, /ταυτόχρονες εγγραφές[\s\S]*χάσουν μία αλλαγή/)
+    // Το ιστορικό σχέδιο μένει διαθέσιμο, αμετάβλητο, στο docs/history/.
+    assert.match(src('docs/history/progress-migration.md'), /## 20\. Νέα υποδομή ως ενεργή πηγή προόδου/)
   })
 })
