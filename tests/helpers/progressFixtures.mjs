@@ -9,24 +9,38 @@ import { EVENTS_KEY, STATE_KEY } from '../../src/core/progress/progressStore.js'
 export { EVENTS_KEY, STATE_KEY }
 export const T0 = Date.UTC(2026, 9, 1, 12, 0, 0)
 
-/** localStorage-like· `hooks.fail(key) → Error | null` για αποτυχίες εγγραφής· `writes` = κλειδιά που άλλαξαν. */
+/**
+ * localStorage-like· `hooks.fail(key) → Error | null` για αποτυχίες εγγραφής (`failRemove` / `failGet` αντίστοιχα)·
+ * `writes` = κλειδιά που άλλαξαν· `reads` = κλειδιά που διαβάστηκαν με getItem· `ops` = όλες οι κλήσεις με τη σειρά τους
+ * (`get:` / `set:` / `rm:` + κλειδί, και ό,τι προσθέσει το test, π.χ. `download`), μαζί με τις αποτυχημένες.
+ */
 export function fakeStorage(init = {}) {
   const m = new Map(Object.entries(init))
-  const hooks = { fail: null, failRemove: null }
+  const hooks = { fail: null, failRemove: null, failGet: null }
   const writes = []
+  const reads = []
+  const ops = []
   return {
     get length() {
       return m.size
     },
     key: (i) => [...m.keys()][i] ?? null,
-    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    getItem(k) {
+      ops.push(`get:${k}`)
+      reads.push(k)
+      const err = hooks.failGet?.(k)
+      if (err) throw err
+      return m.has(k) ? m.get(k) : null
+    },
     setItem(k, v) {
+      ops.push(`set:${k}`)
       const err = hooks.fail?.(k)
       if (err) throw err
       writes.push(k)
       m.set(k, String(v))
     },
     removeItem(k) {
+      ops.push(`rm:${k}`)
       const err = hooks.failRemove?.(k)
       if (err) throw err
       writes.push(`-${k}`)
@@ -35,6 +49,8 @@ export function fakeStorage(init = {}) {
     dump: () => Object.fromEntries(m),
     hooks,
     writes,
+    reads,
+    ops,
   }
 }
 

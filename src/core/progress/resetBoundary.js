@@ -1,6 +1,5 @@
 /**
- * Όριο reset ανά μάθημα (Phase 1E-4c-2· ο μόνος έλεγχος ορίου της ενεργής υποδομής από τη Φάση 6a).
- * Ανεξάρτητο από τον μηχανισμό migration (boundary.js), που μένει μόνο για τον legacy κώδικα μέχρι το 6b.
+ * Όριο reset ανά μάθημα: ο μόνος έλεγχος ορίου του store.
  */
 import { resetStateKey } from './namespaces.js'
 import { parseGlobalId } from '../academic/ids.js'

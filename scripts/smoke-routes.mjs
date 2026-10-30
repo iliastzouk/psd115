@@ -281,7 +281,8 @@ const browser = await launch()
 const before = failures.length
 {
   const sample = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/study-progress.sample.json'), 'utf8'))
-  const legacyFile = fs.readFileSync(path.join(root, 'tests/fixtures/progress-export.sample.json'))
+  // Συνθετικό αρχείο της παλιάς μορφής (psd115-progress-export): πρέπει να απορρίπτεται με σαφές μήνυμα.
+  const legacyFile = fs.readFileSync(path.join(root, 'tests/fixtures/legacy-export.minimal.json'))
   const EV = 'study-progress-events-v1'
   const ST = 'study-progress-state-v1'
   // Πρόοδος της νέας μορφής + ένα παλιό legacy κλειδί και ρυθμίσεις, που ΔΕΝ πρέπει να αγγιχτούν ποτέ.
