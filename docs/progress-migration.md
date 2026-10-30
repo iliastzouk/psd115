@@ -562,6 +562,18 @@ checklists κενά }`· τα events δεν σβήνονται (append-only, κ�
 - **Μέγεθος:** το log μεγαλώνει με κάθε ενέργεια και το reset δεν το μικραίνει· κάθε ενέργεια διαβάζει όλο το log
   (όριο για IndexedDB: §8).
 
+**Review #18 (διορθώσεις πριν από το merge).**
+- Η προεπισκόπηση δείχνει, ανά μάθημα και κατηγορία (σε ανάπτυξη), τα ίδια τα στοιχεία: καταγραφές με id / ερώτηση ή κάρτα /
+  τύπο, κάρτες, λάθη (ερώτηση, uid), checklists πριν → μετά· και τις προειδοποιήσεις (orphan, μαθήματα χωρίς υποστήριξη).
+- wrongBook στο import: ΠΡΩΤΑ το φίλτρο t ≥ R και στις δύο πλευρές, ΜΕΤΑ ο έλεγχος uid και η ένωση — εγγραφές που κρύβει
+  το τελικό reset δεν απορρίπτουν το import.
+- Ο πυρήνας του store δεν εξαρτάται πια από τον μηχανισμό migration: μόνο το όριο reset (`resetBoundary.js`). Τα όρια
+  migration και το async API του store είναι στο `legacyProgressStore.js`, που το χρησιμοποιεί μόνο ο legacy κώδικας μέχρι
+  το 6b. Το σχήμα του Snapshot είναι στο `snapshotShape.js`· η εφαρμογή δεν φορτώνει πια ούτε `boundary.js` / `keys.js` ούτε
+  τις legacy μετατροπές του `snapshot.js` (guard: `progressRuntime`).
+- Μητρώο IDs: το CI κάνει checkout με `fetch-depth: 0` και ο `validate:content` αποτυγχάνει στο CI αν λείπει το
+  `origin/main`· η πρώτη εισαγωγή ενός μητρώου (δεν υπάρχει ακόμα στη βάση) αναφέρεται ρητά.
+
 Tests: `courseProgress`, `storeProgressService`, `progressResetImport`, `progressMultiTab`, `progressRuntime`, `idLedger`,
 `studyCourse`· smoke: `smoke-progress` (ξαναγράφτηκε για το νέο store), `smoke-routes` (export / import / reset).
 Το `smoke:shadow` αποσύρθηκε (το shadow δεν βρίσκεται πια στη ροή της εφαρμογής).
