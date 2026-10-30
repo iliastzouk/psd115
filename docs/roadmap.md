@@ -30,13 +30,11 @@ merge. Λεπτομέρειες υλοποίησης ανά φάση: `docs/prog
 - Theme και disclaimer είναι ρυθμίσεις, όχι πρόοδος· αλλάζουν μόνο με χωριστή αιτιολόγηση.
 - Ο legacy κώδικας αφαιρείται μόνο όταν όλες οι runtime εξαρτήσεις του έχουν αντικατασταθεί και ελεγχθεί.
 
-## Κατάσταση (στο `main`, μετά το PR #17)
+## Κατάσταση (με το PR της Φάσης 6a)
 
-- Ενεργή πρόοδος: `main.jsx` → `createProgressService` με `createLegacyProgressBackend` (κλειδιά `psd115-*`) και τον adapter
-  του PSD115· ένα μάθημα.
-- Νέα υποδομή (`progressStore`: `study-progress-events-v1` / `study-progress-state-v1`, events με global ids
-  `<courseId>/<id>`): υπάρχει, αλλά χρησιμοποιείται μόνο από shadow/migration, που είναι κλειστά στο production. ΔΕΝ είναι
-  ενεργή πηγή προόδου.
+- Ενεργή πρόοδος (Φάση 6a): `main.jsx` → `createStoreProgressService` πάνω στο νέο store (`study-progress-events-v1` /
+  `study-progress-state-v1`), για κάθε μάθημα του `STUDY_CONTENT`. Τα `psd115-*` (πρόοδος) δεν διαβάζονται ούτε γράφονται.
+- Ο legacy κώδικας (backend, shadow, migration, baseline) υπάρχει ακόμα, χωρίς runtime εξάρτηση· αφαιρείται στο 6b.
 - Μελέτη και εμφάνιση προόδου: παίρνουν το μάθημα από τη διαδρομή και το περιεχόμενο από το `STUDY_CONTENT` (Φάση 5).
 - Περιεχόμενο μελέτης (`STUDY_CONTENT`) και routing περιεχομένου (`routing/catalog.js`): μόνο το PSD115. Τα άλλα μαθήματα
   υπάρχουν μόνο στον ακαδημαϊκό κατάλογο.
@@ -47,15 +45,16 @@ merge. Λεπτομέρειες υλοποίησης ανά φάση: `docs/prog
 |---|---|---|
 | 1–4 | Ασφάλεια backup/εγγραφών, ειδοποίηση αποτυχιών, πολλά tabs, εμφάνιση ανά scope | merged (#12–#16) |
 | 5 | Γενίκευση μελέτης και εμφάνισης: `courseId` της διαδρομής + `STUDY_CONTENT` (useStudySession, Progress, WrongAnswersReview, registryPages)· ισοδυναμία PSD115· storage εκτός scope | merged (#17) |
-| 6 | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery· αφαίρεση του legacy backend και του baseline/migration path όταν δεν έχουν runtime εξαρτήσεις | χρειάζεται σχεδιασμό και έγκριση |
+| 6a | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery (συμβόλαιο J1–J9: docs/progress-migration.md §20) | PR ανοιχτό |
+| 6b | Αφαίρεση του legacy κώδικα (backend, shadow, migration, baseline, validators, fixtures) αφού δεν έχει runtime εξαρτήσεις | — |
 | 7 | PSD125 ως δεύτερο μάθημα, με πλήρες περιεχόμενο και ανεξάρτητη πρόοδο | — |
 | 8 | PSD200, PSD210, PSD215, PSD110 με το ίδιο συμβόλαιο, χωρίς κώδικα αποθήκευσης ανά μάθημα | — |
 | 9 | Hardening και rollout: tests, build, browser smoke για όλα τα μαθήματα, αποτυχίες εγγραφής, κατεστραμμένα δεδομένα, reset/export/import, πολλά tabs, σταδιακή ενεργοποίηση | — |
 
-**Ανοιχτή απόφαση:** ο σύμβουλος προτείνει να μη χωριστούν οι Φάσεις 6–8 σε πολλά μικρά PR πριν φανεί πρόοδος στα
-μαθήματα, αλλά να γίνει ένα foundation PR (νέα αποθήκευση πολλών μαθημάτων + κοινό συμβόλαιο) και στη συνέχεια το πέρασμα
-του υλικού των πέντε μαθημάτων με την ίδια διαδικασία. Μάθημα που δεν έχει περαστεί πλήρως δείχνει σαφή κατάσταση ελλιπούς
-υλικού — όχι ψεύτικες ερωτήσεις, λανθασμένα στατιστικά ή υπόσχεση αποθήκευσης.
+**Απόφαση (J8):** η Φάση 6 γίνεται σε δύο PR — 6a: η νέα υποδομή γίνεται ενεργή για όλα τα μαθήματα· 6b: αφαίρεση του
+legacy κώδικα όταν δεν έχει πια runtime εξαρτήσεις. Το υλικό των μαθημάτων μπορεί να προετοιμάζεται παράλληλα, από
+πραγματικές πηγές. Μάθημα που δεν έχει περαστεί πλήρως δείχνει σαφή κατάσταση ελλιπούς υλικού — όχι ψεύτικες ερωτήσεις,
+λανθασμένα στατιστικά ή υπόσχεση αποθήκευσης.
 
 ## Κανόνες
 
