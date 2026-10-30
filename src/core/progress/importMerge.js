@@ -6,7 +6,8 @@
  *
  * Συγχώνευση ανά υποστηριζόμενο μάθημα, με R = max(Rl, Rf) (απόν = −∞) και τον καθολικό κανόνα «τίποτα με t < R»:
  *   events      ένωση με βάση το id· ίδιο id με άλλο περιεχόμενο → απόρριψη όλου
- *   wrongBook   ένωση με βάση το uid (ίδιο uid με άλλο περιεχόμενο → απόρριψη όλου) → canonicalWrongBook(R)
+ *   wrongBook   φίλτρο t ≥ R και στις δύο πλευρές → ένωση με βάση το uid (ίδιο uid με άλλο περιεχόμενο → απόρριψη όλου)
+ *               → canonicalWrongBook(R)
  *   checklists  ανά θέμα (t ≥ R): μόνο στη μία πλευρά → κρατιέται· ίδιες τιμές → καμία αλλαγή· διαφορετικές → του αρχείου
  *   reset       R
  * Opaque κλειδιά state (ό,τι δεν είναι namespace υποστηριζόμενου μαθήματος): διαφορετική τιμή → του αρχείου.
@@ -84,14 +85,16 @@ function mergeCourse(courseId, local, file, errors) {
     out[rKey] = structuredClone(src)
   }
 
+  // J6: ΠΡΩΤΑ το τελικό όριο t ≥ R και στις δύο πλευρές, ΜΕΤΑ ο έλεγχος uid και η ένωση (εγγραφές που κρύβει το R δεν
+  // μπορούν να απορρίψουν το import ούτε να ξαναγραφτούν).
   const byUid = new Map()
-  for (const e of lValid(wKey) ? L.wrongBook : []) byUid.set(e.uid, e)
-  for (const e of F.wrongBook) {
+  for (const e of lValid(wKey) ? L.wrongBook : []) if (e.t >= R) byUid.set(e.uid, e)
+  for (const e of F.wrongBook.filter((x) => x.t >= R)) {
     const prev = byUid.get(e.uid)
     if (prev && !same(prev, e)) errors.push(`${courseId}: το uid «${e.uid}» του wrongBook υπάρχει ήδη με διαφορετικό περιεχόμενο`)
     else byUid.set(e.uid, e)
   }
-  if (wKey in local || wKey in file) out[wKey] = { version: WRONG_BOOK_VERSION, entries: canonicalWrongBook([...byUid.values()], { resetAt: R }) }
+  if (wKey in local || wKey in file) out[wKey] = { version: WRONG_BOOK_VERSION, entries: canonicalWrongBook([...byUid.values()]) } // ήδη t ≥ R
 
   if (cKey in local || cKey in file) {
     const topics = {}
@@ -109,8 +112,13 @@ function mergeCourse(courseId, local, file, errors) {
 
 function courseView(courseId, content, events, state) {
   const r = courseProgress({ courseId, content, events, state })
-  return r.status === 'ready' ? { status: 'ready', snapshot: r.snapshot, visible: new Set(r.visible.map((e) => e.id)), issues: [] } : { status: 'unavailable', issues: r.issues, snapshot: null, visible: new Set() }
+  const visible = new Map((r.visible ?? []).map((e) => [e.id, e]))
+  return r.status === 'ready'
+    ? { status: 'ready', snapshot: r.snapshot, visible, issues: [], warnings: r.warnings }
+    : { status: 'unavailable', issues: r.issues, snapshot: null, visible: new Map(), warnings: r.warnings }
 }
+/** Ένα event όπως το δείχνει η προεπισκόπηση (review #18: τα ίδια τα στοιχεία, όχι πλήθη). */
+const eventRef = (e) => ({ id: e.id, item: e.item, kind: e.kind, ctx: e.ctx, ...('ok' in e ? { ok: e.ok } : {}), t: e.t })
 
 const resetIso = (courseId, state) => {
   const ns = courseNamespaces(courseId, state)
@@ -121,6 +129,8 @@ function coursePreview(courseId, before, after, replacedCorrupt, beforeState, af
   const b = before?.snapshot
   const a = after.snapshot
   const minus = (x, y) => [...x].filter((v) => !y.has(v))
+  const bVis = before?.visible ?? new Map()
+  const aVis = after.visible
   const bSeen = new Set(b?.flashcardSeenIds ?? [])
   const aSeen = new Set(a?.flashcardSeenIds ?? [])
   const bW = new Map((b?.wrongBook ?? []).map((w) => [w.uid, w]))
@@ -138,7 +148,10 @@ function coursePreview(courseId, before, after, replacedCorrupt, beforeState, af
     statusBefore: before ? before.status : null,
     statusAfter: after.status,
     quiz: { before: { answered: b?.quizAnswered ?? 0, correct: b?.quizCorrect ?? 0 }, after: { answered: a?.quizAnswered ?? 0, correct: a?.quizCorrect ?? 0 } },
-    events: { added: minus(after.visible, before?.visible ?? new Set()).length, hidden: minus(before?.visible ?? new Set(), after.visible).length },
+    events: {
+      added: minus(aVis.keys(), bVis).map((id) => eventRef(aVis.get(id))),
+      hidden: minus(bVis.keys(), aVis).map((id) => eventRef(bVis.get(id))),
+    },
     cards: { added: minus(aSeen, bSeen), hidden: minus(bSeen, aSeen) },
     wrongBook: {
       added: minus(new Set(aW.keys()), new Set(bW.keys())).map((uid) => ({ uid, question: aW.get(uid).question })),
@@ -147,15 +160,17 @@ function coursePreview(courseId, before, after, replacedCorrupt, beforeState, af
     checklists,
     reset: { before: beforeState ? resetIso(courseId, beforeState) : null, after: resetIso(courseId, afterState) },
     replacedCorrupt,
+    // Προειδοποιήσεις του τελικού αποτελέσματος (π.χ. orphan events): κρατιούνται αλλά δεν μετρούν.
+    warnings: after.warnings ?? [],
   }
   p.loss =
-    p.events.hidden > 0 ||
+    p.events.hidden.length > 0 ||
     p.cards.hidden.length > 0 ||
     p.wrongBook.removed.length > 0 ||
     checklists.some((c) => c.before !== null) ||
     replacedCorrupt.length > 0 ||
     (p.statusBefore === 'unavailable' && p.statusAfter === 'ready')
-  p.changed = p.loss || p.events.added > 0 || p.cards.added.length > 0 || p.wrongBook.added.length > 0 || checklists.length > 0 || p.reset.before !== p.reset.after
+  p.changed = p.loss || p.events.added.length > 0 || p.cards.added.length > 0 || p.wrongBook.added.length > 0 || checklists.length > 0 || p.reset.before !== p.reset.after
   return p
 }
 
@@ -165,6 +180,17 @@ function coursePreview(courseId, before, after, replacedCorrupt, beforeState, af
  * @returns {{ mode: 'merge' | 'replace', result: { events: object[], state: object }, courses: object[],
  *             opaque: { key: string, change: 'added' | 'changed' }[], requiresConfirmation: boolean, warnings: string[] }}
  */
+/** Events μαθημάτων χωρίς adapter (opaque): κρατιούνται, δεν μετρούν — η προεπισκόπηση τα αναφέρει. */
+function opaqueEventWarnings(parsed, supported, onlyNew = null) {
+  const out = []
+  for (const [courseId, evs] of parsed.byCourse) {
+    if (supported.includes(courseId)) continue
+    const n = onlyNew ? evs.filter((e) => onlyNew.has(e.id)).length : evs.length
+    if (n) out.push(`${courseId}: ${n} καταγραφές μαθήματος χωρίς υποστήριξη προόδου (κρατιούνται, δεν μετρούν)`)
+  }
+  return out
+}
+
 export function planMerge({ local, file, adapters }) {
   const f = readExportFile(file)
   const supported = Object.keys(adapters)
@@ -178,7 +204,8 @@ export function planMerge({ local, file, adapters }) {
       else courses.push(coursePreview(c, null, after, [], null, f.state))
     }
     if (errors.length) throw new ImportRejected('Το αρχείο δεν δίνει έγκυρη πρόοδο· δεν εισήχθη τίποτα', errors)
-    return { mode: 'replace', result: { events: f.events, state: f.state }, courses, opaque: [], requiresConfirmation: true, warnings: [] }
+    const warnings = [...f.parsed.warnings, ...opaqueEventWarnings(f.parsed, supported), ...courses.flatMap((p) => p.warnings.map((w) => `${p.courseId}: ${w}`))]
+    return { mode: 'replace', result: { events: f.events, state: f.state }, courses, opaque: [], requiresConfirmation: true, warnings }
   }
 
   const lParsed = parseStoreData(local)
@@ -234,10 +261,17 @@ export function planMerge({ local, file, adapters }) {
     const before = courseView(c, adapters[c], lParsed.byCourse.get(c) ?? [], local.state)
     const after = courseView(c, adapters[c], merged.byCourse.get(c) ?? [], state)
     if (after.status !== 'ready' && before.status === 'ready') errors.push(`${c}: θα γινόταν μη διαθέσιμο (${after.issues.join('; ')})`)
-    else if (after.status !== 'ready') courses.push({ courseId: c, statusBefore: 'unavailable', statusAfter: 'unavailable', remainsUnavailable: true, loss: false, changed: false })
+    else if (after.status !== 'ready') courses.push({ courseId: c, statusBefore: 'unavailable', statusAfter: 'unavailable', remainsUnavailable: true, loss: false, changed: false, issues: after.issues, warnings: [] })
     else courses.push(coursePreview(c, before, after, replaced[c] ?? [], local.state, state))
   }
   if (errors.length) throw new ImportRejected('Το import θα έκανε μάθημα μη διαθέσιμο· δεν εισήχθη τίποτα', errors)
   const requiresConfirmation = courses.some((p) => p.loss) || opaque.some((o) => o.change === 'changed')
-  return { mode: 'merge', result: { events, state }, courses, opaque, requiresConfirmation, warnings: [...f.parsed.warnings] }
+  const localIds = new Set(local.events.map((e) => e.id))
+  const added = new Set(f.events.filter((e) => !localIds.has(e.id)).map((e) => e.id))
+  const warnings = [
+    ...f.parsed.warnings,
+    ...opaqueEventWarnings(merged, supported, added),
+    ...courses.flatMap((p) => (p.warnings ?? []).map((w) => `${p.courseId}: ${w}`)),
+  ]
+  return { mode: 'merge', result: { events, state }, courses, opaque, requiresConfirmation, warnings }
 }

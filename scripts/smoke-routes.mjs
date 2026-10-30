@@ -327,6 +327,10 @@ const before = failures.length
   await page.getByTestId('import-preview').waitFor({ timeout: 5000 }).catch(() => fail('backup: δεν εμφανίστηκε προεπισκόπηση'))
   const previewText = (await page.getByTestId('import-preview').textContent().catch(() => '')) ?? ''
   if (!/PSD115/.test(previewText) || !/\+21 κάρτες/.test(previewText)) fail(`backup: η προεπισκόπηση δεν δείχνει τι προστίθεται («${previewText.slice(0, 120)}»)`)
+  // review #18: οι λεπτομέρειες (σε ανάπτυξη) έχουν τα ίδια τα στοιχεία — κάρτες και καταγραφές με id.
+  const detailsText = (await page.getByTestId('import-details-psd115').textContent().catch(() => '')) ?? ''
+  const firstCard = sample.events.find((e) => e.kind === 'flip')
+  if (!detailsText.includes(firstCard.item.split('/')[1]) || !detailsText.includes(firstCard.id)) fail('backup: οι λεπτομέρειες της προεπισκόπησης δεν δείχνουν τα ίδια τα στοιχεία')
   if (JSON.stringify(await readAll()) !== JSON.stringify(tampered)) fail('backup: άλλαξαν δεδομένα πριν από την επιβεβαίωση')
   const [backupDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, εισαγωγή' }).click()])
   const backup = await readDownload(backupDl)

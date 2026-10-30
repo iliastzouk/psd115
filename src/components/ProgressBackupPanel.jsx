@@ -118,11 +118,43 @@ export default function ProgressBackupPanel({ reason = null }) {
         variant={pending?.plan.requiresConfirmation ? 'danger' : 'neutral'}
       >
         {pending ? (
-          <ul className="space-y-1" data-testid="import-preview">
-            {pending.text.lines.map((l, i) => (
-              <li key={i}>{l}</li>
+          <div className="space-y-2" data-testid="import-preview">
+            <ul className="space-y-1">
+              {pending.text.lines.map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+            </ul>
+            {/* review #18: τα ίδια τα στοιχεία ανά μάθημα και κατηγορία, σε ανάπτυξη. */}
+            {pending.text.details.map((d) => (
+              <details key={d.courseId} data-testid={`import-details-${d.courseId}`} className="rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1">
+                <summary className="cursor-pointer font-medium">Λεπτομέρειες: {d.title}</summary>
+                {d.sections.map((sec) => (
+                  <div key={sec.title} className="mt-1">
+                    <p className="font-medium">{sec.title}</p>
+                    <ul className="list-disc pl-4">
+                      {sec.items.map((it, i) => (
+                        <li key={i} className="break-all">
+                          {it}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </details>
             ))}
-          </ul>
+            {pending.text.warnings.length ? (
+              <div data-testid="import-warnings">
+                <p className="font-medium">Προειδοποιήσεις</p>
+                <ul className="list-disc pl-4">
+                  {pending.text.warnings.map((w, i) => (
+                    <li key={i} className="break-all">
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </ConfirmDialog>
     </div>

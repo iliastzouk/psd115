@@ -59,15 +59,27 @@ export function describeWriteFailure(kind) {
     : 'Η τελευταία αλλαγή δεν αποθηκεύτηκε. Η μελέτη συνεχίζεται, αλλά η αλλαγή αυτή δεν θα επαναληφθεί αυτόματα. Επανέλαβέ την όταν η αποθήκευση λειτουργεί κανονικά.'
 }
 
+const DETAIL_LIMIT = 50
+const local = (item) => item.slice(item.indexOf('/') + 1)
+const items = (list, fmt) => {
+  const out = list.slice(0, DETAIL_LIMIT).map(fmt)
+  if (list.length > DETAIL_LIMIT) out.push(`… και ${list.length - DETAIL_LIMIT} ακόμη`)
+  return out
+}
+const eventLabel = (e) => `${e.kind === 'answer' ? `απάντηση (${e.ok === 1 ? 'σωστή' : 'λάθος'})` : e.kind === 'flip' ? 'κάρτα' : e.kind}/${e.ctx} · ${local(e.item)} · ${e.id}`
+const flags = (xs) => (xs ? xs.map((x) => (x ? '✓' : '·')).join('') : '—')
+
 /**
- * Κείμενο προεπισκόπησης import (Φάση 6a, J6): ανά μάθημα, τι προστίθεται και τι αφαιρείται / κρύβεται / αλλάζει —
- * με βάση τα ίδια τα στοιχεία, όχι τα πλήθη.
+ * Κείμενο προεπισκόπησης import (Φάση 6a, J6· review #18): ανά μάθημα σύνοψη ΚΑΙ λεπτομέρειες με τα ίδια τα στοιχεία —
+ * ποιες καταγραφές (id, ερώτηση/κάρτα, τύπος), κάρτες, λάθη (ερώτηση) και checklists προστίθενται, κρύβονται, αλλάζουν —
+ * μαζί με τις προειδοποιήσεις (orphan, μαθήματα χωρίς υποστήριξη), ακόμα κι όταν δεν επηρεάζουν τους μετρητές.
  * @param {ReturnType<typeof import('../core/progress/importMerge.js').planMerge>} plan
  * @param {{ courseLabel?: (courseId: string) => string }} [opts]
- * @returns {{ summary: string, lines: string[] }}
+ * @returns {{ summary: string, lines: string[], details: { courseId: string, title: string, sections: { title: string, items: string[] }[] }[], warnings: string[] }}
  */
 export function describeImportPlan(plan, { courseLabel = (c) => c } = {}) {
   const lines = []
+  const details = []
   for (const p of plan.courses) {
     const name = courseLabel(p.courseId)
     if (p.remainsUnavailable) {
@@ -75,15 +87,16 @@ export function describeImportPlan(plan, { courseLabel = (c) => c } = {}) {
       continue
     }
     if (!p.changed) {
-      lines.push(`${name}: καμία αλλαγή`)
+      lines.push(`${name}: καμία αλλαγή${p.warnings?.length ? ' (βλ. προειδοποιήσεις)' : ''}`)
+      if (p.warnings?.length) details.push({ courseId: p.courseId, title: name, sections: [{ title: 'Προειδοποιήσεις (κρατιούνται, δεν μετρούν)', items: items(p.warnings, (w) => w) }] })
       continue
     }
     const parts = []
     if (p.statusBefore === 'unavailable') parts.push('η τοπική πρόοδος δεν διαβάζεται· θα αντικατασταθεί από το αρχείο')
     if (p.replacedCorrupt?.length) parts.push(`αντικαθίστανται κατεστραμμένα δεδομένα (${p.replacedCorrupt.length})`)
     parts.push(`κουίζ ${p.quiz.before.correct}/${p.quiz.before.answered} → ${p.quiz.after.correct}/${p.quiz.after.answered}`)
-    if (p.events.added) parts.push(`+${p.events.added} καταγραφές`)
-    if (p.events.hidden) parts.push(`${p.events.hidden} τοπικές καταγραφές ΔΕΝ θα υπολογίζονται`)
+    if (p.events.added.length) parts.push(`+${p.events.added.length} καταγραφές`)
+    if (p.events.hidden.length) parts.push(`${p.events.hidden.length} τοπικές καταγραφές ΔΕΝ θα υπολογίζονται`)
     if (p.cards.added.length) parts.push(`+${p.cards.added.length} κάρτες`)
     if (p.cards.hidden.length) parts.push(`${p.cards.hidden.length} κάρτες δεν θα μετρούν πια`)
     if (p.wrongBook.added.length) parts.push(`+${p.wrongBook.added.length} λάθη`)
@@ -94,6 +107,19 @@ export function describeImportPlan(plan, { courseLabel = (c) => c } = {}) {
     if (changed.length) parts.push(`αλλάζουν τα checklists: ${changed.map((c) => c.topicId).join(', ')}`)
     if (p.reset.before !== p.reset.after) parts.push(`μηδενισμός προόδου: ${p.reset.before ?? '—'} → ${p.reset.after ?? '—'}`)
     lines.push(`${name}: ${parts.join(' · ')}`)
+    const sections = [
+      { title: 'Καταγραφές που ΔΕΝ θα υπολογίζονται (πριν από τον μηδενισμό)', items: items(p.events.hidden, eventLabel) },
+      { title: 'Κάρτες που δεν θα μετρούν πια', items: items(p.cards.hidden, local) },
+      { title: 'Λάθη που αφαιρούνται', items: items(p.wrongBook.removed, (w) => `${w.question} · ${w.uid}`) },
+      { title: 'Checklists που αλλάζουν', items: items(changed, (c) => `${c.topicId}: ${flags(c.before)} → ${flags(c.after)}`) },
+      { title: 'Κατεστραμμένα δεδομένα που αντικαθίστανται', items: items(p.replacedCorrupt ?? [], (k) => k) },
+      { title: 'Καταγραφές που προστίθενται', items: items(p.events.added, eventLabel) },
+      { title: 'Κάρτες που προστίθενται', items: items(p.cards.added, local) },
+      { title: 'Λάθη που προστίθενται', items: items(p.wrongBook.added, (w) => `${w.question} · ${w.uid}`) },
+      { title: 'Checklists που προστίθενται', items: items(added, (c) => `${c.topicId}: ${flags(c.after)}`) },
+      { title: 'Προειδοποιήσεις (κρατιούνται, δεν μετρούν)', items: items(p.warnings ?? [], (w) => w) },
+    ].filter((x) => x.items.length)
+    details.push({ courseId: p.courseId, title: name, sections })
   }
   for (const o of plan.opaque ?? []) lines.push(`${o.change === 'changed' ? 'Αλλάζει' : 'Προστίθεται'} το «${o.key}» (δεδομένα χωρίς υποστήριξη σε αυτή την έκδοση)`)
   const summary =
@@ -102,5 +128,5 @@ export function describeImportPlan(plan, { courseLabel = (c) => c } = {}) {
       : plan.requiresConfirmation
         ? 'Η εισαγωγή αφαιρεί, κρύβει ή αλλάζει τοπικά δεδομένα (βλ. παρακάτω). Πριν, κατεβαίνει αντίγραφο ασφαλείας.'
         : 'Η εισαγωγή μόνο προσθέτει δεδομένα. Πριν, κατεβαίνει αντίγραφο ασφαλείας.'
-  return { summary, lines }
+  return { summary, lines, details, warnings: plan.warnings ?? [] }
 }
