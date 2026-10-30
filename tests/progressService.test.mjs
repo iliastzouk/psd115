@@ -336,11 +336,13 @@ describe('1E-4b · guards', () => {
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
   const rel = (f) => path.relative(root, f)
   const uiFiles = ['src/components', 'src/pages', 'src/layouts', 'src/hooks'].flatMap((d) => walk(path.join(root, d)))
-  const INFRA = /utils\/(progressBackup|progressTransaction|progressMigration|legacyProgressBackend)\.js'/
+  const INFRA = /utils\/(progressBackup|studyProgressBackup|progressTransaction|progressMigration|legacyProgressBackend)\.js'/
+  // Φάση 6a: backup/import/reset από το studyProgressBackup (νέα μορφή).
   const INFRA_ALLOWED = new Map([
-    ['src/layouts/AppShell.jsx', ['progressBackup']],
-    ['src/components/ProgressBackupPanel.jsx', ['progressBackup']],
+    ['src/layouts/AppShell.jsx', ['studyProgressBackup']],
+    ['src/components/ProgressBackupPanel.jsx', ['studyProgressBackup']],
   ])
+
 
   test('components/pages/layouts/hooks: κανένα storage.js, progressStore, localStorage/sessionStorage/indexedDB', () => {
     for (const f of uiFiles) {
@@ -354,18 +356,19 @@ describe('1E-4b · guards', () => {
   test('υποδομή αποθήκευσης μόνο από AppShell / ProgressBackupPanel (backup/import/reset)', () => {
     for (const f of uiFiles) {
       const code = fs.readFileSync(f, 'utf8')
-      const used = [...code.matchAll(/utils\/(progressBackup|progressTransaction|progressMigration|legacyProgressBackend)\.js'/g)].map((m) => m[1])
+      const used = [...code.matchAll(/utils\/(progressBackup|studyProgressBackup|progressTransaction|progressMigration|legacyProgressBackend)\.js'/g)].map((m) => m[1])
       if (!used.length) continue
       assert.ok(INFRA.test(code))
       assert.deepEqual(used, INFRA_ALLOWED.get(rel(f)) ?? [], rel(f))
     }
   })
 
-  test('createProgressService / installProgressService: μόνο στο main.jsx', () => {
+  test('createStoreProgressService / installProgressService: μόνο στο main.jsx (Φάση 6a)', () => {
     for (const f of walk(path.join(root, 'src'))) {
       const r = rel(f)
       const code = fs.readFileSync(f, 'utf8')
-      if (r !== 'src/main.jsx' && r !== 'src/core/progress/progressService.js') assert.doesNotMatch(code, /createProgressService\(/, r)
+      if (r !== 'src/core/progress/progressService.js') assert.doesNotMatch(code, /createProgressService\(/, r)
+      if (r !== 'src/main.jsx' && r !== 'src/core/progress/storeProgressService.js') assert.doesNotMatch(code, /createStoreProgressService\(/, r)
       if (r !== 'src/main.jsx' && r !== 'src/hooks/useProgress.js') assert.doesNotMatch(code, /installProgressService\(/, r)
     }
   })
@@ -375,16 +378,7 @@ describe('1E-4b · guards', () => {
     assert.doesNotMatch(code, /progressShadow|legacyBaseline|reconcile|progressStore|storage\.js|from 'react'|psd115|localStorage\.|window\./)
   })
 
-  test('το useStudySession: ο shadow recorder ΠΡΙΝ από την αλλαγή στο service, στον ίδιο handler', () => {
-    // Φάση 5: οι handlers → createStudyActions (src/core/study/session.js)· εκεί ο recorder πριν από το service.
-    const code = fs.readFileSync(path.join(root, 'src/hooks/useStudySession.js'), 'utf8')
-    assert.match(code.slice(code.indexOf('const handleSelectOption')), /actions\.answer\(/)
-    assert.match(code.slice(code.indexOf('const markFlashSeen')), /actions\.markCardSeen\(/)
-    const actions = fs.readFileSync(path.join(root, 'src/core/study/session.js'), 'utf8')
-    assert.ok(actions.indexOf('record.quizAnswer(') < actions.indexOf('service.answerQuestion('))
-    assert.ok(actions.indexOf('record.flashcardSeen(') < actions.indexOf('service.markCardSeen('))
-    assert.doesNotMatch(code + actions, /\b(setProgress|saveProgress|loadProgress)\b/)
-  })
+  // Φάση 6a: το hook καλεί το forCourse του νέου service, χωρίς recorder (βλ. tests/progressRuntime.test.mjs).
 
   test('install: δεύτερη εγκατάσταση → σφάλμα', async () => {
     const m = await import('../src/hooks/useProgress.js')

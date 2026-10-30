@@ -58,11 +58,7 @@ describe('1E-4c-1 · μόνο ο adapter ξέρει το μάθημα', () => {
   test('κανένα παλιό κλειδί / κωδικός μαθήματος στον κώδικα (εκτός σχολίων)', () => {
     for (const f of GENERIC) assert.doesNotMatch(code(f), /psd115-w|'psd115'|"psd115"|\/week\//, f)
   })
-  test('η σύνδεση με το PSD115 γίνεται μόνο στο main.jsx (adapter → service + recorder)', () => {
-    const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8')
-    assert.match(main, /createShadowRecorder\(\{ courseId: 'psd115', content: psd115ProgressAdapter, isActive: /)
-    assert.match(main, /installShadowRecorder\(/)
-  })
+  // Φάση 6a: το main.jsx δεν συνδέει πια adapter του PSD115 ή shadow recorder (βλ. tests/progressRuntime.test.mjs).
 })
 
 describe('1E-4c-2 · G10: legacy δεδομένα που το snapshot δεν αναπαριστά → ΟΧΙ in-sync', async () => {

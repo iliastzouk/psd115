@@ -1,28 +1,48 @@
 import { useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog.jsx'
-import { exportProgressToFile, importWithBackup, readImportFile } from '../utils/progressBackup.js'
-import { describeProgressFailure } from '../utils/progressFailureMessage.js'
+import { getProgressService } from '../hooks/useProgress.js'
+import { courseIdentity } from '../core/routing/navigation.js'
+import { applyImport, exportProgressToFile, planImport, readImportFile } from '../utils/studyProgressBackup.js'
+import { describeImportPlan, describeProgressFailure } from '../utils/progressFailureMessage.js'
 
 const btn =
   'touch-manipulation rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-teal-400 hover:bg-white dark:hover:bg-slate-900 transition'
 
-function describeStats(s) {
-  if (!s) return ''
-  return `${s.keys} κλειδιά · κουίζ ${s.quizCorrect}/${s.quizAnswered} · κάρτες ${s.flashcardsSeen} · λάθη ${s.wrongAnswers} · checklist ${s.checklistItemsChecked}`
-}
+const courseLabel = (courseId) => courseIdentity(courseId)?.code ?? courseId
 
-/** Εξαγωγή / εισαγωγή προόδου (footer). */
-export default function ProgressBackupPanel() {
+/**
+ * Εξαγωγή / εισαγωγή προόδου (footer), Φάση 6a: μόνο η νέα μορφή `study-progress`.
+ * Εισαγωγή = προεπισκόπηση ανά μάθημα → ρητή επιβεβαίωση → (έλεγχος αποτυπώματος, safety backup, συναλλαγή) → resync.
+ * Σε πρόοδο που δεν διαβάζεται (`corrupt`): η εισαγωγή γίνεται πλήρης αντικατάσταση. Σε σημάδι συναλλαγής που δεν
+ * ανακτάται / χωρίς storage: μόνο εξαγωγή (raw).
+ * @param {{ reason?: string | null }} props reason του degraded (null = ready)
+ */
+export default function ProgressBackupPanel({ reason = null }) {
   const fileRef = useRef(null)
   const [pending, setPending] = useState(null)
   const [message, setMessage] = useState(null)
+  const importAllowed = reason === null || reason === 'corrupt'
 
   const onExport = () => {
     try {
       const data = exportProgressToFile()
-      setMessage({ tone: 'ok', lines: [`Εξήχθησαν ${Object.keys(data.keys).length} κλειδιά προόδου.`] })
+      setMessage({
+        tone: 'ok',
+        lines: [data.format === 'study-progress' ? `Εξήχθησαν ${data.events.length} καταγραφές προόδου.` : 'Εξήχθησαν τα δεδομένα αυτούσια (η πρόοδος δεν διαβάζεται με ασφάλεια).'],
+      })
     } catch {
       setMessage({ tone: 'error', lines: ['Η εξαγωγή απέτυχε.'] })
+    }
+  }
+
+  const preview = (data) => {
+    try {
+      const plan = planImport(data, { adapters: getProgressService().adapters })
+      setMessage(null)
+      setPending({ data, plan, text: describeImportPlan(plan, { courseLabel }) })
+    } catch (e) {
+      setPending(null)
+      setMessage({ tone: 'error', lines: [describeProgressFailure('import', e)] })
     }
   }
 
@@ -32,29 +52,29 @@ export default function ProgressBackupPanel() {
     if (!file) return
     const result = await readImportFile(file)
     if (!result.ok) {
-      setMessage({
-        tone: 'error',
-        lines: ['Το αρχείο απορρίφθηκε· η τρέχουσα πρόοδος δεν άλλαξε.', ...result.errors.slice(0, 8)],
-      })
+      setMessage({ tone: 'error', lines: ['Το αρχείο απορρίφθηκε· η τρέχουσα πρόοδος δεν άλλαξε.', ...result.errors] })
       return
     }
-    setMessage(null)
-    setPending(result)
+    preview(result.data)
   }
 
   const onConfirmImport = () => {
-    const result = pending
+    const { data, plan } = pending
     setPending(null)
     try {
-      // Επικύρωση → επαληθευμένο backup → συναλλαγή. Οποιαδήποτε αποτυχία: καμία εγγραφή στην πρόοδο.
-      importWithBackup(result.data)
+      applyImport(plan, data, { adapters: getProgressService().adapters })
     } catch (e) {
-      // Μήνυμα ανά πραγματικό αποτέλεσμα: «δεν άλλαξε» μόνο όταν είναι επιβεβαιωμένο (D2).
+      if (e?.name === 'StaleImportError') {
+        // Η τοπική πρόοδος άλλαξε μετά την προεπισκόπηση: καμία εγγραφή· νέα προεπισκόπηση πάνω στην τρέχουσα κατάσταση.
+        preview(data)
+        setMessage({ tone: 'error', lines: [describeProgressFailure('import', e)] })
+        return
+      }
       setMessage({ tone: 'error', lines: [describeProgressFailure('import', e)] })
       return
     }
-    // Επαναφόρτωση αμέσως: αλλιώς η εφαρμογή θα έγραφε από πάνω την παλιά πρόοδο που κρατά στη μνήμη.
-    window.location.reload()
+    getProgressService().resync()
+    setMessage({ tone: 'ok', lines: [plan.mode === 'replace' ? 'Η πρόοδος αντικαταστάθηκε από το αρχείο.' : 'Η εισαγωγή ολοκληρώθηκε.'] })
   }
 
   return (
@@ -64,21 +84,17 @@ export default function ProgressBackupPanel() {
         <button type="button" onClick={onExport} className={btn}>
           Εξαγωγή προόδου (JSON)
         </button>
-        <button type="button" onClick={() => fileRef.current?.click()} className={btn}>
-          Εισαγωγή προόδου…
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={onPickFile}
-          data-testid="progress-import-input"
-        />
+        {importAllowed ? (
+          <button type="button" onClick={() => fileRef.current?.click()} className={btn}>
+            {reason === 'corrupt' ? 'Αντικατάσταση από αντίγραφο…' : 'Εισαγωγή προόδου…'}
+          </button>
+        ) : null}
+        <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={onPickFile} data-testid="progress-import-input" />
       </div>
       {message ? (
         <div
           role="status"
+          data-testid="progress-backup-message"
           className={`rounded-lg border px-3 py-2 text-xs space-y-0.5 ${
             message.tone === 'error'
               ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200'
@@ -95,20 +111,20 @@ export default function ProgressBackupPanel() {
         open={pending !== null}
         onClose={() => setPending(null)}
         onConfirm={onConfirmImport}
-        title="Εισαγωγή προόδου"
-        description={
-          pending
-            ? `Το αρχείο (${pending.data.exportedAt ?? 'χωρίς ημερομηνία'}) περιέχει: ${describeStats(pending.stats)}. ` +
-              'Θα αντικαταστήσει τα αντίστοιχα κλειδιά της τρέχουσας προόδου· κλειδιά που δεν υπάρχουν στο αρχείο μένουν ως έχουν. ' +
-              'Πριν από την εισαγωγή θα κατέβει αυτόματα αντίγραφο της τρέχουσας προόδου. ' +
-              (pending.warnings.length ? `Προειδοποιήσεις: ${pending.warnings.join(' · ')}. ` : '') +
-              'Κλείσε τυχόν άλλα ανοιχτά tabs της εφαρμογής· η σελίδα θα επαναφορτωθεί.'
-            : ''
-        }
+        title={pending?.plan.mode === 'replace' ? 'Αντικατάσταση προόδου' : 'Εισαγωγή προόδου'}
+        description={pending ? `${pending.text.summary} Αρχείο: ${pending.data.exportedAt ?? 'χωρίς ημερομηνία'}.` : ''}
         cancelLabel="Άκυρο"
-        confirmLabel="Ναι, εισαγωγή"
-        variant="danger"
-      />
+        confirmLabel={pending?.plan.mode === 'replace' ? 'Ναι, αντικατάσταση' : 'Ναι, εισαγωγή'}
+        variant={pending?.plan.requiresConfirmation ? 'danger' : 'neutral'}
+      >
+        {pending ? (
+          <ul className="space-y-1" data-testid="import-preview">
+            {pending.text.lines.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        ) : null}
+      </ConfirmDialog>
     </div>
   )
 }

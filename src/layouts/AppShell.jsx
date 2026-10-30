@@ -10,8 +10,9 @@ import { useRouteIdentity } from '../core/routing/hooks.js'
 import { activeCourseId } from '../core/routing/navigation.js'
 import { courseHeader } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/settings.js'
-import { describeReset, resetProgressSafely } from '../utils/progressBackup.js'
-import { describeProgressFailure, describeWriteFailure } from '../utils/progressFailureMessage.js'
+import { describeCourseReset, resetCourseSafely } from '../utils/studyProgressBackup.js'
+import { getProgressService } from '../hooks/useProgress.js'
+import { describeDegraded, describeProgressFailure, describeWriteFailure } from '../utils/progressFailureMessage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -44,6 +45,17 @@ function MenuIcon() {
         strokeLinecap="round"
       />
     </svg>
+  )
+}
+
+/** Κείμενο του διαλόγου reset: τι μηδενίζεται και αν επιτρέπεται στην τρέχουσα κατάσταση. */
+function resetDescription(courseId, code) {
+  const d = describeCourseReset(courseId, { adapters: getProgressService().adapters })
+  if (!d.allowed) return d.reason === 'pending' ? 'Εκκρεμεί ανάκτηση· επαναφόρτωσε τη σελίδα πριν δοκιμάσεις ξανά.' : 'Η πρόοδος δεν διαβάζεται με ασφάλεια· η επαναφορά δεν επιτρέπεται.'
+  return (
+    `Μηδενίζεται ΜΟΝΟ η πρόοδος του ${code} (κουίζ, κάρτες, λάθη, checklists)· τα άλλα μαθήματα δεν αλλάζουν. ` +
+    (d.unavailable ? 'Η τωρινή πρόοδος του μαθήματος δεν διαβάζεται με ασφάλεια και θα αντικατασταθεί. ' : '') +
+    'Πριν, κατεβαίνει αυτόματα αντίγραφο ασφαλείας.'
   )
 }
 
@@ -242,8 +254,7 @@ export default function AppShell() {
             data-testid="progress-degraded"
             className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-100"
           >
-            Οι αλλαγές προόδου δεν αποθηκεύονται όσο η πρόοδος δεν μπορεί να διαβαστεί με ασφάλεια. Η εισαγωγή ή
-            επαναφορά είναι διαθέσιμη μόνο μετά από επιβεβαιωμένο αντίγραφο ασφαλείας.
+            {describeDegraded(study.progressReason)}
           </div>
         ) : study.progressWriteFailure ? (
           // Φάση 2: μία αλλαγή δεν αποθηκεύτηκε (οι εγγραφές επιτρέπονται· όχι degraded). Όχι modal: το κουίζ δεν διακόπτεται.
@@ -297,23 +308,26 @@ export default function AppShell() {
             </div>
           </div>
         </aside>
-        <ProgressBackupPanel />
-        <button
-          type="button"
-          onClick={() => setResetConfirmOpen(true)}
-          className="mt-4 touch-manipulation text-left text-xs text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
-        >
-          Επαναφορά προόδου μελέτης
-        </button>
+        <ProgressBackupPanel reason={study.progressReason} />
+        {study.studyCourse.status === 'ready' ? (
+          // Φάση 6a: reset ΜΟΝΟ του τρέχοντος μαθήματος· τα υπόλοιπα μένουν ανέγγιχτα.
+          <button
+            type="button"
+            onClick={() => setResetConfirmOpen(true)}
+            className="mt-4 touch-manipulation text-left text-xs text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
+          >
+            Επαναφορά προόδου του {header.code}
+          </button>
+        ) : null}
       </footer>
 
       <ConfirmDialog
         open={resetConfirmOpen}
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={() => {
-          // Backup (legacy + νέο store) και διαγραφή μέσω επαληθευμένης συναλλαγής. Αν αποτύχει, δεν σβήνεται τίποτα.
+          // Επαληθευμένο safety backup και μετά reset ΜΟΝΟ του μαθήματος. Αν αποτύχει, δεν αλλάζει τίποτα.
           try {
-            resetProgressSafely()
+            resetCourseSafely({ courseId: study.studyCourse.courseId, adapters: getProgressService().adapters })
           } catch (e) {
             setResetConfirmOpen(false)
             // Μήνυμα ανά πραγματικό αποτέλεσμα: «δεν άλλαξε» μόνο όταν είναι επιβεβαιωμένο (D2).
@@ -323,11 +337,10 @@ export default function AppShell() {
           study.resetAllStudyProgress()
           setResetConfirmOpen(false)
         }}
-        title="Επαναφορά προόδου"
-        // «Όλη η πρόοδος» μόνο όταν το νέο store είναι άδειο (στο 1E-1 το reset δεν το διαγράφει).
-        description={resetConfirmOpen ? describeReset().description : ''}
+        title={`Επαναφορά προόδου του ${header.code}`}
+        description={resetConfirmOpen ? resetDescription(study.studyCourse.courseId, header.code) : ''}
         cancelLabel="Άκυρο"
-        confirmLabel="Ναι, διαγραφή"
+        confirmLabel="Ναι, μηδενισμός"
         variant="danger"
       />
     </div>

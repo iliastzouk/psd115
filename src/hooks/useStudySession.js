@@ -3,19 +3,10 @@ import { useRouteIdentity } from '../core/routing/hooks.js'
 import { activeCourseId } from '../core/routing/navigation.js'
 import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
 import { createStudyActions, sessionProgress, studyCourse, studyCourseNotice } from '../core/study/session.js'
-import { recordFlashcardSeen, recordQuizAnswer, recordWrongBookClear, recordWrongBookRemove } from '../utils/progressShadow.js'
 import { newEventId } from '../core/progress/events.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import { getProgressService, useProgress } from './useProgress.js'
 import { getTheme, setTheme, useTheme } from '../utils/settings.js'
-
-/** Shadow recorders (1E-3) με τα ονόματα του createStudyActions. */
-const RECORD = Object.freeze({
-  flashcardSeen: recordFlashcardSeen,
-  quizAnswer: recordQuizAnswer,
-  wrongBookClear: recordWrongBookClear,
-  wrongBookRemove: recordWrongBookRemove,
-})
 
 function filterByCategories(items, selectedIds) {
   if (!selectedIds.length) return items
@@ -35,11 +26,13 @@ export function useStudySession() {
   // Φάση 5 (I1): το μάθημα της διαδρομής (όπως η κεφαλίδα)· περιεχόμενο από το STUDY_CONTENT. Εκτός ready: κενή πρόοδος
   // μόνο για ανάγνωση και καμία ενέργεια — ποτέ πρόοδος ή περιεχόμενο άλλου μαθήματος.
   const courseId = activeCourseId(routeIdentity)
-  const course = useMemo(() => studyCourse(courseId, getProgressService().courseId), [courseId])
-  const actions = useMemo(() => createStudyActions({ course, service: getProgressService(), record: RECORD }), [course])
+  const course = useMemo(() => studyCourse(courseId, getProgressService().supports), [courseId])
+  const actions = useMemo(() => createStudyActions({ course, service: getProgressService() }), [course])
   const { flashcards, quizQuestions, getCategoryLabel } = course.content
   const progress = sessionProgress(progressState, course)
   const progressStatus = progressState.status
+  // Φάση 6a: η αιτία του degraded (corrupt / pending / unrecoverable / no-storage), για μήνυμα και διαθέσιμες ενέργειες.
+  const progressReason = progressState.reason ?? null
   // Φάση 2: η τελευταία αλλαγή δεν αποθηκεύτηκε (ready· ≠ degraded). Η απόρριψη απλώς κρύβει την ειδοποίηση.
   const progressWriteFailure = progressState.writeFailure ?? null
   const dismissWriteFailure = useCallback(() => getProgressService().dismissWriteFailure(), [])
@@ -195,8 +188,7 @@ export function useStudySession() {
   }, [])
 
   const markFlashSeen = useCallback(
-    // Shadow (1E-3): στον handler, όχι στον updater (το StrictMode τρέχει τους updaters δύο φορές). Φάση 3: refresh πριν
-    // από τον recorder (isActive) και το service — η σειρά είναι στο createStudyActions.
+    // Στον handler, όχι σε updater (το StrictMode τρέχει τους updaters δύο φορές). Το service διαβάζει πρώτα το storage.
     (id) => void actions.markCardSeen(id),
     [actions],
   )
@@ -251,7 +243,7 @@ export function useStudySession() {
       setQuizRevealed(true)
       const correct = idx === currentQuestion.correctIndex
       setSessionCorrect((s) => (correct ? s + 1 : s))
-      // Λάθος: ΕΝΑ uid στον handler, κοινό για shadow και ProgressService (1E-4c-2).
+      // Λάθος: ΕΝΑ uid στον handler (η εγγραφή του wrongBook).
       const wrong = correct
         ? undefined
         : {
@@ -261,8 +253,7 @@ export function useStudySession() {
             userLabel: currentQuestion.options[idx],
             correctLabel: currentQuestion.options[currentQuestion.correctIndex],
           }
-      // Shadow (1E-3): ένα event ανά απάντηση (+ wrongBook), στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
-      // Μετά το event, η πρόοδος: ΜΙΑ σύγχρονη αλλαγή στο ProgressService (όχι σε updater/effect). Σειρά: createStudyActions.
+      // ΜΙΑ σύγχρονη αλλαγή στο ProgressService (event + wrongBook σε ένα commit), στον handler (όχι σε updater/effect).
       actions.answer({ questionId: currentQuestion.id, ok: correct, wrong })
     },
     [actions, currentQuestion, quizRevealed],
@@ -301,7 +292,7 @@ export function useStudySession() {
     progressStatus,
     // Φάση 5: ready | no-content | no-progress, και μήνυμα όταν η πρόοδος του μαθήματος δεν αποθηκεύεται.
     studyCourse: course,
-    studyCourseNotice: studyCourseNotice(course),
+    studyCourseNotice: studyCourseNotice(course, progressState),
     progressWriteFailure,
     dismissWriteFailure,
     selectedIds,
