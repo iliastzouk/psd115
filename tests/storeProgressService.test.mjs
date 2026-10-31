@@ -325,3 +325,145 @@ describe('resync / refresh', () => {
     assert.deepEqual(st.courses['demo-a'].wrongBook, [])
   })
 })
+
+describe('Φάση 2 · διάρκεια της ειδοποίησης writeFailure (6b: από το legacy progressWriteFailure)', () => {
+  const other = () => new Error('x')
+  /** Service με ρολόι που προχωρά, ώστε κάθε αποτυχία να έχει δικό της `at`. */
+  const app = () => {
+    const s = fakeStorage()
+    let t = T0
+    const svc = service(s, { now: () => ++t })
+    return { s, svc, a: svc.forCourse('demo-a'), b: svc.forCourse('demo-b'), wf: () => svc.getSnapshot().writeFailure }
+  }
+
+  test('δύο αποτυχίες σε διαφορετικά στοιχεία, επανάληψη ΜΟΝΟ της μίας → η ειδοποίηση μένει', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    a.markCardSeen('a-c1')
+    s.hooks.fail = null
+    assert.equal(a.setChecklist('a-t1', [true]), true)
+    assert.equal(wf()?.kind, 'quota')
+    assert.equal(a.markCardSeen('a-c1'), true)
+    assert.equal(wf(), null, 'καθαρίζει μόνο όταν γίνουν ΚΑΙ οι δύο')
+  })
+  test('διαφορετικού τύπου (quota, other): επανάληψη της 2ης → δείχνει την 1η με το δικό της kind', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = () => other()
+    a.markCardSeen('a-c1')
+    s.hooks.fail = null
+    assert.equal(wf().kind, 'other', 'δείχνει την τελευταία')
+    a.markCardSeen('a-c1')
+    assert.equal(wf().kind, 'quota')
+    a.setChecklist('a-t1', [true])
+    assert.equal(wf(), null)
+  })
+  test('επανάληψη της 1ης (παλαιότερης) → μένει η 2η, με το δικό της kind και at', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = () => other()
+    a.markCardSeen('a-c1')
+    const second = wf()
+    s.hooks.fail = null
+    a.setChecklist('a-t1', [true])
+    assert.deepEqual(wf(), second)
+  })
+  test('τρεις αποτυχίες (quota, other, quota), επανάληψη μόνο της 3ης → η ειδοποίηση είναι της 2ης', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = () => other()
+    a.markCardSeen('a-c1')
+    const second = wf()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t2', [true])
+    s.hooks.fail = null
+    a.setChecklist('a-t2', [true])
+    assert.deepEqual(wf(), second)
+  })
+  test('άλλη αλλαγή στο ΙΔΙΟ θέμα (όχι η χαμένη) δεν καθαρίζει την ειδοποίηση', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = null
+    assert.equal(a.setChecklist('a-t1', [false, true]), true)
+    assert.equal(wf()?.kind, 'quota')
+  })
+  test('dismiss → μια επόμενη (άσχετη) επιτυχία δεν ξαναφέρνει την παλιά· νέα αποτυχία → νέα ειδοποίηση', () => {
+    const { s, svc, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    svc.dismissWriteFailure()
+    s.hooks.fail = null
+    a.markCardSeen('a-c2')
+    assert.equal(wf(), null)
+    s.hooks.fail = () => other()
+    a.markCardSeen('a-c3')
+    assert.equal(wf()?.kind, 'other')
+    s.hooks.fail = null
+    a.markCardSeen('a-c3')
+    assert.equal(wf(), null, 'η αλλαγή πριν από το dismiss δεν μετρά πια ως εκκρεμής')
+  })
+  test('resync (π.χ. μετά από reset) → καμία παλιά εκκρεμότητα, ούτε μετά από επόμενη εγγραφή', () => {
+    const { s, svc, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = null
+    svc.resync()
+    assert.equal(wf(), null)
+    a.markCardSeen('a-c1')
+    assert.equal(wf(), null)
+  })
+  test('ενέργεια χωρίς αλλαγή (κάρτα που ήδη είδε / ίδιο checklist) ΔΕΝ καθαρίζει την ειδοποίηση', () => {
+    const { s, a, wf } = app()
+    a.markCardSeen('a-c1')
+    a.setChecklist('a-t2', [true])
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = null
+    assert.equal(a.markCardSeen('a-c1'), false)
+    assert.equal(a.setChecklist('a-t2', [true]), false)
+    assert.equal(wf()?.kind, 'quota')
+  })
+  test('διαδοχικές αποτυχίες → το writeFailure ανανεώνεται (νέο at, νέο αντικείμενο)', () => {
+    const { s, a, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    const first = wf()
+    a.setChecklist('a-t2', [true])
+    assert.ok(wf().at > first.at)
+    assert.notEqual(wf(), first)
+  })
+  test('removeWrong / clearWrongBook που απέτυχαν: καθαρίζουν όταν επαναληφθούν', () => {
+    const { s, a, wf } = app()
+    a.answerQuestion({ questionId: 'a-q1', ok: false, wrong: wrong('u1') })
+    s.hooks.fail = () => quota()
+    assert.equal(a.removeWrong('u1'), false)
+    s.hooks.fail = null
+    assert.equal(a.markCardSeen('a-c2'), true)
+    assert.equal(wf()?.kind, 'quota', 'άσχετη επιτυχία δεν το καθαρίζει')
+    assert.equal(a.removeWrong('u1'), true)
+    assert.equal(wf(), null)
+    a.answerQuestion({ questionId: 'a-q2', ok: false, wrong: wrong('u2') })
+    s.hooks.fail = () => quota()
+    assert.equal(a.clearWrongBook(), false)
+    s.hooks.fail = null
+    a.markCardSeen('a-c1')
+    assert.equal(wf()?.kind, 'quota', 'άσχετη επιτυχία δεν το καθαρίζει')
+    assert.equal(a.clearWrongBook(), true)
+    assert.equal(wf(), null)
+  })
+  test('επιτυχής εγγραφή ΑΛΛΟΥ μαθήματος δεν καθαρίζει την ειδοποίηση· η επανάληψη στο ίδιο μάθημα ναι', () => {
+    const { s, a, b, wf } = app()
+    s.hooks.fail = () => quota()
+    a.setChecklist('a-t1', [true])
+    s.hooks.fail = null
+    assert.equal(b.setChecklist('b-t1', [true]), true)
+    assert.equal(wf()?.kind, 'quota')
+    a.setChecklist('a-t1', [true])
+    assert.equal(wf(), null)
+  })
+})
