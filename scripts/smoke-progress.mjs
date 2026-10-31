@@ -10,6 +10,9 @@
  *      reset → δεν επιτρέπεται· «Αντικατάσταση από αντίγραφο» με αποτυχία backup → ακύρωση· με backup → raw byte-identical
  *      στο αρχείο και τοπικά, αντικατάσταση, resync.
  *  U.  Legacy (`psd115-*`) και άγνωστα κλειδιά: δεν διαβάζονται, δεν αγγίζονται ποτέ· η ενέργεια γράφει ΜΟΝΟ το store.
+ *      Κάθε getItem της εφαρμογής καταγράφεται (οι αναγνώσεις των assertions παρακάμπτουν την καταγραφή): σε boot,
+ *      checklist, εξαγωγή και reset διαβάζονται ΜΟΝΟ τα κλειδιά του store, το σημάδι, τα `study-progress-backup-*`
+ *      (σύγκρουση ονόματος + επαλήθευση του νέου backup) και οι ρυθμίσεις theme / disclaimer.
  *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία: κλικ σε checklist → ΚΑΜΙΑ εγγραφή, μήνυμα, το checkbox δεν δείχνει
  *      «αποθηκευμένη» αλλαγή· reload → η ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
  *  W.  Αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2): ειδοποίηση (όχι degraded), το checkbox ΔΕΝ αλλάζει, καμία αλλαγή στο
@@ -28,6 +31,7 @@ import path from 'path'
 import { spawn, spawnSync } from 'child_process'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { chromium } from 'playwright'
+import { LEGACY_KEY_RE, SETTINGS_KEY_RES } from './legacy-keys.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const imp = (rel) => import(pathToFileURL(path.join(root, rel)).href)
@@ -120,7 +124,11 @@ const MUTATIONS = {
 build('dist-progress', { VITE_PROGRESS_SMOKE: '1' })
 for (const [name, patches] of Object.entries(MUTATIONS)) withPatches(patches, () => build(`dist-progress-${name}`))
 check(!fs.readdirSync(path.join(root, 'dist/assets')).some((f) => fs.readFileSync(path.join(root, 'dist/assets', f), 'utf8').includes('__progressProbe')), 'το production build περιέχει το smoke probe')
-check(!fs.readdirSync(path.join(root, 'dist/assets')).some((f) => /psd115-w1-study|legacy-baseline:psd115|shadow:psd115/.test(fs.readFileSync(path.join(root, 'dist/assets', f), 'utf8'))), 'το production build περιέχει legacy κλειδιά προόδου')
+// K6: ΚΑΝΕΝΑ legacy κλειδί προόδου στο production bundle (scripts/legacy-keys.mjs)· theme / disclaimer ΠΡΕΠΕΙ να υπάρχουν.
+const bundle = fs.readdirSync(path.join(root, 'dist/assets')).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(root, 'dist/assets', f), 'utf8')).join('\n')
+const legacyHit = bundle.match(LEGACY_KEY_RE)
+check(!legacyHit, `το production build περιέχει legacy κλειδιά προόδου (${legacyHit?.[0]} … ${legacyHit ? bundle.slice(legacyHit.index - 20, legacyHit.index + 40) : ''})`)
+check(SETTINGS_KEY_RES.every((re) => re.test(bundle)), 'το production build δεν περιέχει τα κλειδιά ρυθμίσεων (theme / disclaimer)· ο έλεγχος legacy κλειδιών θα ήταν κενός')
 
 // ---------------------------------------------------------------- browser
 async function launch() {
@@ -154,8 +162,10 @@ async function serve(outDir) {
 }
 
 /**
- * Init script: γράφει τα κλειδιά ΜΙΑ φορά (πριν από την παρακολούθηση), μετά καταγράφει κάθε εγγραφή του
- * localStorage και το DOM/checkboxes του ΠΡΩΤΟΥ commit στο #root. Προαιρετικά ντετερμινιστικό Math.random.
+ * Init script: γράφει τα κλειδιά ΜΙΑ φορά (πριν από την παρακολούθηση), μετά καταγράφει κάθε εγγραφή (`__writes`) και
+ * κάθε ανάγνωση (`__reads`, getItem) του localStorage από την εφαρμογή, και το DOM/checkboxes του ΠΡΩΤΟΥ commit στο
+ * #root. Οι αναγνώσεις του smoke περνούν από το `__rawGetItem` και δεν καταγράφονται. Προαιρετικά ντετερμινιστικό
+ * Math.random.
  */
 async function newContext(browser, keys, { seed } = {}) {
   const context = await browser.newContext({ acceptDownloads: true })
@@ -176,6 +186,13 @@ async function newContext(browser, keys, { seed } = {}) {
       }
       const log = (window.__writes = [])
       const P = Storage.prototype
+      const reads = (window.__reads = [])
+      const rawGetItem = P.getItem
+      window.__rawGetItem = (k) => rawGetItem.call(localStorage, k)
+      P.getItem = function (k) {
+        if (this === localStorage) reads.push(k)
+        return rawGetItem.call(this, k)
+      }
       for (const m of ['setItem', 'removeItem', 'clear']) {
         const orig = P[m]
         P[m] = function (...a) {
@@ -206,7 +223,16 @@ const settle = async (page) => {
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(800)
 }
-const readKeys = (page) => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])))
+/** Αναγνώσεις του smoke: μέσω του αρχικού getItem, ώστε να μη μπαίνουν στις αναγνώσεις της εφαρμογής (`__reads`). */
+const readKeys = (page) =>
+  page.evaluate(() => {
+    const get = window.__rawGetItem ?? ((k) => localStorage.getItem(k))
+    return Object.fromEntries(Object.keys(localStorage).map((k) => [k, get(k)]))
+  })
+/** Κλειδιά που επιτρέπεται να διαβάσει η εφαρμογή (K6): store, σημάδι, νέα backups, ρυθμίσεις. */
+const ALLOWED_READ = (k) =>
+  ['study-progress-events-v1', 'study-progress-state-v1', 'progress-txn-v1', 'psd115-w1-theme', 'psd115-disclaimer-v1'].includes(k) ||
+  k.startsWith('study-progress-backup-')
 const sameKeys = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
 
 /**
@@ -347,7 +373,18 @@ try {
     await context.close()
 
     // U: legacy και άγνωστα κλειδιά: ποτέ δεν διαβάζονται ή αγγίζονται.
-    const withLegacy = { ...SAMPLE, 'psd115-w1-study': '{"quizAnswered":999}', 'psd115-w1-pavlov-checklist': '[true,true,true]', 'psd115-extra-unknown': 'keep-me' }
+    const withLegacy = {
+      ...SAMPLE,
+      'psd115-w1-study': '{"quizAnswered":999}',
+      'psd115-w1-pavlov-checklist': '[true,true,true]',
+      'psd115-w2-checklists': '{"overview":[true]}',
+      'psd115-backup-2026-01-01T00:00:00.000Z': '{}',
+      'migration:psd115-v1': '{}',
+      'psd115-extra-unknown': 'keep-me',
+      'psd115-w1-theme': 'light',
+      'psd115-disclaimer-v1': '1',
+    }
+    const LEGACY_SEEDED = Object.keys(withLegacy).filter((k) => !ALLOWED_READ(k) && k !== EV && k !== ST)
     ;({ context, page } = await newContext(browser, withLegacy))
     await page.goto(`${base}/psd115/topics/pavlov`)
     await settle(page)
@@ -357,8 +394,21 @@ try {
     await page.waitForTimeout(300)
     const writes = await page.evaluate(() => window.__writes)
     check(writes.length === 1 && writes[0].k === ST, `U: εγγραφές ${JSON.stringify(writes)}`)
+    const readsBefore = (await page.evaluate(() => window.__reads)).length
+    await readKeys(page)
+    check((await page.evaluate(() => window.__reads)).length === readsBefore, 'U: οι αναγνώσεις του smoke καταγράφηκαν ως αναγνώσεις της εφαρμογής')
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Εξαγωγή προόδου (JSON)' }).click()])
+    await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()])
+    await page.waitForTimeout(500)
+    const uReads = [...new Set(await page.evaluate(() => window.__reads))]
+    check(uReads.some((k) => k.startsWith('study-progress-backup-')), 'U: το reset δεν πέρασε από το backup (καμία ανάγνωση study-progress-backup-*)')
+    check(uReads.includes(ST), 'U: η εφαρμογή δεν διάβασε το store (η καταγραφή δεν λειτουργεί)')
+    const forbidden = uReads.filter((k) => !ALLOWED_READ(k))
+    check(!forbidden.length, `U: η εφαρμογή διάβασε κλειδιά εκτός whitelist: ${JSON.stringify(forbidden)}`)
+    for (const k of LEGACY_SEEDED) check(!uReads.includes(k), `U: διαβάστηκε το legacy κλειδί «${k}»`)
     const uKeys = await readKeys(page)
-    for (const k of ['psd115-w1-study', 'psd115-w1-pavlov-checklist', 'psd115-extra-unknown']) check(uKeys[k] === withLegacy[k], `U: το «${k}» άλλαξε`)
+    for (const k of LEGACY_SEEDED) check(uKeys[k] === withLegacy[k], `U: το «${k}» άλλαξε`)
     await context.close()
 
     // P: εκκρεμές σημάδι κατά τη λειτουργία. Μισή κατάσταση όπως την αφήνει μια συναλλαγή που διακόπηκε:

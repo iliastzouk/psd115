@@ -49,6 +49,55 @@ const LEGACY = [
   'src/core/progress/legacyProgressStore.js',
 ]
 
+/** Φάση 6b: τα legacy modules έχουν αφαιρεθεί από το repository (όχι μόνο από τον γράφο της εφαρμογής). */
+const REMOVED = [
+  'src/utils/legacyProgressBackend.js',
+  'src/utils/progressShadow.js',
+  'src/utils/progressMigration.js',
+  'src/utils/progressBackup.js',
+  'src/utils/progressValidate.js',
+  'src/utils/progressTransaction.js',
+  'src/core/progress/progressService.js',
+  'src/core/progress/reconcile.js',
+  'src/core/progress/legacyBaseline.js',
+  'src/core/progress/legacyProgressStore.js',
+  'src/core/progress/snapshot.js',
+  'src/core/progress/adapters/psd115.js',
+  'src/core/progress/boundary.js',
+  'src/core/progress/keys.js',
+]
+
+describe('Φάση 6b · ο legacy κώδικας αφαιρέθηκε', () => {
+  test('όλα τα legacy modules του 6a (+ το re-export utils/progressTransaction.js) — 14 αρχεία', () => {
+    assert.deepEqual(REMOVED.filter((f) => !LEGACY.includes(f)), ['src/utils/progressTransaction.js'])
+    assert.deepEqual(LEGACY.filter((f) => !REMOVED.includes(f)), [])
+    assert.equal(REMOVED.length, 14)
+  })
+  test('τα αρχεία δεν υπάρχουν', () => {
+    assert.deepEqual(REMOVED.filter((f) => fs.existsSync(path.join(root, f))), [])
+  })
+  test('κανένα legacy κλειδί προόδου στο src/ (ίδιο pattern με τον έλεγχο του production bundle)· οι ρυθμίσεις μένουν', async () => {
+    const { LEGACY_KEY_RE, SETTINGS_KEY_RES } = await import('../scripts/legacy-keys.mjs')
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+    const files = walk(path.join(root, 'src')).filter((x) => /\.(m?js|jsx)$/.test(x))
+    for (const f of files) {
+      const hit = fs.readFileSync(f, 'utf8').match(LEGACY_KEY_RE)
+      assert.equal(hit, null, `${path.relative(root, f)}: ${hit?.[0]}`)
+    }
+    // Θετικός έλεγχος στον ΚΩΔΙΚΑ (όχι σε σχόλια), όπως στο minified bundle.
+    const code = files.map((f) => fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')).join('\n')
+    for (const re of SETTINGS_KEY_RES) assert.match(code, re)
+  })
+  test('κανένα αρχείο του src/, scripts/ ή tests/ δεν τα εισάγει', () => {
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+    const names = REMOVED.map((f) => path.basename(f, '.js'))
+    const re = new RegExp(`from\\s+['"][^'"]*/(${names.join('|')})\\.js['"]|import\\(\\s*['"][^'"]*/(${names.join('|')})\\.js['"]`)
+    for (const f of ['src', 'scripts', 'tests'].flatMap((d) => walk(path.join(root, d))).filter((x) => /\.(m?js|jsx)$/.test(x))) {
+      assert.doesNotMatch(fs.readFileSync(f, 'utf8'), re, path.relative(root, f))
+    }
+  })
+})
+
 describe('Φάση 6a · runtime', () => {
   const graph = runtimeGraph()
   test('ο γράφος της εφαρμογής βρίσκεται (sanity)', () => {
