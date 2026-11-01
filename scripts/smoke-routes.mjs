@@ -321,7 +321,13 @@ const browser = await launch()
   if (!/Fall 2026[\s\S]*Spring 2026/.test(hubText)) fail('αρχική: σειρά εξαμήνων (Fall 2026 πρώτα)')
   await hub.locator('a[href="/psd115"]').click()
   await page.waitForURL(BASE + '/psd115')
-  if (!/Εβδομάδα 1/.test((await page.locator('#main-content').textContent()) ?? '')) fail('αρχική → PSD115: δεν εμφανίστηκε η αρχική του μαθήματος')
+  // Πλοήγηση μέσα στην εφαρμογή: το URL αλλάζει πριν από το render → αναμονή για το περιεχόμενο, όχι μία ανάγνωση.
+  await page
+    .locator('#main-content')
+    .getByText('Εβδομάδα 1')
+    .first()
+    .waitFor({ timeout: 5000 })
+    .catch(() => fail('αρχική → PSD115: δεν εμφανίστηκε η αρχική του μαθήματος'))
   }
   for (const e of errors) fail(`αρχική: ${e}`)
   await context.close()
