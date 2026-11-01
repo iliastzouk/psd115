@@ -43,6 +43,10 @@ const { toCanonical, LEGACY_TOOLS } = await imp('src/core/routing/legacy.js')
 const P = await imp('src/core/routing/paths.js')
 const NAV = await imp('src/core/routing/navigation.js')
 const STUDY = await imp('src/core/study/scope.js')
+const { APP_NAME } = await imp('src/layouts/courseNav.js')
+const { courseHub, COURSE_STATUS_LABEL } = await imp('src/core/routing/courseHub.js')
+const { registry } = await imp('src/core/academic/data/index.js')
+const { getContentCourse } = await imp('src/core/routing/catalog.js')
 // Αναμενόμενο κείμενο εργαλείου = μέγεθος υλικού της unit (1D: ίδιο dataset legacy και canonical).
 const toolText = (unitId, tool) => {
   const m = STUDY.selectStudyMaterial({ kind: 'unit', courseId: 'psd115', unitId })
@@ -82,10 +86,11 @@ routes.push({ group: 'legacy', path: '/week/2/quiz?x=1', expect: '/study/quiz?sc
 for (const w of [2, 3, 4]) {
   routes.push({ group: 'legacy', path: `/week/${w}/does-not-exist`, notFound: true, link: P.unitPath('psd115', `k${w}`), note: 'άγνωστο θέμα' })
 }
-routes.push({ group: 'legacy', path: '/week/9', notFound: true })
+routes.push({ group: 'legacy', path: '/week/9', notFound: true, appHeader: true })
 
 // β. Canonical απευθείας
-routes.push({ group: 'canonical', path: '/' })
+// Φάση 6c: η / είναι η αρχική μαθημάτων (επικεφαλίδα της εφαρμογής, κανένα μάθημα)· έλεγχοι καρτών παρακάτω (1β).
+routes.push({ group: 'canonical', path: '/', testid: 'course-hub', appHeader: true })
 routes.push({ group: 'canonical', path: P.coursePath('psd115'), header: 'psd115' })
 for (const u of course.units) {
   routes.push({
@@ -100,8 +105,8 @@ for (const t of topics) {
   routes.push({ group: 'canonical', path: P.topicPath('psd115', t.id), title: topicTitle(t), selectedTopic: t.id, header: 'psd115' })
 }
 for (const d of sources) routes.push({ group: 'canonical', path: P.documentPath('psd115', d.id), link: `/${d.path}` })
-routes.push({ group: 'canonical', path: P.termPath('2026F'), testid: 'term-page', link: '/psd200' })
-routes.push({ group: 'canonical', path: P.termPath('2026S'), testid: 'term-page' })
+routes.push({ group: 'canonical', path: P.termPath('2026F'), testid: 'term-page', link: '/psd200', appHeader: true })
+routes.push({ group: 'canonical', path: P.termPath('2026S'), testid: 'term-page', appHeader: true })
 routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα', link: '/terms/2026F', header: 'psd200' })
 routes.push({ group: 'negative', path: '/psd200/units/k1', notFound: true, header: 'psd200' })
 routes.push({ group: 'negative', path: '/psd200/topics/pavlov', notFound: true, header: 'psd200' })
@@ -259,10 +264,20 @@ const browser = await launch()
       const headerText = (await header.textContent()) ?? ''
       const unitLinks = await header.locator('a[href*="/units/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')))
       const expectedUnits = NAV.courseUnits(r.header).map((u) => u.path)
-      if (!headerText.includes(`${course.code} Exam Prep`)) fail(`${label}: το header δεν δείχνει ${course.code}`)
+      if (!headerText.includes(APP_NAME) || !headerText.includes(course.code)) fail(`${label}: το header δεν δείχνει «${APP_NAME}» και ${course.code}`)
       if (unitLinks.join('|') !== expectedUnits.join('|')) fail(`${label}: units στο header: ${unitLinks.join(', ') || '—'}`)
       if (r.header !== 'psd115' && /PSD115|Ψυχολογία 2/.test(headerText)) fail(`${label}: το header δείχνει στοιχεία του PSD115`)
       if (r.header !== 'psd115' && !headerText.includes(course.title)) fail(`${label}: το header δεν δείχνει τον τίτλο «${course.title}»`)
+    }
+    if (r.appHeader) {
+      // Σελίδα χωρίς μάθημα (Φάση 6c): όνομα εφαρμογής, κανένας κωδικός μαθήματος, καμία εβδομάδα, link στα μαθήματα.
+      const header = page.locator('header')
+      const headerText = (await header.textContent()) ?? ''
+      if (!headerText.includes(APP_NAME)) fail(`${label}: το header δεν δείχνει «${APP_NAME}»`)
+      if (/PSD\d{3}/.test(headerText)) fail(`${label}: το header δείχνει κωδικό μαθήματος («${headerText.match(/PSD\d{3}/)[0]}»)`)
+      if ((await header.locator('a[href*="/units/"]').count()) > 0) fail(`${label}: το header δείχνει εβδομάδες μαθήματος`)
+      if ((await header.locator('a[href="/"]').count()) === 0) fail(`${label}: το header δεν έχει link στα μαθήματα (/)`)
+      if ((await page.getByRole('button', { name: /Επαναφορά προόδου του/ }).count()) > 0) fail(`${label}: επαναφορά προόδου μαθήματος σε σελίδα χωρίς μάθημα`)
     }
     for (const e of pageErrors) fail(`${label}: ${e}`)
     counts[r.group] = (counts[r.group] ?? 0) + 1
@@ -275,6 +290,42 @@ const browser = await launch()
     `${failures.length ? '✗' : '✓'} Διαδρομές: ${routes.length} ελέγχθηκαν ` +
       `(legacy ${counts.legacy} · canonical ${counts.canonical} · αρνητικά ${counts.negative})`,
   )
+}
+
+// ---------- 1β. Αρχική μαθημάτων (Φάση 6c) ----------
+{
+  const hubBefore = failures.length
+  const context = await browser.newContext()
+  await context.addInitScript(() => localStorage.setItem('psd115-disclaimer-v1', '1'))
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+  const hub = page.getByTestId('course-hub')
+  const expected = courseHub(registry, (id) => Boolean(getContentCourse(id))).sections.flatMap((s) => s.courses)
+  if ((await hub.count()) === 0) fail('αρχική: η / δεν δείχνει την αρχική μαθημάτων (course-hub)')
+  else {
+  const cards = await hub.locator('[data-testid="course-card"]').evaluateAll((els) =>
+    els.map((el) => ({ href: el.getAttribute('href'), text: el.textContent.replace(/\s+/g, ' ') })),
+  )
+  if (cards.length !== expected.length) fail(`αρχική: ${cards.length} κάρτες, αναμενόταν ${expected.length}`)
+  expected.forEach((c, i) => {
+    const card = cards[i]
+    if (!card || card.href !== c.path) return fail(`αρχική: κάρτα ${i + 1} → ${card?.href}, αναμενόταν ${c.path}`)
+    if (!card.text.includes(c.code) || !card.text.includes(c.title)) fail(`αρχική: η κάρτα ${c.path} δεν δείχνει κωδικό/τίτλο`)
+    if (!card.text.includes(COURSE_STATUS_LABEL[c.status])) fail(`αρχική: η κάρτα ${c.path} δεν δείχνει «${COURSE_STATUS_LABEL[c.status]}»`)
+  })
+  const hubText = ((await hub.textContent()) ?? '').replace(/\s+/g, ' ')
+  if (/Διαθέσιμ|ολοκληρ|πλήρες υλικό|έτοιμ/i.test(hubText.replace(/δεν σημαίνει ότι είναι πλήρες ή έτοιμο/, ''))) fail('αρχική: κείμενο που υπονοεί πληρότητα / ετοιμότητα')
+  if (!/δεν σημαίνει ότι είναι πλήρες ή έτοιμο/.test(hubText)) fail('αρχική: λείπει η υποσημείωση για τη σημασία της ένδειξης')
+  if (!/Fall 2026[\s\S]*Spring 2026/.test(hubText)) fail('αρχική: σειρά εξαμήνων (Fall 2026 πρώτα)')
+  await hub.locator('a[href="/psd115"]').click()
+  await page.waitForURL(BASE + '/psd115')
+  if (!/Εβδομάδα 1/.test((await page.locator('#main-content').textContent()) ?? '')) fail('αρχική → PSD115: δεν εμφανίστηκε η αρχική του μαθήματος')
+  }
+  for (const e of errors) fail(`αρχική: ${e}`)
+  await context.close()
+  console.log(`${failures.length > hubBefore ? '✗' : '✓'} Αρχική μαθημάτων: ${expected.length} κάρτες με κατάσταση από τον κατάλογο · σειρά εξαμήνων · → /psd115`)
 }
 
 // ---------- 2. Προστασία προόδου (Φάση 6a: νέα μορφή study-progress) ----------
@@ -299,7 +350,8 @@ const before = failures.length
   const readDownload = async (download) => JSON.parse(fs.readFileSync(await download.path(), 'utf8'))
   const message = () => page.getByTestId('progress-backup-message').textContent()
 
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+  // Φάση 6c: η επαναφορά υπάρχει μόνο μέσα σε μάθημα· το backup / import / reset ελέγχεται στη σελίδα του PSD115.
+  await page.goto(BASE + '/psd115', { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
   const original = await readAll()
   for (const [k, v] of Object.entries(seed)) if (original[k] !== v) fail(`backup: η εφαρμογή άλλαξε το «${k}» κατά τη φόρτωση`)
