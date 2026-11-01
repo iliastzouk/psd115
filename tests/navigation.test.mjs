@@ -18,7 +18,6 @@ import {
   courseHomePath,
   courseIdentity,
   courseUnits,
-  DEFAULT_COURSE_ID,
   topicNeighbors,
   unitNeighbors,
   unitTools,
@@ -142,15 +141,24 @@ describe('psd200 (μάθημα χωρίς περιεχόμενο)', () => {
 })
 
 describe('ενεργό μάθημα (header)', () => {
-  test('από την ταυτότητα της διαδρομής· προεπιλογή μόνο όταν η διαδρομή δεν έχει μάθημα', () => {
+  test('από την ταυτότητα της διαδρομής', () => {
     assert.equal(activeCourseId(resolveLocation('/psd200')), 'psd200')
     assert.equal(activeCourseId(resolveLocation('/psd200/units/k1')), 'psd200')
     assert.equal(activeCourseId(resolveLocation('/psd115/topics/pavlov')), 'psd115')
     assert.equal(activeCourseId(resolveLocation('/study/quiz', '?scope=unit:psd115/k2')), 'psd115')
-    assert.equal(activeCourseId(resolveLocation('/')), DEFAULT_COURSE_ID)
-    assert.equal(activeCourseId(resolveLocation('/nope')), DEFAULT_COURSE_ID)
-    assert.equal(courseHomePath('psd115'), '/')
-    assert.equal(courseHomePath('psd200'), '/psd200')
+    assert.equal(activeCourseId(resolveLocation('/psd115/units/k9')), 'psd115', 'Not Found μέσα σε μάθημα → το μάθημα')
+  })
+  test('Φάση 6c: διαδρομή χωρίς μάθημα → null (καμία σιωπηλή προεπιλογή μαθήματος)', () => {
+    for (const p of ['/', '/terms/2026F', '/terms/2026S', '/nope', '/week/1', '/week/9', '/study/today?scope=term:2026F']) {
+      const [pathname, search = ''] = p.split('?')
+      assert.equal(activeCourseId(resolveLocation(pathname, search && `?${search}`)), null, p)
+    }
+  })
+  test('Φάση 6c: η αρχική κάθε μαθήματος είναι /:courseId (και του PSD115)· καμία προεπιλογή μαθήματος δεν εξάγεται', async () => {
+    const { registry } = await import('../src/core/academic/data/index.js')
+    for (const c of registry.courses) assert.equal(courseHomePath(c.id), `/${c.id}`, c.id)
+    const nav = await import('../src/core/routing/navigation.js')
+    assert.equal('DEFAULT_COURSE_ID' in nav, false)
   })
 })
 
