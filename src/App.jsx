@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import AppShell from './layouts/AppShell.jsx'
-import Home from './pages/Home.jsx'
+import CourseHubPage from './pages/routing/CourseHubPage.jsx'
 import LegacyRedirect from './pages/routing/LegacyRedirect.jsx'
 import NotFound from './pages/routing/NotFound.jsx'
 import {
@@ -22,7 +22,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<CourseHubPage />} />
         <Route path="/week/*" element={<LegacyRedirect />} />
         <Route path="/terms/:termId" element={<TermPage />} />
         <Route path="/study/:tool" element={<StudyFrame />}>

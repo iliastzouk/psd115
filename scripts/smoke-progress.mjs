@@ -13,6 +13,9 @@
  *      Κάθε getItem της εφαρμογής καταγράφεται (οι αναγνώσεις των assertions παρακάμπτουν την καταγραφή): σε boot,
  *      checklist, εξαγωγή και reset διαβάζονται ΜΟΝΟ τα κλειδιά του store, το σημάδι, τα `study-progress-backup-*`
  *      (σύγκρουση ονόματος + επαλήθευση του νέου backup) και οι ρυθμίσεις theme / disclaimer.
+ *  H.  Αρχική μαθημάτων (Φάση 6c): εκκίνηση στη `/` → διαβάζονται ΑΚΡΙΒΩΣ τα 5 κλειδιά της εκκίνησης (σημάδι, theme,
+ *      disclaimer, store), ίδια με την εκκίνηση στη `/psd115`· 0 εγγραφές· όλες οι τιμές byte-identical πριν και μετά.
+ *      Κλικ στο PSD115 → αρχική μαθήματος → θέμα: η υπάρχουσα πρόοδος εμφανίζεται, 0 εγγραφές, τιμές byte-identical.
  *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία: κλικ σε checklist → ΚΑΜΙΑ εγγραφή, μήνυμα, το checkbox δεν δείχνει
  *      «αποθηκευμένη» αλλαγή· reload → η ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
  *  W.  Αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2): ειδοποίηση (όχι degraded), το checkbox ΔΕΝ αλλάζει, καμία αλλαγή στο
@@ -411,6 +414,48 @@ try {
     for (const k of LEGACY_SEEDED) check(uKeys[k] === withLegacy[k], `U: το «${k}» άλλαξε`)
     await context.close()
 
+    // H: αρχική μαθημάτων (Φάση 6c) — καμία επίδραση στην πρόοδο.
+    {
+      // Μέτρηση πριν από τη 6c (ίδια σε /, /psd115, /terms/2026F, /psd200): οι αναγνώσεις της εκκίνησης είναι ΜΟΝΟ αυτές.
+      const BOOT_READS = ['progress-txn-v1', 'psd115-disclaimer-v1', 'psd115-w1-theme', 'study-progress-events-v1', 'study-progress-state-v1']
+      const seeded = { ...SAMPLE, 'psd115-w1-study': '{"quizAnswered":999}', 'psd115-extra-unknown': 'keep-me', 'psd115-w1-theme': 'light', 'psd115-disclaimer-v1': '1' }
+      const bootReads = async (route) => {
+        const c = await newContext(browser, seeded)
+        await c.page.goto(`${base}${route}`)
+        await settle(c.page)
+        const r = await c.page.evaluate(() => ({ reads: window.__reads, writes: window.__writes }))
+        const keys = await readKeys(c.page)
+        return { ...c, reads: [...new Set(r.reads)].sort(), writes: r.writes, keys }
+      }
+      const course = await bootReads('/psd115')
+      await course.context.close()
+      const hub = await bootReads('/')
+      check(JSON.stringify(hub.reads) === JSON.stringify(BOOT_READS), `H: αναγνώσεις στη /: ${JSON.stringify(hub.reads)} (αναμενόταν ${JSON.stringify(BOOT_READS)})`)
+      check(JSON.stringify(hub.reads) === JSON.stringify(course.reads), `H: η / διαβάζει άλλα κλειδιά από τη /psd115 (${JSON.stringify(course.reads)})`)
+      check(hub.writes.length === 0, `H: εγγραφές στην εκκίνηση της /: ${JSON.stringify(hub.writes)}`)
+      check(sameKeys(hub.keys, seeded), 'H: οι τιμές του localStorage άλλαξαν στην εκκίνηση της /')
+      const hasHub = (await hub.page.getByTestId('course-hub').count()) === 1
+      check(hasHub, 'H: η / δεν δείχνει την αρχική μαθημάτων')
+      const { page: hp } = hub
+      if (hasHub) {
+      await hp.getByTestId('course-hub').locator('a[href="/psd115"]').click()
+      await hp.waitForURL(`${base}/psd115`)
+      await hp.locator('#main-content a[href="/psd115/units/k1"]').first().click()
+      await hp.waitForURL(`${base}/psd115/units/k1`)
+      await hp.locator('#main-content a[href="/psd115/topics/pavlov"]').first().click()
+      await hp.waitForURL(`${base}/psd115/topics/pavlov`)
+      await settle(hp)
+      check(/Κουίζ — · Κάρτες 21\/94 \(22%\)/.test(await hp.locator('#root').innerText()), 'H: η υπάρχουσα πρόοδος του PSD115 δεν εμφανίστηκε μετά την πλοήγηση από τη /')
+      const boxes = await hp.locator('main input[type=checkbox]').evaluateAll((els) => els.map((e) => e.checked))
+      check(JSON.stringify(boxes) === JSON.stringify(pad([true, false, true], boxes.length)), `H: checklist pavlov ${JSON.stringify(boxes)}`)
+      const after = await hp.evaluate(() => ({ reads: [...new Set(window.__reads)], writes: window.__writes }))
+      check(after.writes.length === 0, `H: εγγραφές κατά την πλοήγηση: ${JSON.stringify(after.writes)}`)
+      check(after.reads.every((k) => BOOT_READS.includes(k)), `H: η πλοήγηση διάβασε άλλα κλειδιά: ${JSON.stringify(after.reads)}`)
+      check(sameKeys(await readKeys(hp), seeded), 'H: οι τιμές του localStorage άλλαξαν κατά την πλοήγηση')
+      }
+      await hub.context.close()
+    }
+
     // P: εκκρεμές σημάδι κατά τη λειτουργία. Μισή κατάσταση όπως την αφήνει μια συναλλαγή που διακόπηκε:
     //    το events έχει την τιμή «after», το state την «before», το σημάδι μένει → η ανάκτηση επαναφέρει τα «before».
     ;({ context, page } = await newContext(browser, SAMPLE))
@@ -591,7 +636,7 @@ try {
     check(!(TXN in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
     await context.close()
     console.log(
-      `${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset δεν επιτρέπεται · αντικατάσταση χωρίς επαληθευμένο backup → ακύρωση · με backup (raw byte-identical) → resync · legacy/άγνωστα κλειδιά ανέγγιχτα · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη · δύο tabs: ενημέρωση χωρίς reload, καμία χαμένη αλλαγή · reset με σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · import με rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση`,
+      `${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset δεν επιτρέπεται · αντικατάσταση χωρίς επαληθευμένο backup → ακύρωση · με backup (raw byte-identical) → resync · legacy/άγνωστα κλειδιά ανέγγιχτα · αρχική μαθημάτων: ίδιες 5 αναγνώσεις με τη /psd115, 0 εγγραφές, πρόοδος ορατή μετά την πλοήγηση · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη · δύο tabs: ενημέρωση χωρίς reload, καμία χαμένη αλλαγή · reset με σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · import με rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση`,
     )
   }
 

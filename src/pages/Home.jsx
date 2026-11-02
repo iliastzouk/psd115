@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { courseIdentity, courseUnits, DEFAULT_COURSE_ID } from '../core/routing/navigation.js'
+import { courseIdentity, courseUnits } from '../core/routing/navigation.js'
 import { unitPresentation } from './routing/coursePresentation.js'
+import { APP_NAME } from '../layouts/courseNav.js'
 
-/** Αρχική μαθήματος με περιεχόμενο: οι units προέρχονται από την ακαδημαϊκή δομή (course.js). */
-export default function Home({ courseId = DEFAULT_COURSE_ID }) {
+/** Αρχική μαθήματος με περιεχόμενο (`/:courseId`): οι units προέρχονται από την ακαδημαϊκή δομή (course.js). */
+export default function Home({ courseId }) {
   const course = courseIdentity(courseId)
   return (
     <div className="space-y-8 animate-[fadeIn_0.4s_ease-out]">
@@ -16,7 +17,7 @@ export default function Home({ courseId = DEFAULT_COURSE_ID }) {
           Θεωρία, κάρτες, κουίζ, λειτουργία εξέτασης και πρόοδος — δομημένο ανά εβδομάδα για εύκολη επέκταση.
         </p>
         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 max-w-lg mx-auto">
-          {course.code} Exam Prep by Ilias Tzoukas · όχι επίσημο υλικό ιδρύματος, προσωπική μελέτη.
+          {APP_NAME} · όχι επίσημο υλικό ιδρύματος, προσωπική μελέτη.
         </p>
       </div>
 

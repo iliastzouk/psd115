@@ -31,12 +31,17 @@ merge. Ενεργή αρχιτεκτονική της προόδου: `docs/prog
 - Theme και disclaimer είναι ρυθμίσεις, όχι πρόοδος· αλλάζουν μόνο με χωριστή αιτιολόγηση.
 - Ο legacy κώδικας αφαιρείται μόνο όταν όλες οι runtime εξαρτήσεις του έχουν αντικατασταθεί και ελεγχθεί.
 
-## Κατάσταση (στο `main`, μετά το PR #18)
+## Κατάσταση (στο `main`, μετά το PR #19)
 
 - Ενεργή πρόοδος (Φάση 6a): `main.jsx` → `createStoreProgressService` πάνω στο νέο store (`study-progress-events-v1` /
   `study-progress-state-v1`), για κάθε μάθημα του `STUDY_CONTENT`. Τα `psd115-*` (πρόοδος) δεν διαβάζονται ούτε γράφονται.
-- Ο legacy κώδικας (backend, shadow, migration, baseline) υπάρχει ακόμα, χωρίς runtime εξάρτηση· αφαιρείται στο 6b.
+- Ο legacy κώδικας προόδου (backend, shadow, migration, baseline, validators, legacy service/store) και τα legacy
+  fixtures αφαιρέθηκαν (Φάση 6b). Guards: κανένα legacy module ή κλειδί προόδου στο `src/` / στο production bundle, καμία
+  ανάγνωση legacy κλειδιού από την εφαρμογή (smoke). Τα παλιά fixtures μένουν μόνο στο git history.
 - Μελέτη και εμφάνιση προόδου: παίρνουν το μάθημα από τη διαδρομή και το περιεχόμενο από το `STUDY_CONTENT` (Φάση 5).
+- Αρχική μαθημάτων (Φάση 6c, σε review): η `/` δείχνει τα μαθήματα ανά εξάμηνο από το registry, με κατάσταση υλικού από
+  τον κατάλογο περιεχομένου· κάθε μάθημα στη `/:courseId` (το PSD115 στη `/psd115`)· επικεφαλίδα «Exam Prep by Ilias
+  Tzoukas»· κανένα προεπιλεγμένο μάθημα.
 - Περιεχόμενο μελέτης (`STUDY_CONTENT`) και routing περιεχομένου (`routing/catalog.js`): μόνο το PSD115. Τα άλλα μαθήματα
   υπάρχουν μόνο στον ακαδημαϊκό κατάλογο.
 
@@ -47,7 +52,8 @@ merge. Ενεργή αρχιτεκτονική της προόδου: `docs/prog
 | 1–4 | Ασφάλεια backup/εγγραφών, ειδοποίηση αποτυχιών, πολλά tabs, εμφάνιση ανά scope | merged (#12–#16) |
 | 5 | Γενίκευση μελέτης και εμφάνισης: `courseId` της διαδρομής + `STUDY_CONTENT` (useStudySession, Progress, WrongAnswersReview, registryPages)· ισοδυναμία PSD115· storage εκτός scope | merged (#17) |
 | 6a | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery (συμβόλαιο J1–J9: `docs/progress.md`· αρχική διατύπωση: `docs/history/progress-migration.md` §20) | merged (#18) |
-| 6b | Αφαίρεση του legacy κώδικα (backend, shadow, migration, baseline, validators, fixtures) αφού δεν έχει runtime εξαρτήσεις | — |
+| 6b | Αφαίρεση του legacy κώδικα (backend, shadow, migration, baseline, validators, fixtures) αφού δεν έχει runtime εξαρτήσεις· ενεργή τεκμηρίωση στο `docs/progress.md` | merged (#19) |
+| 6c | Εφαρμογή πολλών μαθημάτων στην εμφάνιση και στην πλοήγηση: αρχική μαθημάτων στη `/` (registry + κατάλογος, χωρίς πρόοδο), το PSD115 στη `/psd115`, όνομα εφαρμογής, μενού «Μαθήματα» / «Προηγούμενα»· καμία αλλαγή σε πρόοδο, περιεχόμενο, ids ή παλιές διαδρομές | σε review |
 | 7 | PSD125 ως δεύτερο μάθημα, με πλήρες περιεχόμενο και ανεξάρτητη πρόοδο | — |
 | 8 | PSD200, PSD210, PSD215, PSD110 με το ίδιο συμβόλαιο, χωρίς κώδικα αποθήκευσης ανά μάθημα | — |
 | 9 | Hardening και rollout: tests, build, browser smoke για όλα τα μαθήματα, αποτυχίες εγγραφής, κατεστραμμένα δεδομένα, reset/export/import, πολλά tabs, σταδιακή ενεργοποίηση | — |
@@ -61,6 +67,5 @@ legacy κώδικα όταν δεν έχει πια runtime εξαρτήσεις
 
 - Μην ξεκινάς καμία φάση χωρίς ρητή έγκριση· πρώτα πλάνο, μετά κώδικας.
 - Tests πρώτα, μικρά commits, τεκμηρίωση, PR ανοιχτό για review. Κανένα merge χωρίς ρητή εντολή.
-- Τα production flags (shadow/migration) μένουν κλειστά μέχρι να εγκριθεί το αντίστοιχο rollout.
 - Κανένα περιεχόμενο ή δεδομένο που δεν έχει επιβεβαιωθεί από πηγές.
 - Μην θεωρείς ότι η νέα υποδομή είναι ενεργή επειδή υπάρχουν τα modules της: έλεγξε το `main.jsx`.
