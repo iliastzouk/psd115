@@ -11,6 +11,9 @@
  *  - ιστορικό (έναντι προηγούμενης έκδοσης του μητρώου): κανένα id δεν φεύγει, retired → active ποτέ, τύπος ποτέ
  *
  * CLI:  node scripts/id-ledger.mjs [--course psd115] [--add]   (--add: προσθέτει ρητά τα νέα ids ως active)
+ *       node scripts/id-ledger.mjs --manifest <module.js> [--add]
+ *         (Φάση 6d: μάθημα από manifest — π.χ. το συνθετικό tests/fixtures/courses/demo-chapters/· μητρώο δίπλα στο
+ *          manifest, `ids.ledger.json`)
  */
 import fs from 'fs'
 import path from 'path'
@@ -85,21 +88,39 @@ export const readLedger = (courseId) => {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2)
-  const courseId = args.includes('--course') ? args[args.indexOf('--course') + 1] : 'psd115'
-  const { STUDY_CONTENT } = await import(pathToFileURL(path.join(root, 'src/core/study/content.js')).href)
-  const c = STUDY_CONTENT[courseId]
-  if (!c) {
-    console.error(`✗ Το «${courseId}» δεν έχει περιεχόμενο μελέτης`)
-    process.exit(1)
+  const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null)
+  let content
+  let file
+  if (arg('--manifest')) {
+    const mod = await import(pathToFileURL(path.resolve(root, arg('--manifest'))).href)
+    const manifests = Object.values(mod).filter((v) => v && typeof v === 'object' && typeof v.id === 'string' && v.study)
+    if (manifests.length !== 1) {
+      console.error(`✗ ${arg('--manifest')}: αναμενόταν ακριβώς ένα manifest μαθήματος (βρέθηκαν ${manifests.length})`)
+      process.exit(1)
+    }
+    const m = manifests[0]
+    content = { courseId: m.id, cards: m.study.flashcards.map((x) => x.id), questions: m.study.quizQuestions.map((x) => x.id) }
+    file = path.join(path.dirname(path.resolve(root, arg('--manifest'))), 'ids.ledger.json')
+  } else {
+    const courseId = arg('--course') ?? 'psd115'
+    const { STUDY_CONTENT } = await import(pathToFileURL(path.join(root, 'src/core/study/content.js')).href)
+    const c = STUDY_CONTENT[courseId]
+    if (!c) {
+      console.error(`✗ Το «${courseId}» δεν έχει περιεχόμενο μελέτης`)
+      process.exit(1)
+    }
+    content = { courseId, cards: c.flashcards.map((x) => x.id), questions: c.quizQuestions.map((x) => x.id) }
+    file = ledgerPath(courseId)
   }
-  const content = { courseId, cards: c.flashcards.map((x) => x.id), questions: c.quizQuestions.map((x) => x.id) }
-  const current = readLedger(courseId)
+  const { courseId } = content
+  const readFile = () => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null)
+  const current = readFile()
   if (args.includes('--add')) {
     const next = withNewIds(current, content)
-    fs.writeFileSync(ledgerPath(courseId), `${JSON.stringify(next, null, 2)}\n`)
+    fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`)
     console.log(`✓ μητρώο ${courseId}: ${Object.keys(next.ids).length - Object.keys(current?.ids ?? {}).length} νέα ids`)
   }
-  const errors = checkLedger(readLedger(courseId), content)
+  const errors = checkLedger(readFile(), content)
   if (errors.length) {
     for (const e of errors) console.error(`  - ${e}`)
     process.exit(1)
