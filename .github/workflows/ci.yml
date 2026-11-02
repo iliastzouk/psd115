@@ -35,3 +35,7 @@ jobs:
       # που ΠΡΕΠΕΙ να αποτύχουν, degraded / αντικατάσταση, δύο tabs, ένα snapshot σε όλους τους consumers.
       - name: Browser smoke (ProgressService)
         run: npm run smoke:progress
+      # Φάση 6d: ντετερμινιστικό snapshot των σελίδων του PSD115 (διαδρομές, τίτλοι, links, checkboxes, κείμενα) πάνω στο
+      # build· κάθε αλλαγή του baseline αιτιολογείται στο commit και στο PR («Αποκλίσεις snapshot»).
+      - name: Page snapshot (PSD115)
+        run: npm run snapshot:pages
