@@ -1,18 +1,53 @@
 /**
- * Φάση 6d-α (α2) — ενιαίο registry περιεχομένου: τα manifests (content/courses/index.js) → κατάλογος του routing και
- * περιεχόμενο μελέτης, με pure συναρτήσεις (src/core/content/registry.js). Ισοδυναμία με τις σημερινές ρητές
- * καταχωρίσεις: ίδιες units, θέματα, έγγραφα, τιμές STUDY_CONTENT και ίδια σειρά παντού.
+ * Φάση 6d-α (α2–α3) — ενιαίο registry περιεχομένου: τα manifests (content/courses/index.js) → κατάλογος του routing και
+ * περιεχόμενο μελέτης, με pure συναρτήσεις (src/core/content/registry.js).
+ *
+ * Ισοδυναμία με τις ρητές καταχωρίσεις που υπήρχαν πριν από τη Φάση 6d (CONTENT_COURSES στο routing/catalog.js,
+ * STUDY_CONTENT στο study/content.js): εδώ ξαναγράφονται ΡΗΤΑ από τα modules του PSD115 (EXPECTED_*) και συγκρίνονται
+ * με τον παραγόμενο κατάλογο και με το δημόσιο API (getContentCourse, STUDY_CONTENT): ίδιες units, θέματα, έγγραφα,
+ * τιμές και ίδια σειρά παντού.
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { COURSES } from '../content/courses/index.js'
 import { psd115 } from '../content/courses/psd115/index.js'
+import { course as psd115Course } from '../content/courses/psd115/course.js'
+import { topics as psd115Topics } from '../content/courses/psd115/topics.js'
+import { sources as psd115Sources } from '../content/courses/psd115/sources.js'
+import * as Q from '../content/courses/psd115/questions.js'
+import { getWeek1ExamQuestions } from '../content/courses/psd115/units/k1/index.js'
+import { getWeek2ExamQuestions } from '../content/courses/psd115/units/k2/index.js'
+import { getWeek3ExamQuestions } from '../content/courses/psd115/units/k3/index.js'
+import { getWeek4ExamQuestions } from '../content/courses/psd115/units/k4/index.js'
 import { deriveCatalog, deriveStudyContent } from '../src/core/content/registry.js'
 import { checkCourseContent } from '../src/core/content/courseContract.js'
 import { contentCourseIds, getContentCourse } from '../src/core/routing/catalog.js'
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 import { registry } from '../src/core/academic/data/index.js'
 import { demoChapters } from './fixtures/courses/demo-chapters/index.js'
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
+
+/** Οι καταχωρίσεις πριν από τη Φάση 6d, αυτούσιες. */
+const EXPECTED_CATALOG = { psd115: { course: psd115Course, topics: psd115Topics, docs: psd115Sources } }
+const EXPECTED_STUDY = {
+  psd115: {
+    flashcards: Q.flashcards,
+    quizQuestions: Q.quizQuestions,
+    categories: Q.CATEGORIES,
+    getCategoryLabel: Q.getCategoryLabel,
+    units: {
+      k1: { categories: Q.WEEK1_CATEGORIES, examQuestions: getWeek1ExamQuestions },
+      k2: { categories: Q.WEEK2_CATEGORIES, examQuestions: getWeek2ExamQuestions },
+      k3: { categories: Q.WEEK3_CATEGORIES, examQuestions: getWeek3ExamQuestions },
+      k4: { categories: Q.WEEK4_CATEGORIES, examQuestions: getWeek4ExamQuestions },
+    },
+  },
+}
 
 const catalog = deriveCatalog(COURSES)
 const study = deriveStudyContent(COURSES)
@@ -37,39 +72,51 @@ describe('content/courses/index.js: μόνο πραγματικά μαθήματ
 })
 
 describe('ισοδυναμία: κατάλογος routing', () => {
-  test('ίδια μαθήματα, με την ίδια σειρά', () => assert.deepEqual(Object.keys(catalog), contentCourseIds()))
-  for (const id of contentCourseIds()) {
-    test(`${id}: ίδια units (πεδία και σειρά), θέματα, έγγραφα, provenance`, () => {
-      const before = getContentCourse(id)
-      assert.deepStrictEqual(catalog[id], before)
-      assert.deepEqual(catalog[id].course.units.map((u) => u.id), before.course.units.map((u) => u.id))
-      assert.deepEqual(catalog[id].topics.map((t) => t.id), before.topics.map((t) => t.id))
-      assert.deepEqual(catalog[id].docs.map((d) => d.id), before.docs.map((d) => d.id))
-    })
+  test('ίδια μαθήματα, με την ίδια σειρά (παραγόμενος κατάλογος και δημόσιο API)', () => {
+    assert.deepEqual(Object.keys(catalog), Object.keys(EXPECTED_CATALOG))
+    assert.deepEqual(contentCourseIds(), Object.keys(EXPECTED_CATALOG))
+  })
+  for (const id of Object.keys(EXPECTED_CATALOG)) {
+    const expected = EXPECTED_CATALOG[id]
+    for (const [name, actual] of [['registry', () => catalog[id]], ['getContentCourse', () => getContentCourse(id)]]) {
+      test(`${id} · ${name}: ίδιες units (πεδία και σειρά), θέματα, έγγραφα, provenance`, () => {
+        assert.deepStrictEqual(actual(), expected)
+        assert.deepEqual(actual().course.units.map((u) => u.id), expected.course.units.map((u) => u.id))
+        assert.deepEqual(actual().topics.map((t) => t.id), expected.topics.map((t) => t.id))
+        assert.deepEqual(actual().docs.map((d) => d.id), expected.docs.map((d) => d.id))
+      })
+    }
   }
 })
 
 describe('ισοδυναμία: STUDY_CONTENT', () => {
-  test('ίδια μαθήματα, με την ίδια σειρά', () => assert.deepEqual(Object.keys(study), Object.keys(STUDY_CONTENT)))
-  for (const id of Object.keys(STUDY_CONTENT)) {
-    const before = STUDY_CONTENT[id]
-    test(`${id}: ίδιες τιμές (κάρτες, ερωτήσεις, κατηγορίες, units) και ίδια σειρά`, () => {
-      assert.deepStrictEqual(study[id], before)
-      assert.deepEqual(Object.keys(study[id]), Object.keys(before))
-      assert.deepEqual(Object.keys(study[id].units), Object.keys(before.units))
-      for (const k of ['flashcards', 'quizQuestions', 'categories']) assert.deepEqual(study[id][k].map((x) => x.id), before[k].map((x) => x.id), k)
-    })
-    test(`${id}: ίδιες συναρτήσεις (ετικέτες, ερωτήσεις ανάπτυξης) με ίδια αποτελέσματα`, () => {
-      assert.equal(study[id].getCategoryLabel, before.getCategoryLabel)
-      for (const [u, x] of Object.entries(before.units)) {
-        assert.equal(study[id].units[u].examQuestions, x.examQuestions, u)
-        assert.deepEqual(study[id].units[u].examQuestions(), x.examQuestions(), u)
-        assert.deepEqual(study[id].units[u].categories.map((c) => c.id), x.categories.map((c) => c.id), u)
-      }
-    })
+  test('ίδια μαθήματα, με την ίδια σειρά', () => {
+    assert.deepEqual(Object.keys(study), Object.keys(EXPECTED_STUDY))
+    assert.deepEqual(Object.keys(STUDY_CONTENT), Object.keys(EXPECTED_STUDY))
+  })
+  for (const id of Object.keys(EXPECTED_STUDY)) {
+    const before = EXPECTED_STUDY[id]
+    for (const [name, get] of [['registry', () => study[id]], ['STUDY_CONTENT', () => STUDY_CONTENT[id]]]) {
+      test(`${id} · ${name}: ίδιες τιμές (κάρτες, ερωτήσεις, κατηγορίες, units) και ίδια σειρά`, () => {
+        const actual = get()
+        assert.deepStrictEqual(actual, before)
+        assert.deepEqual(Object.keys(actual), Object.keys(before))
+        assert.deepEqual(Object.keys(actual.units), Object.keys(before.units))
+        for (const k of ['flashcards', 'quizQuestions', 'categories']) assert.deepEqual(actual[k].map((x) => x.id), before[k].map((x) => x.id), k)
+      })
+      test(`${id} · ${name}: ίδιες συναρτήσεις (ετικέτες, ερωτήσεις ανάπτυξης) με ίδια αποτελέσματα`, () => {
+        const actual = get()
+        assert.equal(actual.getCategoryLabel, before.getCategoryLabel)
+        for (const [u, x] of Object.entries(before.units)) {
+          assert.equal(actual.units[u].examQuestions, x.examQuestions, u)
+          assert.deepEqual(actual.units[u].examQuestions(), x.examQuestions(), u)
+          assert.deepEqual(actual.units[u].categories.map((c) => c.id), x.categories.map((c) => c.id), u)
+        }
+      })
+    }
   }
-  test('frozen, όπως το σημερινό', () => {
-    assert.ok(Object.isFrozen(study) && Object.isFrozen(study.psd115) && Object.isFrozen(study.psd115.units) && Object.isFrozen(study.psd115.units.k1))
+  test('frozen, όπως πριν', () => {
+    for (const s of [study, STUDY_CONTENT]) assert.ok(Object.isFrozen(s) && Object.isFrozen(s.psd115) && Object.isFrozen(s.psd115.units) && Object.isFrozen(s.psd115.units.k1))
     assert.ok(Object.isFrozen(catalog))
   })
 })
@@ -101,5 +148,29 @@ describe('γενικό: οποιοδήποτε μάθημα ως παράμετ�
   test('ίδιο courseId δύο φορές → σφάλμα', () => {
     assert.throws(() => deriveCatalog([demoChapters, demoChapters]), /διπλό μάθημα «demo-chapters»/)
     assert.throws(() => deriveStudyContent([demoChapters, demoChapters]), /διπλό μάθημα «demo-chapters»/)
+  })
+})
+
+describe('α3: ένα σημείο καταχώρισης (κανένα ρητό CONTENT_COURSES / STUDY_CONTENT)', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+  const importsOf = (code) => [...code.matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
+  test('μόνο το src/core/content/index.js εισάγει το content/courses/index.js', () => {
+    const users = walk(path.join(root, 'src'))
+      .filter((f) => importsOf(fs.readFileSync(f, 'utf8')).some((i) => /content\/courses\/index\.js$/.test(i)))
+      .map((f) => path.relative(root, f))
+    assert.deepEqual(users, ['src/core/content/index.js'])
+  })
+  test('catalog.js και study/content.js: από το registry, χωρίς import του content/ ή μαθήματος', () => {
+    for (const f of ['src/core/routing/catalog.js', 'src/core/study/content.js']) {
+      const code = read(f)
+      assert.deepEqual(importsOf(code).filter((i) => i.includes('content/courses')), [], f)
+      assert.match(code, /from '\.\.\/content\/index\.js'/, f)
+      assert.doesNotMatch(code, /psd\d{3}|PSD\d{3}/, f)
+    }
+  })
+  test('src/core/content/index.js: παράγει και τα δύο από τα ίδια manifests', () => {
+    const code = read('src/core/content/index.js')
+    assert.match(code, /deriveCatalog\(COURSES\)/)
+    assert.match(code, /deriveStudyContent\(COURSES\)/)
   })
 })

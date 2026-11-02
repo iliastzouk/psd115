@@ -1,14 +1,9 @@
 /**
  * Κατάλογος περιεχομένου για το routing: ποια μαθήματα έχουν περιεχόμενο και ποιες units / topics /
  * έγγραφα υπάρχουν. Όλα προκύπτουν από ρητά δεδομένα του content/ — ποτέ από pathname.
+ * Φάση 6d-α: από τα manifests των μαθημάτων (src/core/content/index.js), όχι από ρητή λίστα εδώ.
  */
-import { course as psd115Course } from '../../../content/courses/psd115/course.js'
-import { topics as psd115Topics } from '../../../content/courses/psd115/topics.js'
-import { sources as psd115Sources } from '../../../content/courses/psd115/sources.js'
-
-const CONTENT_COURSES = Object.freeze({
-  psd115: { course: psd115Course, topics: psd115Topics, docs: psd115Sources },
-})
+import { CONTENT_CATALOG as CONTENT_COURSES } from '../content/index.js'
 
 export const contentCourseIds = () => Object.keys(CONTENT_COURSES)
 export const getContentCourse = (courseId) => (Object.hasOwn(CONTENT_COURSES, courseId) ? CONTENT_COURSES[courseId] : null)
