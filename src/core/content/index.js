@@ -4,7 +4,8 @@
  * content/courses/index.js· κανένα άλλο αρχείο της εφαρμογής δεν αλλάζει για να το καταχωρίσει.
  */
 import { COURSES } from '../../../content/courses/index.js'
-import { deriveCatalog, deriveStudyContent } from './registry.js'
+import { deriveCatalog, deriveStudyContent, deriveTopicSlides } from './registry.js'
 
 export const CONTENT_CATALOG = deriveCatalog(COURSES)
 export const STUDY_CONTENT = deriveStudyContent(COURSES)
+export const TOPIC_SLIDES = deriveTopicSlides(COURSES)

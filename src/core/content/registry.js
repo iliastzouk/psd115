@@ -40,6 +40,15 @@ export function deriveCatalog(manifests) {
 }
 
 /**
+ * Διαφάνειες ανά topicId (από το `slides.byTopic`· κενό για μάθημα χωρίς slides).
+ * @param {readonly object[]} manifests
+ * @returns {Readonly<Record<string, Readonly<Record<string, number[]>>>>}
+ */
+export function deriveTopicSlides(manifests) {
+  return Object.freeze(Object.fromEntries(indexById(manifests).map((m) => [m.id, Object.freeze({ ...(m.slides?.byTopic ?? {}) })])))
+}
+
+/**
  * @param {readonly object[]} manifests
  * @returns {Readonly<Record<string, { flashcards, quizQuestions, categories, getCategoryLabel,
  *   units: Record<string, { categories, examQuestions }> }>>}
