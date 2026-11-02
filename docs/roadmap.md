@@ -1,8 +1,8 @@
 # Roadmap
 
 Κοινή πηγή αλήθειας για τις φάσεις του project. Διαβάζεται πριν από κάθε νέα φάση και ενημερώνεται όταν μια φάση γίνει
-merge. Ενεργή αρχιτεκτονική της προόδου: `docs/progress.md`· ιστορικό σχέδιο migration και φάσεις έως την 6a:
-`docs/history/progress-migration.md`.
+merge. Ενεργή αρχιτεκτονική της προόδου: `docs/progress.md`· του περιεχομένου: `docs/content.md`· ιστορικό σχέδιο
+migration και φάσεις έως την 6a: `docs/history/progress-migration.md`.
 
 ## Στόχος
 
@@ -44,6 +44,14 @@ merge. Ενεργή αρχιτεκτονική της προόδου: `docs/prog
   Tzoukas»· κανένα προεπιλεγμένο μάθημα.
 - Περιεχόμενο μελέτης (`STUDY_CONTENT`) και routing περιεχομένου (`routing/catalog.js`): μόνο το PSD115. Τα άλλα μαθήματα
   υπάρχουν μόνο στον ακαδημαϊκό κατάλογο.
+- Καταχώριση περιεχομένου (Φάση 6d-α, σε review):
+  - ένα manifest ανά μάθημα (`content/courses/<courseId>/index.js`, συμβόλαιο `src/core/content/courseContract.js`)·
+  - ένα σημείο καταχώρισης (`content/courses/index.js` → `src/core/content/index.js`), από το οποίο παράγονται ο
+    κατάλογος και το `STUDY_CONTENT`·
+  - προαιρετικές παλιές διαδρομές· διαφάνειες ανά topicId·
+  - snapshot σελίδων του PSD115 στο CI.
+
+  Αρχιτεκτονική: `docs/content.md`.
 
 ## Φάσεις
 
@@ -54,6 +62,8 @@ merge. Ενεργή αρχιτεκτονική της προόδου: `docs/prog
 | 6a | Νέα υποδομή ως ενεργή πηγή προόδου, για πολλά μαθήματα από την αρχή, χωρίς legacy migration: course-aware adapters, ανεξάρτητα namespaces, events + mutable state, checklists, wrongBook, reset, backup, export/import της νέας μορφής, recovery (συμβόλαιο J1–J9: `docs/progress.md`· αρχική διατύπωση: `docs/history/progress-migration.md` §20) | merged (#18) |
 | 6b | Αφαίρεση του legacy κώδικα (backend, shadow, migration, baseline, validators, fixtures) αφού δεν έχει runtime εξαρτήσεις· ενεργή τεκμηρίωση στο `docs/progress.md` | merged (#19) |
 | 6c | Εφαρμογή πολλών μαθημάτων στην εμφάνιση και στην πλοήγηση: αρχική μαθημάτων στη `/` (registry + κατάλογος, χωρίς πρόοδο), το PSD115 στη `/psd115`, όνομα εφαρμογής, μενού «Μαθήματα» / «Προηγούμενα»· καμία αλλαγή σε πρόοδο, περιεχόμενο, ids ή παλιές διαδρομές | merged (#20) |
+| 6d-α | Συμβόλαιο περιεχομένου (`checkCourseContent`) και ενιαίο registry: manifest του PSD115 ως adapter, κατάλογος και `STUDY_CONTENT` από τα manifests (ισοδυναμία), προαιρετικές legacy διαδρομές (ίδιες 69), διαφάνειες ανά topicId, συνθετικό `demo-chapters` μόνο στα tests, ντετερμινιστικό snapshot σελίδων· καμία αλλαγή σε πρόοδο, ids ή εμφάνιση | σε review |
+| 6d-β | Γενικά components ενότητας / θέματος, μετάβαση των Εβδ. 2–4 του PSD115 (η Εβδ. 1 μένει custom), γενικό `validate:content`, provenance των αρχείων, smoke build με το demo, τεκμηρίωση | — |
 | 7 | PSD125 ως δεύτερο μάθημα, με πλήρες περιεχόμενο και ανεξάρτητη πρόοδο | — |
 | 8 | PSD200, PSD210, PSD215, PSD110 με το ίδιο συμβόλαιο, χωρίς κώδικα αποθήκευσης ανά μάθημα | — |
 | 9 | Hardening και rollout: tests, build, browser smoke για όλα τα μαθήματα, αποτυχίες εγγραφής, κατεστραμμένα δεδομένα, reset/export/import, πολλά tabs, σταδιακή ενεργοποίηση | — |
@@ -69,3 +79,5 @@ legacy κώδικα όταν δεν έχει πια runtime εξαρτήσεις
 - Tests πρώτα, μικρά commits, τεκμηρίωση, PR ανοιχτό για review. Κανένα merge χωρίς ρητή εντολή.
 - Κανένα περιεχόμενο ή δεδομένο που δεν έχει επιβεβαιωθεί από πηγές.
 - Μην θεωρείς ότι η νέα υποδομή είναι ενεργή επειδή υπάρχουν τα modules της: έλεγξε το `main.jsx`.
+- Αλλαγή που επηρεάζει σελίδες: `npm run snapshot:pages` πάνω στο build. Κάθε αλλαγή του baseline
+  (`tests/fixtures/psd115-pages.snapshot.json`) αιτιολογείται στο commit και στο PR («Αποκλίσεις snapshot»).
