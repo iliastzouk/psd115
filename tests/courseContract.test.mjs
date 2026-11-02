@@ -203,9 +203,9 @@ describe('το συμβόλαιο είναι γενικό', () => {
     assert.doesNotMatch(code, /psd\d{3}|PSD\d{3}|demo-chapters/)
     assert.doesNotMatch(code, /localStorage|sessionStorage|content\/courses|^import /m)
   })
-  test('ακόμα δεν χρησιμοποιείται από την εφαρμογή (α1)', () => {
+  test('η εφαρμογή δεν εισάγει το συμβόλαιο: ο έλεγχος γίνεται μόνο στο validate:content και στα tests', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
-    const users = walk(path.join(root, 'src')).filter((f) => !f.endsWith('courseContract.js') && fs.readFileSync(f, 'utf8').includes('courseContract'))
+    const users = walk(path.join(root, 'src')).filter((f) => /(from|import\()\s*['"][^'"]*courseContract(\.js)?['"]/.test(fs.readFileSync(f, 'utf8')))
     assert.deepEqual(users, [])
   })
 })
