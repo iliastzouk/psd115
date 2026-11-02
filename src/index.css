@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+/* Το snapshot των σελίδων (Φάση 6d: harness και baseline με τα κείμενα της εφαρμογής) δεν είναι πηγή classes. */
+@source not '../scripts/snapshot-pages.mjs';
+@source not '../tests/fixtures/psd115-pages.snapshot.json';
 
 @variant dark (&:where(.dark, .dark *));
 

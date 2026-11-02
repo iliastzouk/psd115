@@ -5,7 +5,8 @@
  * επιστρέφει `notFound` — ποτέ δεν αντιστοιχίζεται σιωπηλά σε άλλη οντότητα.
  *
  * `legacyKey`: το αντίστοιχο παλιό κλειδί διαδρομής (/week/N/...), μόνο για να διαβάσει το υπάρχον
- * περιεχόμενο/UI τα δεδομένα του (διαφάνειες, πλοήγηση, επιλογή εβδομάδας). Δεν είναι ταυτότητα.
+ * περιεχόμενο/UI τα δεδομένα του (πλοήγηση, τίτλοι, επιλογή εβδομάδας). Δεν είναι ταυτότητα. '' όπου το μάθημα / η unit /
+ * το θέμα δεν έχουν legacy (Φάση 6d-α)· το ίδιο για το `legacySlug`.
  */
 import { registry } from '../academic/data/index.js'
 import { getContentCourse, getDoc, getTopic, getUnit } from './catalog.js'
@@ -60,7 +61,7 @@ export function resolveLocation(pathname, search = '') {
     const scope = resolveScope(search)
     if (!scope) return NOT_FOUND({ reason: 'scope' })
     const unitId = scope.kind === 'unit' ? scope.unitId : undefined
-    const legacyKey = scope.kind === 'unit' ? legacyKeyForTool(scope.courseId, scope.unitId, second) ?? '' : ''
+    const legacyKey = scope.kind === 'unit' ? legacyKeyForTool(scope.courseId, scope.unitId, second) : ''
     return { kind: 'study', tool: second, scope, courseId: scope.courseId, unitId, legacyKey }
   }
 
@@ -82,7 +83,7 @@ export function resolveLocation(pathname, search = '') {
   if (second === 'topics') {
     const topic = getTopic(courseId, third)
     return topic
-      ? { kind: 'topic', courseId, topicId: topic.id, unitId: topic.unit, legacySlug: topic.legacySlug, legacyKey: legacyKeyForTopic(courseId, topic) }
+      ? { kind: 'topic', courseId, topicId: topic.id, unitId: topic.unit, legacySlug: topic.legacySlug ?? '', legacyKey: legacyKeyForTopic(courseId, topic) }
       : NOT_FOUND({ courseId })
   }
   if (second === 'docs') {

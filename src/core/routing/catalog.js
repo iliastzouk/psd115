@@ -1,14 +1,9 @@
 /**
  * Κατάλογος περιεχομένου για το routing: ποια μαθήματα έχουν περιεχόμενο και ποιες units / topics /
  * έγγραφα υπάρχουν. Όλα προκύπτουν από ρητά δεδομένα του content/ — ποτέ από pathname.
+ * Φάση 6d-α: από τα manifests των μαθημάτων (src/core/content/index.js), όχι από ρητή λίστα εδώ.
  */
-import { course as psd115Course } from '../../../content/courses/psd115/course.js'
-import { topics as psd115Topics } from '../../../content/courses/psd115/topics.js'
-import { sources as psd115Sources } from '../../../content/courses/psd115/sources.js'
-
-const CONTENT_COURSES = Object.freeze({
-  psd115: { course: psd115Course, topics: psd115Topics, docs: psd115Sources },
-})
+import { CONTENT_CATALOG as CONTENT_COURSES, TOPIC_SLIDES } from '../content/index.js'
 
 export const contentCourseIds = () => Object.keys(CONTENT_COURSES)
 export const getContentCourse = (courseId) => (Object.hasOwn(CONTENT_COURSES, courseId) ? CONTENT_COURSES[courseId] : null)
@@ -16,13 +11,16 @@ export const getUnit = (courseId, unitId) => getContentCourse(courseId)?.course.
 export const getTopic = (courseId, topicId) => getContentCourse(courseId)?.topics.find((t) => t.id === topicId) ?? null
 export const getDoc = (courseId, docId) => getContentCourse(courseId)?.docs.find((d) => d.id === docId) ?? null
 export const getUnitTopics = (courseId, unitId) => getContentCourse(courseId)?.topics.filter((t) => t.unit === unitId) ?? []
+/** Διαφάνειες ενός θέματος (αριθμοί του deck της unit του)· null όταν δεν υπάρχουν (Φάση 6d-α: ανά topicId). */
+export const getTopicSlides = (courseId, topicId) => (Object.hasOwn(TOPIC_SLIDES, courseId) && Object.hasOwn(TOPIC_SLIDES[courseId], topicId) ? TOPIC_SLIDES[courseId][topicId] : null)
 
 const TOPIC_ID_RE = /^[a-z0-9][a-z0-9-]*$/
 
 /**
- * Έλεγχος του ρητού πίνακα θεμάτων ενός μαθήματος.
- * @param {{ course: { id: string, units: { id: string }[] }, topics: { id: string, unit: string, legacySlug: string }[],
- *           unitSlugs: Record<string, string[]> }} input  unitSlugs = τα slugs που υπάρχουν στο περιεχόμενο κάθε unit
+ * Έλεγχος του ρητού πίνακα θεμάτων ενός μαθήματος. Η legacy αντιστοίχιση (`legacySlug` ↔ slugs του περιεχομένου της
+ * unit) ελέγχεται ΜΟΝΟ για θέματα που δηλώνουν `legacySlug` (Φάση 6d-α).
+ * @param {{ course: { id: string, units: { id: string }[] }, topics: { id: string, unit: string, legacySlug?: string }[],
+ *           unitSlugs: Record<string, string[]> }} input  unitSlugs = τα legacy slugs του περιεχομένου κάθε unit που τα έχει
  * @returns {string[]} σφάλματα (κενό = έγκυρο)
  */
 export function checkTopicMap({ course, topics, unitSlugs }) {
@@ -40,7 +38,8 @@ export function checkTopicMap({ course, topics, unitSlugs }) {
     if (paths.has(canonical)) errors.push(`${w}: διπλό canonical path ${canonical}`)
     paths.add(canonical)
     if (!unitIds.has(t.unit)) errors.push(`${w}: χωρίς έγκυρη unit («${t.unit}»)`)
-    else if (!(unitSlugs[t.unit] ?? []).includes(t.legacySlug)) errors.push(`${w}: χωρίς legacy αντιστοίχιση («${t.unit}/${t.legacySlug}»)`)
+    if (t.legacySlug === undefined) continue
+    if (unitIds.has(t.unit) && !(unitSlugs[t.unit] ?? []).includes(t.legacySlug)) errors.push(`${w}: χωρίς legacy αντιστοίχιση («${t.unit}/${t.legacySlug}»)`)
     const key = `${t.unit}/${t.legacySlug}`
     if (covered.has(key)) errors.push(`${w}: το ${key} αντιστοιχεί σε δύο topics`)
     covered.add(key)

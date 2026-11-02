@@ -11,6 +11,7 @@
     "content:ledger": "node scripts/id-ledger.mjs",
     "smoke": "node scripts/smoke-routes.mjs",
     "smoke:progress": "node scripts/smoke-progress.mjs",
+    "snapshot:pages": "node scripts/snapshot-pages.mjs",
     "test": "node --test \"tests/**/*.test.mjs\"",
     "preview": "vite preview",
     "build:k1-slides": "node scripts/build-k1-slides.mjs",
