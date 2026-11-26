@@ -14,3 +14,6 @@ dist/
 .cursor/
 dist-shadow
 dist-progress*
+
+# Ηχογραφήσεις διαλέξεων (μεγάλα αρχεία, μόνο τοπικά)
+study-materials/**/*.mp4

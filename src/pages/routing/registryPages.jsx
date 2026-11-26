@@ -4,7 +4,7 @@
  */
 import { Link, useOutletContext } from 'react-router-dom'
 import { registry } from '../../core/academic/data/index.js'
-import { getCourseById, getEnrollments } from '../../core/academic/selectors.js'
+import { getCourseById, getEnrollments, getRecordings } from '../../core/academic/selectors.js'
 import { UNKNOWN } from '../../core/academic/schema.js'
 import { useRouteIdentity } from '../../core/routing/hooks.js'
 import { coursePath, termPath } from '../../core/routing/paths.js'
@@ -16,6 +16,46 @@ import { UI_BY_COURSE } from './psd115Ui.jsx'
 
 const card = 'block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 hover:border-teal-400'
 const shown = (v) => (v === UNKNOWN ? '—' : v)
+
+/** Ηχογραφήσεις ομαδοποιημένες ανά συνάντηση· κάθε μέρος ανοίγει στο Class Collaborate (σύνδεση EUC). */
+function Recordings({ courseId }) {
+  const list = getRecordings(registry, { courseId })
+  if (list.length === 0) return null
+  const sessions = []
+  for (const r of list) {
+    const last = sessions.at(-1)
+    if (last?.session === r.session && last.enrollmentId === r.enrollmentId) last.parts.push(r)
+    else sessions.push({ session: r.session, enrollmentId: r.enrollmentId, parts: [r] })
+  }
+  return (
+    <section className="space-y-2" data-testid="course-recordings">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Ηχογραφήσεις</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Ανοίγουν στο Class Collaborate · απαιτείται σύνδεση με λογαριασμό EUC.</p>
+      </div>
+      <ul className="space-y-2">
+        {sessions.map((s) => (
+          <li key={`${s.enrollmentId}:${s.session}`} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <p className="font-semibold text-slate-900 dark:text-white">{s.session}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {s.parts.map((r) => (
+                <a
+                  key={r.id}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm text-teal-700 dark:text-teal-300 hover:border-teal-400"
+                >
+                  ▶ Μέρος {r.part}
+                </a>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
 // ---- Course: /:courseId ----
 export function CoursePage() {
@@ -31,6 +71,7 @@ export function CoursePage() {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{course.title}</h1>
       </div>
       <p className="text-sm text-slate-600 dark:text-slate-300">Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα.</p>
+      <Recordings courseId={id.courseId} />
       <ul className="space-y-2">
         {enrollments.map((e) => (
           <li key={e.id}>

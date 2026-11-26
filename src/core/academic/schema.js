@@ -177,8 +177,34 @@ export function validateEnrollments(enrollments, { courses = [], terms = [] } = 
   return errors
 }
 
+const RECORDING_ID_RE = /^[a-z0-9][a-z0-9-]*$/
+/** Μόνο playback links του Class Collaborate (ζητούν σύνδεση EUC) — όχι αρχεία βίντεο. */
+const RECORDING_URL_RE = /^https:\/\/[a-z0-9-]+\.bbcollab\.com\/collab\/ui\/session\/playback\/load\/[0-9a-f]{32}$/
+
+/** Προαιρετικό στο registry: απουσία = καμία ηχογράφηση. */
+export function validateRecordings(recordings, { enrollments = [] } = {}) {
+  if (recordings === undefined) return []
+  const errors = []
+  if (!Array.isArray(recordings)) return ['recordings: αναμενόταν πίνακας']
+  const enrollmentIds = new Set(enrollments.filter(isObj).map((e) => e.id))
+  recordings.forEach((r, i) => {
+    const w = `recordings[${i}]${r?.id ? ` (${r.id})` : ''}`
+    if (!isObj(r)) return errors.push(`${w}: αναμενόταν αντικείμενο`)
+    if (typeof r.id !== 'string' || !RECORDING_ID_RE.test(r.id)) errors.push(`${w}.id: lowercase αναγνωριστικό`)
+    if (!enrollmentIds.has(r.enrollmentId)) errors.push(`${w}.enrollmentId: ανύπαρκτη εγγραφή «${r.enrollmentId}»`)
+    if (!isText(r.session)) errors.push(`${w}.session: υποχρεωτικό`)
+    if (!(Number.isInteger(r.part) && r.part >= 1)) errors.push(`${w}.part: ακέραιος ≥ 1`)
+    if (typeof r.url !== 'string' || !RECORDING_URL_RE.test(r.url)) errors.push(`${w}.url: playback link του Class Collaborate`)
+  })
+  const objs = recordings.filter(isObj)
+  checkUnique(objs, (r) => r.id, 'recordings.id', errors)
+  checkUnique(objs, (r) => r.url, 'recordings.url', errors)
+  checkUnique(objs, (r) => `${r.enrollmentId} · ${r.session} · ${r.part}`, 'recordings', errors)
+  return errors
+}
+
 /**
- * @param {{ program: object, terms: object[], courses: object[], enrollments: object[] }} reg
+ * @param {{ program: object, terms: object[], courses: object[], enrollments: object[], recordings?: object[] }} reg
  * @returns {{ ok: boolean, errors: string[] }}
  */
 export function validateRegistry(reg) {
@@ -188,6 +214,7 @@ export function validateRegistry(reg) {
     ...validateTerms(reg.terms),
     ...validateCourses(reg.courses, { totalSemesters: reg.program?.totalSemesters }),
     ...validateEnrollments(reg.enrollments, { courses: reg.courses ?? [], terms: reg.terms ?? [] }),
+    ...validateRecordings(reg.recordings, { enrollments: reg.enrollments ?? [] }),
   ]
   return { ok: errors.length === 0, errors }
 }
