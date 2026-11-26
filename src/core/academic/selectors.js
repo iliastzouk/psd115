@@ -52,7 +52,21 @@ export function getEnrollmentsForCourse(reg, courseId) {
   return getEnrollments(reg, { courseId }).sort((a, b) => order(a) - order(b))
 }
 
-const OUTSTANDING_STATUSES = new Set(['planned', 'in-progress', 'failed'])
+/**
+ * Ηχογραφήσεις ενός μαθήματος (από όλες τις εγγραφές του), στη σειρά του πίνακα.
+ * @param {{ courseId?: string, enrollmentId?: string }} [filter]
+ */
+export function getRecordings(reg, filter = {}) {
+  const enrollmentIds =
+    filter.courseId === undefined ? null : new Set(getEnrollments(reg, { courseId: filter.courseId }).map((e) => e.id))
+  return (reg.recordings ?? []).filter(
+    (r) =>
+      (enrollmentIds === null || enrollmentIds.has(r.enrollmentId)) &&
+      (filter.enrollmentId === undefined || r.enrollmentId === filter.enrollmentId),
+  )
+}
+
+const OUTSTANDING_STATUSES =new Set(['planned', 'in-progress', 'failed'])
 
 /**
  * Κατάσταση μαθήματος για τον χρήστη, ΜΟΝΟ από τις εγγραφές του:

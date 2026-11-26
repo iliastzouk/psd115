@@ -6,5 +6,6 @@ import { program } from './program.js'
 import { terms } from './terms.js'
 import { courses } from './courses.js'
 import { enrollments } from './enrollments.js'
+import { recordings } from './recordings.js'
 
-export const registry = { program, terms, courses, enrollments }
+export const registry = { program, terms, courses, enrollments, recordings }

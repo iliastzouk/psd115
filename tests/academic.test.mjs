@@ -13,6 +13,7 @@ import {
   validateTerms,
   validateCourses,
   validateEnrollments,
+  validateRecordings,
   validateRegistry,
 } from '../src/core/academic/schema.js'
 import * as sel from '../src/core/academic/selectors.js'
@@ -242,6 +243,60 @@ describe('Registry data', () => {
     // Δεν υπάρχουν επινοημένες προηγούμενες προσπάθειες PSD110/PSD125.
     assert.equal(sel.getEnrollmentsForCourse(registry, 'psd110').length, 1)
     assert.equal(sel.getEnrollmentsForCourse(registry, 'psd125').length, 1)
+  })
+})
+
+describe('Recordings', () => {
+  const rec = (over = {}) => ({
+    id: 'psd999-s01-r1',
+    enrollmentId: 'psd999@2027S',
+    session: '1η Συνάντηση',
+    part: 1,
+    url: 'https://eu-lti.bbcollab.com/collab/ui/session/playback/load/839836cd5ca74527ba40cd803a9ae6cf',
+    ...over,
+  })
+  const withRec = (recordings) => ({ ...mini([enr()]), recordings })
+
+  test('χωρίς recordings το registry παραμένει έγκυρο', () => {
+    assert.deepEqual(validateRecordings(undefined), [])
+    assert.equal(validateRegistry(mini([enr()])).ok, true)
+  })
+  test('έγκυρη ηχογράφηση', () => {
+    assert.deepEqual(validateRegistry(withRec([rec()])), { ok: true, errors: [] })
+  })
+  test('άκυρες ηχογραφήσεις', () => {
+    const bad = [
+      rec({ enrollmentId: 'psd999@2030F' }),
+      rec({ session: '' }),
+      rec({ part: 0 }),
+      rec({ id: 'Bad Id' }),
+      rec({ url: 'http://eu-lti.bbcollab.com/collab/ui/session/playback/load/839836cd5ca74527ba40cd803a9ae6cf' }),
+      rec({ url: 'https://example.com/video.mp4' }),
+      rec({ url: 'https://eu.bbcollab.com/collab/ui/session/guest/6a3fb08d79fd43979a0854a226384710' }),
+    ]
+    for (const r of bad) assert.equal(validateRegistry(withRec([r])).ok, false, JSON.stringify(r))
+    assert.equal(validateRegistry(withRec('x')).ok, false)
+  })
+  test('διπλά id / url / μέρος συνάντησης απορρίπτονται', () => {
+    const other = 'https://eu-lti.bbcollab.com/collab/ui/session/playback/load/d00f430a205040b6b5366eb4b43e8cd1'
+    assert.equal(validateRegistry(withRec([rec(), rec({ url: other, part: 2 })])).ok, false)
+    assert.equal(validateRegistry(withRec([rec(), rec({ id: 'psd999-s01-r2', part: 2 })])).ok, false)
+    assert.equal(validateRegistry(withRec([rec(), rec({ id: 'psd999-s01-r2', url: other })])).ok, false)
+    assert.equal(validateRegistry(withRec([rec(), rec({ id: 'psd999-s01-r2', url: other, part: 2 })])).ok, true)
+  })
+  test('getRecordings: ανά μάθημα, στη σειρά του πίνακα', () => {
+    const list = sel.getRecordings(registry, { courseId: 'psd215' })
+    assert.deepEqual(
+      list.map((r) => [r.session, r.part]),
+      [
+        ['Επανάληψη 1ης Συνάντησης', 1],
+        ['Επανάληψη 1ης Συνάντησης', 2],
+        ['2η Συνάντηση', 1],
+        ['2η Συνάντηση', 2],
+      ],
+    )
+    assert.deepEqual(sel.getRecordings(registry, { courseId: 'psd200' }), [])
+    assert.deepEqual(sel.getRecordings(mini([enr()]), { courseId: 'psd999' }), [])
   })
 })
 

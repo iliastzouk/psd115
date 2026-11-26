@@ -13,3 +13,6 @@ dist/
 # Cursor
 .cursor/
 dist-progress*
+
+# Ηχογραφήσεις διαλέξεων (μεγάλα αρχεία, μόνο τοπικά)
+study-materials/**/*.mp4

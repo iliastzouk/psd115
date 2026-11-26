@@ -108,6 +108,8 @@ for (const d of sources) routes.push({ group: 'canonical', path: P.documentPath(
 routes.push({ group: 'canonical', path: P.termPath('2026F'), testid: 'term-page', link: '/psd200', appHeader: true })
 routes.push({ group: 'canonical', path: P.termPath('2026S'), testid: 'term-page', appHeader: true })
 routes.push({ group: 'canonical', path: '/psd200', text: 'Το περιεχόμενο μελέτης δεν έχει προστεθεί ακόμα', link: '/terms/2026F', header: 'psd200' })
+routes.push({ group: 'canonical', path: '/psd215', testid: 'course-recordings', text: 'Ηχογραφήσεις', header: 'psd215' })
+routes.push({ group: 'canonical', path: '/psd215', testid: 'course-notes', text: 'Σημειώσεις', header: 'psd215' })
 routes.push({ group: 'negative', path: '/psd200/units/k1', notFound: true, header: 'psd200' })
 routes.push({ group: 'negative', path: '/psd200/topics/pavlov', notFound: true, header: 'psd200' })
 routes.push({ group: 'canonical', path: P.studyPath('today', 'term:2026F'), testid: 'study-today' })
