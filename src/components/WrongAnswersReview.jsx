@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { getCategoryLabel } from '../../content/courses/psd115/questions.js'
-
-export default function WrongAnswersReview({ items, onClear, onClearOne }) {
+/**
+ * @param {object} props
+ * @param {(categoryId: string) => string} props.getCategoryLabel — Φάση 5 (I2): από το μάθημα της συνεδρίας· το component
+ *   δεν ξέρει ποιο μάθημα ή ποιο αρχείο περιεχομένου χρησιμοποιείται.
+ */
+export default function WrongAnswersReview({ items, onClear, onClearOne, getCategoryLabel }) {
   const [openId, setOpenId] = useState(null)
 
   if (!items.length) {

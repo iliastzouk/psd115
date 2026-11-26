@@ -7,10 +7,12 @@ import ScrollToTop from '../components/ScrollToTop.jsx'
 import WarningTriangleIcon from '../components/WarningTriangleIcon.jsx'
 import { useStudySession } from '../hooks/useStudySession.js'
 import { useRouteIdentity } from '../core/routing/hooks.js'
-import { activeCourseId } from '../core/routing/navigation.js'
-import { courseHeader } from './courseNav.js'
+import { activeCourseId, appCourseHub } from '../core/routing/navigation.js'
+import { courseHeader, courseMenu } from './courseNav.js'
 import { acceptDisclaimer, hasAcceptedDisclaimer } from '../utils/settings.js'
-import { describeReset, resetProgressSafely } from '../utils/progressBackup.js'
+import { describeCourseReset, resetCourseSafely } from '../utils/studyProgressBackup.js'
+import { getProgressService } from '../hooks/useProgress.js'
+import { describeDegraded, describeProgressFailure, describeWriteFailure } from '../utils/progressFailureMessage.js'
 
 const shell = 'w-full max-w-md sm:max-w-xl lg:max-w-2xl mx-auto'
 
@@ -45,6 +47,20 @@ function MenuIcon() {
     </svg>
   )
 }
+
+/** Κείμενο του διαλόγου reset: τι μηδενίζεται και αν επιτρέπεται στην τρέχουσα κατάσταση. */
+function resetDescription(courseId, code) {
+  const d = describeCourseReset(courseId, { adapters: getProgressService().adapters })
+  if (!d.allowed) return d.reason === 'pending' ? 'Εκκρεμεί ανάκτηση· επαναφόρτωσε τη σελίδα πριν δοκιμάσεις ξανά.' : 'Η πρόοδος δεν διαβάζεται με ασφάλεια· η επαναφορά δεν επιτρέπεται.'
+  return (
+    `Μηδενίζεται ΜΟΝΟ η πρόοδος του ${code} (κουίζ, κάρτες, λάθη, checklists)· τα άλλα μαθήματα δεν αλλάζουν. ` +
+    (d.unavailable ? 'Η τωρινή πρόοδος του μαθήματος δεν διαβάζεται με ασφάλεια και θα αντικατασταθεί. ' : '') +
+    'Πριν, κατεβαίνει αυτόματα αντίγραφο ασφαλείας.'
+  )
+}
+
+/** Μενού «Μαθήματα» / «Προηγούμενα» (Φάση 6c): από το registry και τον κατάλογο, ίδιο για όλες τις σελίδες. */
+const COURSE_MENU = courseMenu(appCourseHub())
 
 export default function AppShell() {
   const study = useStudySession()
@@ -120,18 +136,22 @@ export default function AppShell() {
               <div className="min-w-0 flex-1 pr-1">
                 <h1 className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-balance leading-snug">
                   <Link
-                    to={header.homePath}
-                    title={`${header.code} Exam Prep by Ilias Tzoukas — ${header.title}`}
+                    to="/"
+                    title={`${header.appName} — μαθήματα`}
                     className="text-[10px] sm:text-xs text-teal-700 dark:text-teal-300 font-semibold hover:underline shrink min-w-0"
                   >
-                    {header.code} Exam Prep by Ilias Tzoukas
+                    {header.appName}
                   </Link>
-                  <span aria-hidden className="shrink-0 text-slate-400 dark:text-slate-500 select-none text-[10px] sm:text-xs">
-                    ·
-                  </span>
-                  <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-50 shrink-0">
-                    {header.title}
-                  </span>
+                  {header.code ? (
+                    <>
+                      <span aria-hidden className="shrink-0 text-slate-400 dark:text-slate-500 select-none text-[10px] sm:text-xs">
+                        ·
+                      </span>
+                      <Link to={header.homePath} className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-50 shrink-0 hover:underline">
+                        {header.code} {header.title}
+                      </Link>
+                    </>
+                  ) : null}
                 </h1>
                 <p
                   className="mt-1 flex items-center gap-1 rounded-md border border-rose-100/80 bg-rose-50/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-normal leading-tight text-slate-600 text-balance dark:border-rose-900/20 dark:bg-rose-950/15 dark:text-slate-400"
@@ -189,7 +209,7 @@ export default function AppShell() {
             id="week-drawer-nav"
             role="dialog"
             aria-modal="true"
-            aria-label="Πλοήγηση εβδομάδων"
+            aria-label="Πλοήγηση"
             className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] max-w-full flex-col border-r border-slate-200/90 bg-stone-50 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:hidden"
           >
             <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-slate-800">
@@ -217,6 +237,24 @@ export default function AppShell() {
                   </li>
                 ))}
               </ul>
+              {COURSE_MENU.map((group) => (
+                <div key={group.title} className="mt-4 border-t border-slate-200/80 pt-3 dark:border-slate-800">
+                  <p className="px-1 pb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{group.title}</p>
+                  <ul className="space-y-1" data-testid={`drawer-courses-${group.title}`}>
+                    {group.items.map((item) => (
+                      <li key={item.to}>
+                        <NavLink
+                          to={item.to}
+                          className={({ isActive }) => drawerNavClass(isActive || routeId.courseId === item.courseId)}
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          {item.label}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </nav>
             <p className="shrink-0 flex items-center gap-1.5 border-t border-rose-100/90 bg-rose-50/20 px-3 py-2 text-[9px] font-normal leading-tight text-slate-600 dark:border-rose-900/20 dark:bg-rose-950/15 dark:text-slate-400">
               <span className="shrink-0 text-amber-600/55 dark:text-amber-500/45" aria-hidden>
@@ -241,15 +279,41 @@ export default function AppShell() {
             data-testid="progress-degraded"
             className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-100"
           >
-            Οι αλλαγές προόδου δεν αποθηκεύονται όσο η πρόοδος δεν μπορεί να διαβαστεί με ασφάλεια. Η εισαγωγή ή
-            επαναφορά είναι διαθέσιμη μόνο μετά από επιβεβαιωμένο αντίγραφο ασφαλείας.
+            {describeDegraded(study.progressReason)}
+          </div>
+        ) : study.progressWriteFailure ? (
+          // Φάση 2: μία αλλαγή δεν αποθηκεύτηκε (οι εγγραφές επιτρέπονται· όχι degraded). Όχι modal: το κουίζ δεν διακόπτεται.
+          <div
+            role="status"
+            data-testid="progress-write-failure"
+            className="flex items-start gap-3 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 p-3 text-sm text-rose-900 dark:text-rose-100"
+          >
+            <p className="flex-1">{describeWriteFailure(study.progressWriteFailure.kind)}</p>
+            <button
+              type="button"
+              onClick={study.dismissWriteFailure}
+              className="touch-manipulation shrink-0 rounded-md px-2 py-1 text-xs font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50"
+              aria-label="Απόκρυψη ειδοποίησης"
+            >
+              Κλείσιμο
+            </button>
+          </div>
+        ) : null}
+        {study.studyCourseNotice ? (
+          // Φάση 5 (I1): υλικό χωρίς υποστήριξη προόδου → ρητό μήνυμα· καμία ένδειξη αποθήκευσης.
+          <div
+            role="status"
+            data-testid="progress-not-saved"
+            className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-700 dark:text-slate-200"
+          >
+            {study.studyCourseNotice}
           </div>
         ) : null}
         <Outlet context={study} />
       </main>
 
       <footer className={`${shell} px-3 sm:px-5 mt-10 pb-8 border-t border-slate-200/80 dark:border-slate-800 pt-6`}>
-        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{header.code} Exam Prep by Ilias Tzoukas</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{header.appName}</p>
         <aside
           className="mt-4 rounded-xl border border-rose-100/90 bg-rose-50/35 px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-sm dark:border-rose-900/30 dark:bg-rose-950/20 dark:shadow-none"
           aria-label="Προσοχή — αποποίηση ευθύνης"
@@ -269,40 +333,39 @@ export default function AppShell() {
             </div>
           </div>
         </aside>
-        <ProgressBackupPanel />
-        <button
-          type="button"
-          onClick={() => setResetConfirmOpen(true)}
-          className="mt-4 touch-manipulation text-left text-xs text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
-        >
-          Επαναφορά προόδου μελέτης
-        </button>
+        <ProgressBackupPanel reason={study.progressReason} />
+        {study.studyCourse.status === 'ready' ? (
+          // Φάση 6a: reset ΜΟΝΟ του τρέχοντος μαθήματος· τα υπόλοιπα μένουν ανέγγιχτα.
+          <button
+            type="button"
+            onClick={() => setResetConfirmOpen(true)}
+            className="mt-4 touch-manipulation text-left text-xs text-rose-600/90 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline-offset-2 hover:underline"
+          >
+            Επαναφορά προόδου του {header.code}
+          </button>
+        ) : null}
       </footer>
 
       <ConfirmDialog
         open={resetConfirmOpen}
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={() => {
-          // Backup (legacy + νέο store) και διαγραφή μέσω επαληθευμένης συναλλαγής. Αν αποτύχει, δεν σβήνεται τίποτα.
+          // Επαληθευμένο safety backup και μετά reset ΜΟΝΟ του μαθήματος. Αν αποτύχει, δεν αλλάζει τίποτα.
           try {
-            resetProgressSafely()
+            resetCourseSafely({ courseId: study.studyCourse.courseId, adapters: getProgressService().adapters })
           } catch (e) {
             setResetConfirmOpen(false)
-            window.alert(
-              e?.name === 'BackupError'
-                ? 'Δεν δημιουργήθηκε επιβεβαιωμένο αντίγραφο ασφαλείας· η επαναφορά ακυρώθηκε και η πρόοδος δεν άλλαξε.'
-                : 'Η επαναφορά δεν ολοκληρώθηκε· η πρόοδος δεν άλλαξε.',
-            )
+            // Μήνυμα ανά πραγματικό αποτέλεσμα: «δεν άλλαξε» μόνο όταν είναι επιβεβαιωμένο (D2).
+            window.alert(describeProgressFailure('reset', e))
             return
           }
           study.resetAllStudyProgress()
           setResetConfirmOpen(false)
         }}
-        title="Επαναφορά προόδου"
-        // «Όλη η πρόοδος» μόνο όταν το νέο store είναι άδειο (στο 1E-1 το reset δεν το διαγράφει).
-        description={resetConfirmOpen ? describeReset().description : ''}
+        title={`Επαναφορά προόδου του ${header.code}`}
+        description={resetConfirmOpen ? resetDescription(study.studyCourse.courseId, header.code) : ''}
         cancelLabel="Άκυρο"
-        confirmLabel="Ναι, διαγραφή"
+        confirmLabel="Ναι, μηδενισμός"
         variant="danger"
       />
     </div>

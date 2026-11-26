@@ -9,7 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # fetch-depth: 0 → υπάρχει το origin/main για τον έλεγχο ιστορικού του μητρώου IDs (validate:content).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -18,7 +21,7 @@ jobs:
       - name: Validate content
         run: npm run validate:content
       - name: Validate progress export format (sample)
-        run: npm run validate:progress -- tests/fixtures/progress-export.sample.json
+        run: npm run validate:progress -- tests/fixtures/study-progress.sample.json
       - name: Unit tests
         run: npm test
       - name: Build
@@ -28,11 +31,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser smoke (built app)
         run: npm run smoke
-      # Shadow mode (1E-3): ξεχωριστό build με VITE_PROGRESS_SHADOW_SMOKE=1 και δοκιμαστικό storage·
-      # το κανονικό build μένει legacy-only.
-      - name: Browser smoke (progress shadow mode)
-        run: npm run smoke:shadow
-      # ProgressService (1E-4b): πρώτο render χωρίς εγγραφές και με τις τιμές του fixture, mutation builds που
-      # ΠΡΕΠΕΙ να αποτύχουν, degraded mode, ένα snapshot σε όλους τους consumers (ξεχωριστό smoke build).
+      # ProgressService (Φάση 6a, νέο store): πρώτο render χωρίς εγγραφές και με τις τιμές του fixture, mutation builds
+      # που ΠΡΕΠΕΙ να αποτύχουν, degraded / αντικατάσταση, δύο tabs, ένα snapshot σε όλους τους consumers.
       - name: Browser smoke (ProgressService)
         run: npm run smoke:progress

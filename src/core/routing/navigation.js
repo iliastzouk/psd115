@@ -10,15 +10,10 @@
  */
 import { registry } from '../academic/data/index.js'
 import { getContentCourse, getUnit } from './catalog.js'
+import { courseHub } from './courseHub.js'
 import { LEGACY_TOOLS, legacyKeyForTopic } from './legacy.js'
 import { coursePath, studyPath, topicPath, unitPath } from './paths.js'
 import { unitScope } from './scope.js'
-
-/**
- * Το μάθημα της αρχικής σελίδας (`/`) και των σελίδων χωρίς μάθημα (όροι, Not Found).
- * Η εφαρμογή είναι ακόμα «PSD115 Exam Prep»· όταν αποκτήσει γενική αρχική, αυτό φεύγει.
- */
-export const DEFAULT_COURSE_ID = 'psd115'
 
 /** Ταυτότητα μαθήματος από το registry (ή null αν δεν υπάρχει). */
 export function courseIdentity(courseId) {
@@ -27,14 +22,20 @@ export function courseIdentity(courseId) {
   return { courseId: course.id, code: course.code, title: course.title, hasContent: Boolean(getContentCourse(courseId)) }
 }
 
-/** Το ενεργό μάθημα μιας επιλυμένης διαδρομής (resolveLocation)· αλλιώς το προεπιλεγμένο. */
+/**
+ * Το ενεργό μάθημα μιας επιλυμένης διαδρομής (resolveLocation)· `null` όταν η διαδρομή δεν έχει μάθημα (αρχική
+ * μαθημάτων, εξάμηνα, Not Found εκτός μαθήματος, παλιά διαδρομή που δεν υπάρχει). Καμία σιωπηλή προεπιλογή (Φάση 6c).
+ */
 export function activeCourseId(identity) {
   const id = identity?.courseId
-  return id && courseIdentity(id) ? id : DEFAULT_COURSE_ID
+  return id && courseIdentity(id) ? id : null
 }
 
-/** Αρχική σελίδα ενός μαθήματος: `/` για το προεπιλεγμένο, αλλιώς το canonical `/:courseId`. */
-export const courseHomePath = (courseId) => (courseId === DEFAULT_COURSE_ID ? '/' : coursePath(courseId))
+/** Αρχική σελίδα ενός μαθήματος: το canonical `/:courseId` (η `/` είναι η αρχική μαθημάτων). */
+export const courseHomePath = (courseId) => coursePath(courseId)
+
+/** Αρχική μαθημάτων της εφαρμογής (Φάση 6c): courseHub πάνω στο registry και στον κατάλογο περιεχομένου. */
+export const appCourseHub = () => courseHub(registry, (courseId) => Boolean(getContentCourse(courseId)))
 
 /** Units ενός μαθήματος, ταξινομημένες κατά `order`. Κενό για μάθημα χωρίς περιεχόμενο. */
 export function courseUnits(courseId) {

@@ -1,9 +1,11 @@
 /**
- * Έλεγχος αρχείου εξαγωγής προόδου (όπως το κατεβάζει το «Εξαγωγή προόδου»).
+ * Έλεγχος αρχείου εξαγωγής προόδου στη νέα μορφή (`study-progress`, Φάση 6a), όπως το κατεβάζει το «Εξαγωγή προόδου».
+ * Ίδιοι κανόνες με το import της εφαρμογής (J4/J6): μορφή, events, namespaces και πρόοδος ΚΑΘΕ υποστηριζόμενου μαθήματος.
  * Δεν γράφει τίποτα. Run: node scripts/validate-progress-export.mjs <file.json>
  */
 import fs from 'fs'
-import { validateExport } from '../src/utils/progressValidate.js'
+import { planMerge } from '../src/core/progress/importMerge.js'
+import { studyContentAdapters } from '../src/core/progress/adapters/studyContent.js'
 
 const file = process.argv[2]
 if (!file) {
@@ -19,17 +21,15 @@ try {
   process.exit(1)
 }
 
-const r = validateExport(data)
-for (const w of r.warnings) console.warn(`⚠ ${w}`)
-if (!r.ok) {
-  console.error(`✗ ${file}: ${r.errors.length} σφάλμα(τα)`)
-  for (const e of r.errors) console.error(`  - ${e}`)
+let plan
+try {
+  // Σαν import σε άδειο store: όλα τα δεδομένα του αρχείου πρέπει να δίνουν έγκυρη πρόοδο.
+  plan = planMerge({ local: { events: [], state: {} }, file: data, adapters: studyContentAdapters() })
+} catch (e) {
+  console.error(`✗ ${file}: ${e.message}`)
+  for (const d of e.details ?? []) console.error(`  - ${d}`)
   process.exit(1)
 }
-const s = r.stats
-console.log(
-  `✓ ${file}: v${s.version} · ${s.keys} κλειδιά (${s.bytes} χαρακτήρες) · κουίζ ${s.quizCorrect}/${s.quizAnswered} · ` +
-    `κάρτες ${s.flashcardsSeen} · λάθη ${s.wrongAnswers} · checklist ${s.checklistItemsChecked}` +
-    (s.version >= 2 ? ` · νέο store: ${s.events} events, ${s.stateKeys} κλειδιά state` : '') +
-    (r.unknownKeys.length ? ` · ${r.unknownKeys.length} άγνωστα κλειδιά` : ''),
-)
+for (const w of plan.warnings) console.warn(`⚠ ${w}`)
+const lines = plan.courses.map((p) => `${p.courseId}: κουίζ ${p.quiz.after.correct}/${p.quiz.after.answered} · κάρτες ${p.cards.added.length} · λάθη ${p.wrongBook.added.length} · checklists ${p.checklists.length}`)
+console.log(`✓ ${file}: ${data.events.length} events · ${Object.keys(data.state).length} κλειδιά state · ${lines.join(' · ')}`)

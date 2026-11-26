@@ -5,13 +5,12 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import './index.css'
 import App from './App.jsx'
-import { recoverInterrupted } from './utils/progressTransaction.js'
-import { createLegacyProgressBackend } from './utils/legacyProgressBackend.js'
+import { recoverInterrupted } from './core/progress/transaction.js'
 import { initSettings } from './utils/settings.js'
-import { createProgressService } from './core/progress/progressService.js'
-import { psd115ProgressAdapter } from './core/progress/adapters/psd115.js'
+import { createStoreProgressService } from './core/progress/storeProgressService.js'
+import { studyContentAdapters } from './core/progress/adapters/studyContent.js'
 import { installProgressService } from './hooks/useProgress.js'
-import { createShadowRecorder, installShadowRecorder } from './utils/progressShadow.js'
+import { installStorageSync } from './utils/progressSync.js'
 
 const storage = (() => {
   try {
@@ -34,27 +33,23 @@ try {
 // 2. Ρυθμίσεις (theme/disclaimer): σύγχρονη ανάγνωση, η κλάση dark πριν από το πρώτο paint. Καμία εγγραφή.
 initSettings(storage, document.documentElement)
 
-// 3. ProgressService (1E-4b): ΕΝΑ instance, σύγχρονη ανάγνωση της προόδου πριν από το render. Καμία εγγραφή.
-const progressService = createProgressService({
-  courseId: 'psd115',
-  content: psd115ProgressAdapter,
-  backend: createLegacyProgressBackend(storage),
+// 3. ProgressService (Φάση 6a): ΕΝΑ instance για όλα τα μαθήματα με περιεχόμενο, πάνω στο νέο store (`study-progress-*`).
+//    Σύγχρονη ανάγνωση πριν από το render· καμία εγγραφή, κανένα namespace δεν δημιουργείται στην εκκίνηση.
+const progressService = createStoreProgressService({
+  adapters: studyContentAdapters(),
+  storage,
   recovery,
   warn: (...a) => console.warn(...a),
 })
 installProgressService(progressService)
-// Shadow recorder (1E-3· με content adapter από το 1E-4c-1): ΕΝΑ instance. Ανενεργός εκτός αν ανοίξουν και οι 3 πύλες.
-installShadowRecorder(createShadowRecorder({ courseId: 'psd115', content: psd115ProgressAdapter }))
 if (progressService.getSnapshot().status !== 'ready') console.warn('[progress] ασφαλής λειτουργία:', progressService.getSnapshot().issues)
+// Φάση 3: αλλαγές από άλλο tab → refresh (μόνο ανάγνωση). Κάθε ενέργεια διαβάζει έτσι κι αλλιώς πρώτα το storage.
+installStorageSync(progressService, { storage })
 
-// Μόνο σε `npm run dev`: στην κονσόλα `psd115Progress.validate()` για έλεγχο της αποθηκευμένης προόδου,
-// και `studyProgress.store` / `studyProgress.persist()` για τη νέα (ακόμα αχρησιμοποίητη) υποδομή του Phase 0B.
+// Μόνο σε `npm run dev`: στην κονσόλα `studyProgress.export()` / `studyProgress.status()` για έλεγχο της προόδου.
 if (import.meta.env.DEV) {
-  import('./utils/progressBackup.js').then((m) => {
-    window.psd115Progress = { validate: m.validateStoredProgress, snapshot: m.buildExport }
-  })
-  Promise.all([import('./core/progress/progressStore.js'), import('./core/progress/persist.js')]).then(([s, p]) => {
-    window.studyProgress = { store: s.getProgressStore(), persist: p.requestPersistentStorage }
+  import('./utils/studyProgressBackup.js').then((m) => {
+    window.studyProgress = { export: () => m.buildStoreExport({ storage }), raw: () => m.buildRawExport({ storage }), status: () => m.storeStatus(storage).status }
   })
 }
 

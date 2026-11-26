@@ -10,7 +10,7 @@ export default function NotFound({ message = 'Η διεύθυνση δεν αν�
       <h1 className="text-xl font-bold text-slate-900 dark:text-white">Η σελίδα δεν βρέθηκε</h1>
       <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>
       <ul className="flex flex-wrap gap-2">
-        {[...links, { to: '/', label: 'Αρχική' }].map((l) => (
+        {[...links, { to: '/', label: 'Μαθήματα' }].map((l) => (
           <li key={l.to}>
             <Link
               to={l.to}

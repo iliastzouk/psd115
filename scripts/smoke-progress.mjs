@@ -1,22 +1,31 @@
 /**
- * Browser smoke του ProgressService (Phase 1E-4b, legacy mode).
+ * Browser smoke του ProgressService πάνω στη νέα υποδομή (Φάση 6a: `study-progress-*`, πολλά μαθήματα).
  *
- *  G1. Κανονικό build (dist): boot με το production / sample fixture —
+ *  G1. Κανονικό build (dist): boot με το fixture της νέας μορφής (και με άδειο storage) —
  *      ΚΑΜΙΑ εγγραφή στο localStorage από την πλοήγηση μέχρι το settle (setItem/removeItem/clear καταγράφονται)·
- *      το ΠΡΩΤΟ DOM (πρώτο commit, MutationObserver) έχει ήδη τις τιμές του fixture (όχι «Κάρτες 0/…»)·
- *      τα κλειδιά μένουν byte-identical· κανένα study-progress-* / progress-txn-v1.
+ *      το ΠΡΩΤΟ DOM (πρώτο commit, MutationObserver) έχει ήδη τις τιμές του fixture· τα κλειδιά μένουν byte-identical.
  *  G1-M. Mutation builds (προσωρινές αλλαγές κώδικα, αναιρούνται στο τέλος): το gate ΠΡΕΠΕΙ να αποτύχει.
- *      M1: εγγραφή στο mount (όπως το παλιό saveProgress effect) → αποτυγχάνει ο write detector.
- *      M2: άδειο service + hydration σε effect → αποτυγχάνει ο έλεγχος του πρώτου DOM.
- *  D.  Degraded: κατεστραμμένη πρόοδος → μήνυμα, καμία εγγραφή ούτε μετά από ενέργειες, κλειδιά byte-identical·
- *      reset με αποτυχία τοπικού backup → ακύρωση· reset με backup → raw byte-identical στο αρχείο και τοπικά, resync.
- *  U.  Άγνωστο psd115-* κλειδί: δεν αγγίζεται ποτέ.
- *  G2. Smoke build (dist-progress, VITE_PROGRESS_SMOKE=1): 1 service· όλοι οι consumers ίδιο snapshot (===)·
- *      μετά από κάθε ενέργεια (checklist, κάρτα, σωστή, λάθος, αφαίρεση λάθους, reset) ίδιο ΝΕΟ snapshot (!== παλιό)
- *      και μνήμη ≡ storage (legacyToSnapshot των κλειδιών)· reset → resync, κανένα checklist ξανα-γράφεται.
- *
- *  --differential=<dist-dir>: ίδιο σενάριο (ντετερμινιστικό Math.random) στο <dist-dir> (παλιό build) και στο
- *  νέο dist· σύγκριση των σημασιολογικών legacy αποτελεσμάτων μετά από κάθε βήμα.
+ *      M1: εγγραφή στο mount → αποτυγχάνει ο write detector. M2: άδειο service + hydration σε effect → πρώτο DOM.
+ *  D.  Κατεστραμμένο store (global degraded, J4): μήνυμα, καμία εγγραφή ούτε μετά από ενέργειες, κλειδιά byte-identical·
+ *      reset → δεν επιτρέπεται· «Αντικατάσταση από αντίγραφο» με αποτυχία backup → ακύρωση· με backup → raw byte-identical
+ *      στο αρχείο και τοπικά, αντικατάσταση, resync.
+ *  U.  Legacy (`psd115-*`) και άγνωστα κλειδιά: δεν διαβάζονται, δεν αγγίζονται ποτέ· η ενέργεια γράφει ΜΟΝΟ το store.
+ *      Κάθε getItem της εφαρμογής καταγράφεται (οι αναγνώσεις των assertions παρακάμπτουν την καταγραφή): σε boot,
+ *      checklist, εξαγωγή και reset διαβάζονται ΜΟΝΟ τα κλειδιά του store, το σημάδι, τα `study-progress-backup-*`
+ *      (σύγκρουση ονόματος + επαλήθευση του νέου backup) και οι ρυθμίσεις theme / disclaimer.
+ *  H.  Αρχική μαθημάτων (Φάση 6c): εκκίνηση στη `/` → διαβάζονται ΑΚΡΙΒΩΣ τα 5 κλειδιά της εκκίνησης (σημάδι, theme,
+ *      disclaimer, store), ίδια με την εκκίνηση στη `/psd115`· 0 εγγραφές· όλες οι τιμές byte-identical πριν και μετά.
+ *      Κλικ στο PSD115 → αρχική μαθήματος → θέμα: η υπάρχουσα πρόοδος εμφανίζεται, 0 εγγραφές, τιμές byte-identical.
+ *  P.  Εκκρεμές σημάδι συναλλαγής κατά τη λειτουργία: κλικ σε checklist → ΚΑΜΙΑ εγγραφή, μήνυμα, το checkbox δεν δείχνει
+ *      «αποθηκευμένη» αλλαγή· reload → η ανάκτηση επαναφέρει τις αρχικές τιμές, όχι degraded.
+ *  W.  Αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2): ειδοποίηση (όχι degraded), το checkbox ΔΕΝ αλλάζει, καμία αλλαγή στο
+ *      storage· κλείσιμο· ξανά αποτυχία· ΑΣΧΕΤΗ επιτυχημένη εγγραφή → η ειδοποίηση ΜΕΝΕΙ· επανάληψη → σώζεται, φεύγει.
+ *  T.  Δύο tabs στο ΙΔΙΟ context: ενημέρωση χωρίς reload, καμία χαμένη αλλαγή, 0 εγγραφές από το tab που μόνο ενημερώθηκε.
+ *  R.  Μηνύματα ανά αποτέλεσμα: reset με εκκρεμές σημάδι → «Εκκρεμεί ανάκτηση», καμία λήψη· import με rollback που δεν
+ *      ολοκληρώθηκε → «δεν ολοκληρώθηκε με ασφάλεια… επαναφόρτωσε», ΟΧΙ «δεν άλλαξε»· reload → ανάκτηση.
+ *  G2. Smoke build (dist-progress, VITE_PROGRESS_SMOKE=1): 1 service· όλοι οι consumers ίδιο snapshot (===)· μετά από κάθε
+ *      ενέργεια (checklist, κάρτα, σωστή, λάθος, αφαίρεση λάθους, reset του μαθήματος) ίδιο ΝΕΟ snapshot και
+ *      μνήμη ≡ storage (ο ίδιος υπολογισμός πάνω στα κλειδιά)· reset → τα events μένουν (append-only), η πρόοδος μηδενίζεται.
  *
  * Run: node scripts/smoke-progress.mjs   (το dist πρέπει να υπάρχει· τα υπόλοιπα builds γίνονται εδώ)
  */
@@ -25,11 +34,11 @@ import path from 'path'
 import { spawn, spawnSync } from 'child_process'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { chromium } from 'playwright'
+import { LEGACY_KEY_RE, SETTINGS_KEY_RES } from './legacy-keys.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const imp = (rel) => import(pathToFileURL(path.join(root, rel)).href)
 const vite = path.join(root, 'node_modules/.bin/vite')
-const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, '').split('=')))
 
 if (!fs.existsSync(path.join(root, 'dist/index.html'))) {
   console.error('✗ Δεν υπάρχει dist/. Τρέξε πρώτα: npm run build')
@@ -37,12 +46,23 @@ if (!fs.existsSync(path.join(root, 'dist/index.html'))) {
 }
 
 const { quizQuestions } = await imp('content/courses/psd115/questions.js')
-const { legacyToSnapshot } = await imp('src/core/progress/snapshot.js')
-const { psd115ProgressAdapter: content } = await imp('src/core/progress/adapters/psd115.js')
-const fixture = (name) => JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures', name), 'utf8')).keys
-const PROD = fixture('progress-export.production-2026-10-05.json')
-const SAMPLE = fixture('progress-export.sample.json')
-const PROD_WRONG = JSON.parse(PROD['psd115-w1-study']).wrongBook[0]
+const { createStoreProgressService } = await imp('src/core/progress/storeProgressService.js')
+const { studyContentAdapters } = await imp('src/core/progress/adapters/studyContent.js')
+const EV = 'study-progress-events-v1'
+const ST = 'study-progress-state-v1'
+const TXN = 'progress-txn-v1'
+const SAMPLE_FILE = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/study-progress.sample.json'), 'utf8'))
+const SAMPLE = { [EV]: JSON.stringify(SAMPLE_FILE.events), [ST]: JSON.stringify(SAMPLE_FILE.state), 'psd115-disclaimer-v1': '1' }
+const SAMPLE_WRONG = SAMPLE_FILE.state['progress:wrongbook:psd115'].entries[0]
+
+/** Η πρόοδος όπως τη βλέπει ο ίδιος υπολογισμός της εφαρμογής, πάνω στα κλειδιά του browser (μνήμη ≡ storage). */
+function fromKeys(keys) {
+  const m = new Map(Object.entries(keys))
+  const storage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: () => {}, removeItem: () => {}, key: (i) => [...m.keys()][i] ?? null, get length() { return m.size } }
+  return createStoreProgressService({ adapters: studyContentAdapters(), storage }).getSnapshot()
+}
+const stateOf = (keys) => JSON.parse(keys[ST] ?? '{}')
+const pavlovItems = (keys) => stateOf(keys)['progress:checklists:psd115']?.topics?.pavlov?.items ?? []
 
 const failures = []
 const fail = (m) => failures.push(m)
@@ -79,18 +99,21 @@ function withPatches(patches, fn) {
 }
 
 const MUTATIONS = {
-  // M1: εγγραφή προόδου στο mount (το παλιό saveProgress effect).
+  // M1: εγγραφή προόδου στο mount (όπως το παλιό saveProgress effect).
   m1: {
     'src/hooks/useStudySession.js': [
       [
         '  const progressStatus = progressState.status\n',
-        "  const progressStatus = progressState.status\n  useEffect(() => {\n    window.localStorage.setItem('psd115-w1-study', window.localStorage.getItem('psd115-w1-study') ?? '{}')\n  }, [])\n",
+        "  const progressStatus = progressState.status\n  useEffect(() => {\n    window.localStorage.setItem('study-progress-events-v1', window.localStorage.getItem('study-progress-events-v1') ?? '[]')\n  }, [])\n",
       ],
     ],
   },
   // M2: άδειο service στο boot, hydration σε effect μετά το πρώτο render.
   m2: {
-    'src/core/progress/progressService.js': [['  let state = load()\n', "  let state = freezeState({ status: 'ready', issues: [], courses: { [courseId]: emptySnapshot(courseId) } })\n"]],
+    'src/core/progress/storeProgressService.js': [
+      ["import { toGlobalId } from '../academic/ids.js'", "import { toGlobalId } from '../academic/ids.js'\nimport { emptySnapshot } from './snapshotShape.js'"],
+      ['  let state = load()\n', '  let state = freezeState({ courses: Object.fromEntries(Object.keys(adapters).map((c) => [c, emptySnapshot(c)])) })\n'],
+    ],
     'src/hooks/useProgress.js': [
       ["import { useCallback, useMemo, useSyncExternalStore } from 'react'", "import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'\nlet hydrated = false"],
       [
@@ -104,6 +127,11 @@ const MUTATIONS = {
 build('dist-progress', { VITE_PROGRESS_SMOKE: '1' })
 for (const [name, patches] of Object.entries(MUTATIONS)) withPatches(patches, () => build(`dist-progress-${name}`))
 check(!fs.readdirSync(path.join(root, 'dist/assets')).some((f) => fs.readFileSync(path.join(root, 'dist/assets', f), 'utf8').includes('__progressProbe')), 'το production build περιέχει το smoke probe')
+// K6: ΚΑΝΕΝΑ legacy κλειδί προόδου στο production bundle (scripts/legacy-keys.mjs)· theme / disclaimer ΠΡΕΠΕΙ να υπάρχουν.
+const bundle = fs.readdirSync(path.join(root, 'dist/assets')).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(root, 'dist/assets', f), 'utf8')).join('\n')
+const legacyHit = bundle.match(LEGACY_KEY_RE)
+check(!legacyHit, `το production build περιέχει legacy κλειδιά προόδου (${legacyHit?.[0]} … ${legacyHit ? bundle.slice(legacyHit.index - 20, legacyHit.index + 40) : ''})`)
+check(SETTINGS_KEY_RES.every((re) => re.test(bundle)), 'το production build δεν περιέχει τα κλειδιά ρυθμίσεων (theme / disclaimer)· ο έλεγχος legacy κλειδιών θα ήταν κενός')
 
 // ---------------------------------------------------------------- browser
 async function launch() {
@@ -137,8 +165,10 @@ async function serve(outDir) {
 }
 
 /**
- * Init script: γράφει τα κλειδιά ΜΙΑ φορά (πριν από την παρακολούθηση), μετά καταγράφει κάθε εγγραφή του
- * localStorage και το DOM/checkboxes του ΠΡΩΤΟΥ commit στο #root. Προαιρετικά ντετερμινιστικό Math.random.
+ * Init script: γράφει τα κλειδιά ΜΙΑ φορά (πριν από την παρακολούθηση), μετά καταγράφει κάθε εγγραφή (`__writes`) και
+ * κάθε ανάγνωση (`__reads`, getItem) του localStorage από την εφαρμογή, και το DOM/checkboxes του ΠΡΩΤΟΥ commit στο
+ * #root. Οι αναγνώσεις του smoke περνούν από το `__rawGetItem` και δεν καταγράφονται. Προαιρετικά ντετερμινιστικό
+ * Math.random.
  */
 async function newContext(browser, keys, { seed } = {}) {
   const context = await browser.newContext({ acceptDownloads: true })
@@ -159,6 +189,13 @@ async function newContext(browser, keys, { seed } = {}) {
       }
       const log = (window.__writes = [])
       const P = Storage.prototype
+      const reads = (window.__reads = [])
+      const rawGetItem = P.getItem
+      window.__rawGetItem = (k) => rawGetItem.call(localStorage, k)
+      P.getItem = function (k) {
+        if (this === localStorage) reads.push(k)
+        return rawGetItem.call(this, k)
+      }
       for (const m of ['setItem', 'removeItem', 'clear']) {
         const orig = P[m]
         P[m] = function (...a) {
@@ -189,7 +226,16 @@ const settle = async (page) => {
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(800)
 }
-const readKeys = (page) => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])))
+/** Αναγνώσεις του smoke: μέσω του αρχικού getItem, ώστε να μη μπαίνουν στις αναγνώσεις της εφαρμογής (`__reads`). */
+const readKeys = (page) =>
+  page.evaluate(() => {
+    const get = window.__rawGetItem ?? ((k) => localStorage.getItem(k))
+    return Object.fromEntries(Object.keys(localStorage).map((k) => [k, get(k)]))
+  })
+/** Κλειδιά που επιτρέπεται να διαβάσει η εφαρμογή (K6): store, σημάδι, νέα backups, ρυθμίσεις. */
+const ALLOWED_READ = (k) =>
+  ['study-progress-events-v1', 'study-progress-state-v1', 'progress-txn-v1', 'psd115-w1-theme', 'psd115-disclaimer-v1'].includes(k) ||
+  k.startsWith('study-progress-backup-')
 const sameKeys = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
 
 /**
@@ -218,19 +264,28 @@ async function bootGate(browser, base, keys, route, expect) {
 }
 
 const pad = (items, n) => [...items, ...Array(Math.max(0, n - items.length)).fill(false)].slice(0, n)
+const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const WRONG_RE = new RegExp(esc(SAMPLE_WRONG.question.slice(0, 40)))
+const EMPTY = { 'psd115-disclaimer-v1': '1' }
 const BOOT_CASES = [
-  [PROD, '/psd115/topics/pavlov', { text: [/Κουίζ 0% · Κάρτες 21\/94 \(22%\)/], notText: [/Κάρτες 0\//] }],
-  [PROD, '/psd115/units/k2', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 21\/56/], notText: [/μελετήθηκαν 0\//] }],
-  [PROD, '/progress?scope=psd115', { text: [/21\/\d+/] }],
-  [PROD, '/study/review?scope=unit:psd115/k2', { text: [new RegExp(PROD_WRONG.question.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))] }],
-  [SAMPLE, '/psd115/topics/pavlov', { text: [/Κάρτες 1\/94/], checks: (n) => pad([true, false, true], n) }],
+  // Ίδιες τιμές με τη Φάση 4, τώρα από πραγματικά events: k1 (pavlov) 21 κάρτες, καμία απάντηση της k1 → «Κουίζ —».
+  [SAMPLE, '/psd115/topics/pavlov', { text: [/Κουίζ — · Κάρτες 21\/94 \(22%\)/], notText: [/Κάρτες 0\//], checks: (n) => pad([true, false, true], n) }],
+  [SAMPLE, '/psd115/units/k2', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 0\/56/], notText: [/μελετήθηκαν 21\//] }],
+  [SAMPLE, '/progress?scope=psd115', { text: [/ακρίβεια 0% \(0\/1\)/, /μελετήθηκαν 21\/198/] }],
+  // Η ετικέτα του λάθους από το STUDY_CONTENT (κεφαλαία μέσω CSS → χωρίς διάκριση πεζών).
+  [SAMPLE, '/study/review?scope=unit:psd115/k2', { text: [WRONG_RE, /Εβδ\.2 — Μεταβλητ/iu] }],
+  [SAMPLE, '/study/review?scope=psd200', { text: [/Δεν υπάρχει ακόμα περιεχόμενο μελέτης/], notText: [WRONG_RE, /Καθαρισμός λίστας/] }],
   [SAMPLE, '/psd115/topics/research-methods-overview', { checks: (n) => pad([true, true, false], n) }],
+  // Καθαρή αρχή: κανένα κλειδί προόδου → 0, και καμία εγγραφή (κανένα namespace δεν δημιουργείται).
+  [EMPTY, '/psd115/topics/pavlov', { text: [/Κάρτες 0\/94/] }],
 ]
 
 const browser = await launch()
 const servers = []
 let distBase = null
 const stop = () => servers.forEach((s) => s.kill())
+const nextCardButton = (page) => page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
+const seenCards = (keys) => JSON.parse(keys[EV] ?? '[]').filter((e) => e.kind === 'flip').map((e) => e.item)
 
 try {
   // ------------------------------------------------------------ G1
@@ -260,70 +315,329 @@ try {
     console.log(`${failures.length > before ? '✗' : '✓'} G1 mutations: M1 (εγγραφή στο mount) → «${detail.m1?.[0] ?? '—'}» · M2 (hydration σε effect) → «${detail.m2?.find((f) => /πρώτο DOM/.test(f)) ?? '—'}»`)
   }
 
-  // ------------------------------------------------------------ D + U
+  // ------------------------------------------------------------ D, U, P, W, T, R
   {
     const before = failures.length
     const base = distBase
-    // D: κατεστραμμένη πρόοδος
-    const corrupt = { ...PROD, 'psd115-w1-study': '{oops' }
+    // D: κατεστραμμένο store (άκυρο JSON στα events) → global degraded.
+    const corrupt = { ...SAMPLE, [EV]: '{oops' }
     let { context, page } = await newContext(browser, corrupt)
     await page.goto(`${base}/psd115/topics/pavlov`)
     await settle(page)
-    check(await page.getByTestId('progress-degraded').isVisible(), 'D: δεν εμφανίστηκε μήνυμα ασφαλούς λειτουργίας')
+    const degraded = page.getByTestId('progress-degraded')
+    check(await degraded.isVisible(), 'D: δεν εμφανίστηκε μήνυμα ασφαλούς λειτουργίας')
+    check(/αντικαταστήσεις από αντίγραφο/.test((await degraded.textContent().catch(() => '')) ?? ''), 'D: το μήνυμα δεν λέει τι μπορεί να γίνει')
     await page.locator('main input[type=checkbox]').first().click()
-    const nextCard = page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
-    if (await nextCard.count()) await nextCard.click()
+    if (await nextCardButton(page).count()) await nextCardButton(page).click()
     await page.waitForTimeout(300)
     check((await page.evaluate(() => window.__writes)).length === 0, 'D: εγγραφή σε degraded mode')
     check(sameKeys(await readKeys(page), corrupt), 'D: τα κατεστραμμένα κλειδιά άλλαξαν')
-
-    // D-R1: reset με αποτυχία του τοπικού backup (quota) → ακύρωση, μήνυμα, κλειδιά byte-identical, banner μένει.
-    await page.evaluate(() => {
-      const orig = Storage.prototype.setItem
-      window.__restoreSetItem = () => (Storage.prototype.setItem = orig)
-      Storage.prototype.setItem = function (k, v) {
-        if (this === localStorage && String(k).startsWith('psd115-backup-')) throw new DOMException('full', 'QuotaExceededError')
-        return orig.call(this, k, v)
-      }
-    })
+    // D-reset: δεν επιτρέπεται όταν το store δεν διαβάζεται.
     let alertText = ''
     page.once('dialog', async (d) => {
       alertText = d.message()
       await d.accept()
     })
-    await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
-    await page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()
-    await page.waitForTimeout(400)
-    check(/επιβεβαιωμένο αντίγραφο ασφαλείας/.test(alertText), `D-R1: λάθος/κανένα μήνυμα («${alertText}»)`)
-    check(sameKeys(await readKeys(page), corrupt), 'D-R1: το reset προχώρησε χωρίς επαληθευμένο backup')
-    check(await page.getByTestId('progress-degraded').isVisible(), 'D-R1: χάθηκε το μήνυμα ασφαλούς λειτουργίας')
-
-    // D-R2: reset με επιτυχές backup → το backup (αρχείο + τοπικό) κρατά τα αλλοιωμένα raw, μετά διαγραφή + resync.
+    await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+    await page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()
+    await page.waitForTimeout(300)
+    check(/δεν επιτρέπεται/.test(alertText), `D-reset: λάθος/κανένα μήνυμα («${alertText}»)`)
+    check(sameKeys(await readKeys(page), corrupt), 'D-reset: άλλαξαν κλειδιά')
+    // D-R1: αντικατάσταση με αποτυχία του τοπικού backup (quota) → ακύρωση, τίποτα δεν αλλάζει.
+    const input = page.getByTestId('progress-import-input')
+    const sampleBuffer = Buffer.from(JSON.stringify(SAMPLE_FILE))
+    await page.evaluate(() => {
+      const orig = Storage.prototype.setItem
+      window.__restoreSetItem = () => (Storage.prototype.setItem = orig)
+      Storage.prototype.setItem = function (k, v) {
+        if (this === localStorage && String(k).startsWith('study-progress-backup-')) throw new DOMException('full', 'QuotaExceededError')
+        return orig.call(this, k, v)
+      }
+    })
+    await input.setInputFiles({ name: 'sample.json', mimeType: 'application/json', buffer: sampleBuffer })
+    await page.getByRole('button', { name: 'Ναι, αντικατάσταση' }).click()
+    await page.waitForTimeout(300)
+    check(/επιβεβαιωμένο αντίγραφο ασφαλείας/.test((await page.getByTestId('progress-backup-message').textContent().catch(() => '')) ?? ''), 'D-R1: λάθος/κανένα μήνυμα')
+    check(sameKeys(Object.fromEntries(Object.entries(await readKeys(page)).filter(([k]) => !k.startsWith('study-progress-backup-'))), corrupt), 'D-R1: η αντικατάσταση προχώρησε χωρίς επαληθευμένο backup')
+    check(await degraded.isVisible(), 'D-R1: χάθηκε το μήνυμα ασφαλούς λειτουργίας')
+    // D-R2: αντικατάσταση με backup → raw byte-identical στο αρχείο και τοπικά, μετά resync.
     await page.evaluate(() => window.__restoreSetItem())
-    await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()])
+    await input.setInputFiles({ name: 'sample.json', mimeType: 'application/json', buffer: sampleBuffer })
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, αντικατάσταση' }).click()])
     const backup = JSON.parse(fs.readFileSync(await dl.path(), 'utf8'))
     await page.waitForTimeout(400)
-    check(backup.keys['psd115-w1-study'] === '{oops', 'D-R2: το backup δεν κράτησε τα αλλοιωμένα raw')
-    const afterReset = await readKeys(page)
-    const localKey = Object.keys(afterReset).find((k) => k.startsWith('psd115-backup-'))
-    check(localKey && afterReset[localKey] === JSON.stringify(backup), 'D-R2: το τοπικό αντίγραφο δεν ταυτίζεται με το αρχείο')
-    check(!('psd115-w1-study' in afterReset), 'D-R2: το reset δεν ολοκληρώθηκε')
-    check(!(await page.getByTestId('progress-degraded').count()), 'D-R2: μετά το reset η εφαρμογή έμεινε σε degraded')
+    check(backup.keys[EV] === '{oops' && backup.reason === 'replace', 'D-R2: το backup δεν κράτησε τα αλλοιωμένα raw')
+    const afterReplace = await readKeys(page)
+    const localKey = Object.keys(afterReplace).find((k) => k.startsWith('study-progress-backup-'))
+    check(localKey && afterReplace[localKey] === JSON.stringify(backup), 'D-R2: το τοπικό αντίγραφο δεν ταυτίζεται με το αρχείο')
+    check(afterReplace[EV] === SAMPLE[EV], 'D-R2: η αντικατάσταση δεν ολοκληρώθηκε')
+    check(!(await degraded.count()), 'D-R2: μετά την αντικατάσταση η εφαρμογή έμεινε σε degraded')
+    check(/Κάρτες 21\/94/.test(await page.locator('#root').innerText()), 'D-R2: το UI δεν δείχνει την πρόοδο του αρχείου')
     await context.close()
-    // U: άγνωστο κλειδί
-    const unknown = { ...PROD, 'psd115-extra-unknown': 'keep-me' }
-    ;({ context, page } = await newContext(browser, unknown))
+
+    // U: legacy και άγνωστα κλειδιά: ποτέ δεν διαβάζονται ή αγγίζονται.
+    const withLegacy = {
+      ...SAMPLE,
+      'psd115-w1-study': '{"quizAnswered":999}',
+      'psd115-w1-pavlov-checklist': '[true,true,true]',
+      'psd115-w2-checklists': '{"overview":[true]}',
+      'psd115-backup-2026-01-01T00:00:00.000Z': '{}',
+      'migration:psd115-v1': '{}',
+      'psd115-extra-unknown': 'keep-me',
+      'psd115-w1-theme': 'light',
+      'psd115-disclaimer-v1': '1',
+    }
+    const LEGACY_SEEDED = Object.keys(withLegacy).filter((k) => !ALLOWED_READ(k) && k !== EV && k !== ST)
+    ;({ context, page } = await newContext(browser, withLegacy))
     await page.goto(`${base}/psd115/topics/pavlov`)
     await settle(page)
-    check(!(await page.getByTestId('progress-degraded').count()), 'U: άγνωστο κλειδί έβγαλε degraded')
+    check(!(await page.getByTestId('progress-degraded').count()), 'U: legacy/άγνωστα κλειδιά έβγαλαν degraded')
+    check(/Κάρτες 21\/94/.test(await page.locator('#root').innerText()), 'U: το UI διάβασε legacy πρόοδο')
     await page.locator('main input[type=checkbox]').first().click()
     await page.waitForTimeout(300)
     const writes = await page.evaluate(() => window.__writes)
-    check(writes.length === 1 && writes[0].k === 'psd115-w1-pavlov-checklist', `U: εγγραφές ${JSON.stringify(writes)}`)
-    check((await readKeys(page))['psd115-extra-unknown'] === 'keep-me', 'U: το άγνωστο κλειδί άλλαξε')
+    check(writes.length === 1 && writes[0].k === ST, `U: εγγραφές ${JSON.stringify(writes)}`)
+    const readsBefore = (await page.evaluate(() => window.__reads)).length
+    await readKeys(page)
+    check((await page.evaluate(() => window.__reads)).length === readsBefore, 'U: οι αναγνώσεις του smoke καταγράφηκαν ως αναγνώσεις της εφαρμογής')
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Εξαγωγή προόδου (JSON)' }).click()])
+    await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()])
+    await page.waitForTimeout(500)
+    const uReads = [...new Set(await page.evaluate(() => window.__reads))]
+    check(uReads.some((k) => k.startsWith('study-progress-backup-')), 'U: το reset δεν πέρασε από το backup (καμία ανάγνωση study-progress-backup-*)')
+    check(uReads.includes(ST), 'U: η εφαρμογή δεν διάβασε το store (η καταγραφή δεν λειτουργεί)')
+    const forbidden = uReads.filter((k) => !ALLOWED_READ(k))
+    check(!forbidden.length, `U: η εφαρμογή διάβασε κλειδιά εκτός whitelist: ${JSON.stringify(forbidden)}`)
+    for (const k of LEGACY_SEEDED) check(!uReads.includes(k), `U: διαβάστηκε το legacy κλειδί «${k}»`)
+    const uKeys = await readKeys(page)
+    for (const k of LEGACY_SEEDED) check(uKeys[k] === withLegacy[k], `U: το «${k}» άλλαξε`)
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset χωρίς επαληθευμένο backup → ακύρωση · reset με backup (raw byte-identical) → resync · άγνωστο κλειδί ανέγγιχτο`)
+
+    // H: αρχική μαθημάτων (Φάση 6c) — καμία επίδραση στην πρόοδο.
+    {
+      // Μέτρηση πριν από τη 6c (ίδια σε /, /psd115, /terms/2026F, /psd200): οι αναγνώσεις της εκκίνησης είναι ΜΟΝΟ αυτές.
+      const BOOT_READS = ['progress-txn-v1', 'psd115-disclaimer-v1', 'psd115-w1-theme', 'study-progress-events-v1', 'study-progress-state-v1']
+      const seeded = { ...SAMPLE, 'psd115-w1-study': '{"quizAnswered":999}', 'psd115-extra-unknown': 'keep-me', 'psd115-w1-theme': 'light', 'psd115-disclaimer-v1': '1' }
+      const bootReads = async (route) => {
+        const c = await newContext(browser, seeded)
+        await c.page.goto(`${base}${route}`)
+        await settle(c.page)
+        const r = await c.page.evaluate(() => ({ reads: window.__reads, writes: window.__writes }))
+        const keys = await readKeys(c.page)
+        return { ...c, reads: [...new Set(r.reads)].sort(), writes: r.writes, keys }
+      }
+      const course = await bootReads('/psd115')
+      await course.context.close()
+      const hub = await bootReads('/')
+      check(JSON.stringify(hub.reads) === JSON.stringify(BOOT_READS), `H: αναγνώσεις στη /: ${JSON.stringify(hub.reads)} (αναμενόταν ${JSON.stringify(BOOT_READS)})`)
+      check(JSON.stringify(hub.reads) === JSON.stringify(course.reads), `H: η / διαβάζει άλλα κλειδιά από τη /psd115 (${JSON.stringify(course.reads)})`)
+      check(hub.writes.length === 0, `H: εγγραφές στην εκκίνηση της /: ${JSON.stringify(hub.writes)}`)
+      check(sameKeys(hub.keys, seeded), 'H: οι τιμές του localStorage άλλαξαν στην εκκίνηση της /')
+      const hasHub = (await hub.page.getByTestId('course-hub').count()) === 1
+      check(hasHub, 'H: η / δεν δείχνει την αρχική μαθημάτων')
+      const { page: hp } = hub
+      if (hasHub) {
+      await hp.getByTestId('course-hub').locator('a[href="/psd115"]').click()
+      await hp.waitForURL(`${base}/psd115`)
+      await hp.locator('#main-content a[href="/psd115/units/k1"]').first().click()
+      await hp.waitForURL(`${base}/psd115/units/k1`)
+      await hp.locator('#main-content a[href="/psd115/topics/pavlov"]').first().click()
+      await hp.waitForURL(`${base}/psd115/topics/pavlov`)
+      await settle(hp)
+      check(/Κουίζ — · Κάρτες 21\/94 \(22%\)/.test(await hp.locator('#root').innerText()), 'H: η υπάρχουσα πρόοδος του PSD115 δεν εμφανίστηκε μετά την πλοήγηση από τη /')
+      const boxes = await hp.locator('main input[type=checkbox]').evaluateAll((els) => els.map((e) => e.checked))
+      check(JSON.stringify(boxes) === JSON.stringify(pad([true, false, true], boxes.length)), `H: checklist pavlov ${JSON.stringify(boxes)}`)
+      const after = await hp.evaluate(() => ({ reads: [...new Set(window.__reads)], writes: window.__writes }))
+      check(after.writes.length === 0, `H: εγγραφές κατά την πλοήγηση: ${JSON.stringify(after.writes)}`)
+      check(after.reads.every((k) => BOOT_READS.includes(k)), `H: η πλοήγηση διάβασε άλλα κλειδιά: ${JSON.stringify(after.reads)}`)
+      check(sameKeys(await readKeys(hp), seeded), 'H: οι τιμές του localStorage άλλαξαν κατά την πλοήγηση')
+      }
+      await hub.context.close()
+    }
+
+    // P: εκκρεμές σημάδι κατά τη λειτουργία. Μισή κατάσταση όπως την αφήνει μια συναλλαγή που διακόπηκε:
+    //    το events έχει την τιμή «after», το state την «before», το σημάδι μένει → η ανάκτηση επαναφέρει τα «before».
+    ;({ context, page } = await newContext(browser, SAMPLE))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const marker = JSON.stringify({ v: 1, op: 'import', startedAt: new Date().toISOString(), before: { [EV]: SAMPLE[EV], [ST]: SAMPLE[ST] }, after: { [EV]: '[]', [ST]: '{}' } })
+    await page.evaluate(([ev, m, txn]) => {
+      localStorage.setItem(ev, '[]')
+      localStorage.setItem(txn, m)
+      window.__writes.length = 0
+    }, [EV, marker, TXN])
+    const pendingKeys = await readKeys(page)
+    const box = page.locator('main input[type=checkbox]').nth(1)
+    const wasChecked = await box.isChecked()
+    await box.click()
+    await page.waitForTimeout(300)
+    check((await page.evaluate(() => window.__writes)).length === 0, `P: εγγραφές με εκκρεμές σημάδι ${JSON.stringify(await page.evaluate(() => window.__writes))}`)
+    check(sameKeys(await readKeys(page), pendingKeys), 'P: τα κλειδιά ή το σημάδι άλλαξαν')
+    check(await page.getByTestId('progress-degraded').isVisible(), 'P: δεν εμφανίστηκε μήνυμα ασφαλούς λειτουργίας')
+    check((await box.isChecked()) === wasChecked, 'P: το checkbox δείχνει την απορριφθείσα αλλαγή ως αποθηκευμένη')
+    await page.reload()
+    await settle(page)
+    const recovered = await readKeys(page)
+    check(recovered[EV] === SAMPLE[EV] && recovered[ST] === SAMPLE[ST], 'P: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
+    check(!(TXN in recovered), 'P: το σημάδι έμεινε μετά την ανάκτηση')
+    check(!(await page.getByTestId('progress-degraded').count()), 'P: μετά την ανάκτηση η εφαρμογή έμεινε σε degraded')
+    await context.close()
+
+    // W: αποτυχία αποθήκευσης χωρίς σημάδι (Φάση 2).
+    ;({ context, page } = await newContext(browser, SAMPLE))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const quotaOn = () =>
+      page.evaluate(([ev, st]) => {
+        const P = Storage.prototype
+        window.__realSetItem ??= P.setItem
+        window.__attempts = 0
+        P.setItem = function (k, v) {
+          if (this === localStorage && (k === ev || k === st)) {
+            window.__attempts++
+            throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+          }
+          return window.__realSetItem.call(this, k, v)
+        }
+      }, [EV, ST])
+    const quotaOff = () => page.evaluate(() => (Storage.prototype.setItem = window.__realSetItem))
+    const notice = page.getByTestId('progress-write-failure')
+    const wBox = page.locator('main input[type=checkbox]').first()
+    const wBefore = await readKeys(page)
+    const wChecked = await wBox.isChecked()
+    await quotaOn()
+    await wBox.click()
+    await page.waitForTimeout(300)
+    check((await page.evaluate(() => window.__attempts)) >= 1, 'W: δεν έγινε απόπειρα εγγραφής')
+    check(sameKeys(await readKeys(page), wBefore), 'W: άλλαξαν αποθηκευμένες τιμές παρά την αποτυχία')
+    check(await notice.isVisible(), 'W: δεν εμφανίστηκε η ειδοποίηση αποτυχίας αποθήκευσης')
+    check(/χώρος αποθήκευσης του browser φαίνεται γεμάτος/.test((await notice.count()) ? ((await notice.textContent()) ?? '') : ''), 'W: λάθος/κανένα κείμενο ειδοποίησης (quota)')
+    check(!(await page.getByTestId('progress-degraded').count()), 'W: η αποτυχία εγγραφής έβγαλε degraded')
+    check((await wBox.isChecked()) === wChecked, 'W: το checkbox δείχνει την αλλαγή που δεν αποθηκεύτηκε')
+    if (await notice.count()) await notice.getByRole('button', { name: 'Απόκρυψη ειδοποίησης' }).click()
+    await page.waitForTimeout(200)
+    check(!(await notice.count()), 'W: η ειδοποίηση δεν κρύφτηκε')
+    check(sameKeys(await readKeys(page), wBefore) && (await wBox.isChecked()) === wChecked, 'W: το κλείσιμο άλλαξε κάτι')
+    await wBox.click() // ξανά αποτυχία
+    await page.waitForTimeout(300)
+    check(await notice.isVisible(), 'W: δεύτερη αποτυχία χωρίς ειδοποίηση')
+    await quotaOff()
+    // Άσχετη επιτυχημένη εγγραφή (κάρτα): η ειδοποίηση πρέπει να ΜΕΙΝΕΙ — το checklist είναι ακόμα χαμένο.
+    const evBefore = (await readKeys(page))[EV]
+    for (let i = 0; i < 10 && (await readKeys(page))[EV] === evBefore; i++) {
+      await nextCardButton(page).click()
+      await page.waitForTimeout(150)
+    }
+    check((await readKeys(page))[EV] !== evBefore, 'W: δεν έγινε άσχετη επιτυχημένη εγγραφή (κάρτα)')
+    check(await notice.isVisible(), 'W: η ειδοποίηση χάθηκε μετά από ΑΣΧΕΤΗ επιτυχημένη εγγραφή')
+    check(JSON.stringify(pavlovItems(await readKeys(page))) === JSON.stringify(pavlovItems(wBefore)), 'W: το checklist άλλαξε χωρίς επανάληψη')
+    await wBox.click() // ο χρήστης επαναλαμβάνει την ΙΔΙΑ ενέργεια με ελεύθερο storage
+    await page.waitForTimeout(300)
+    check(pavlovItems(await readKeys(page))[0] === !wChecked, 'W: η επανάληψη δεν αποθηκεύτηκε')
+    check((await wBox.isChecked()) === !wChecked, 'W: το checkbox δεν δείχνει την αποθηκευμένη αλλαγή')
+    check(!(await notice.count()), 'W: η ειδοποίηση έμεινε μετά από επιτυχημένη εγγραφή')
+    await page.reload()
+    await settle(page)
+    check((await wBox.isChecked()) === pavlovItems(await readKeys(page))[0], 'W: μετά το reload μνήμη ≠ storage')
+    await context.close()
+
+    // T: δύο tabs στο ίδιο context (κοινό origin/localStorage, πραγματικά storage events).
+    ;({ context, page } = await newContext(browser, SAMPLE))
+    const tA = page
+    await tA.goto(`${base}/psd115/topics/pavlov`)
+    const tB = await context.newPage()
+    tB.on('pageerror', (e) => fail(`σφάλμα JS (B): ${e.message}`))
+    await tB.goto(`${base}/psd115/topics/pavlov`)
+    await settle(tA)
+    await settle(tB)
+    const boxA = (i) => tA.locator('main input[type=checkbox]').nth(i)
+    const boxB = (i) => tB.locator('main input[type=checkbox]').nth(i)
+    const t0 = [await boxA(0).isChecked(), await boxA(2).isChecked()]
+    await tB.evaluate(() => (window.__writes.length = 0))
+    await boxA(0).click()
+    await tA.waitForTimeout(400)
+    check((await boxB(0).isChecked()) === !t0[0], 'T: το B δεν ενημερώθηκε από την αλλαγή του A (storage event)')
+    check((await tB.evaluate(() => window.__writes)).length === 0, 'T: το B έγραψε στο storage απλώς επειδή ενημερώθηκε')
+    await boxB(2).click()
+    await tB.waitForTimeout(400)
+    const items = pavlovItems(await readKeys(tA))
+    check(items[0] === !t0[0] && items[2] === !t0[1], `T: χάθηκε τσεκ από ένα tab (storage ${JSON.stringify(items.slice(0, 3))})`)
+    check((await boxA(2).isChecked()) === !t0[1], 'T: το A δεν ενημερώθηκε από την αλλαγή του B')
+    const addCard = async (p) => {
+      const before = new Set(seenCards(await readKeys(tA)))
+      for (let i = 0; i < 10 && seenCards(await readKeys(tA)).length === before.size; i++) {
+        await nextCardButton(p).click()
+        await p.waitForTimeout(150)
+      }
+      return seenCards(await readKeys(tA)).find((id) => !before.has(id))
+    }
+    const cardA = await addCard(tA)
+    const cardB = await addCard(tB)
+    const seen = seenCards(await readKeys(tA))
+    check(cardA && cardB && seen.includes(cardA) && seen.includes(cardB), `T: χάθηκε κάρτα από ένα tab (A ${cardA}, B ${cardB})`)
+    await tA.reload()
+    await tB.reload()
+    await settle(tA)
+    await settle(tB)
+    const stored = pavlovItems(await readKeys(tA))
+    for (const [label, p] of [['A', tA], ['B', tB]]) {
+      const shown = await p.locator('main input[type=checkbox]').evaluateAll((els) => els.map((e) => e.checked))
+      check(JSON.stringify(shown.slice(0, 3)) === JSON.stringify(stored.slice(0, 3)), `T: μετά το reload το ${label} ≠ storage`)
+    }
+    await context.close()
+
+    // R1: reset με εκκρεμές σημάδι → άρνηση πριν από το backup.
+    ;({ context, page } = await newContext(browser, SAMPLE))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    await page.evaluate(([txn, m]) => localStorage.setItem(txn, m), [TXN, JSON.stringify({ v: 1, op: 'x', before: {}, after: {} })])
+    const r1Before = await readKeys(page)
+    let text = ''
+    let downloads = 0
+    page.on('download', () => downloads++)
+    page.once('dialog', async (d) => {
+      text = d.message()
+      await d.accept()
+    })
+    await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+    await page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()
+    await page.waitForTimeout(400)
+    check(/Εκκρεμεί ανάκτηση· επαναφόρτωσε τη σελίδα πριν δοκιμάσεις ξανά/.test(text), `R1: λάθος μήνυμα («${text}»)`)
+    check(downloads === 0, `R1: έγινε λήψη backup (${downloads})`)
+    check(sameKeys(await readKeys(page), r1Before), 'R1: άλλαξαν κλειδιά (backup ή πρόοδος)')
+    await context.close()
+    // R2: import με πραγματικό rollback-incomplete (η 2η εγγραφή της συναλλαγής αποτυγχάνει, μετά και η αναίρεση).
+    ;({ context, page } = await newContext(browser, SAMPLE))
+    await page.goto(`${base}/psd115/topics/pavlov`)
+    await settle(page)
+    const r2Before = await readKeys(page)
+    const extra = { ...SAMPLE_FILE, events: [...SAMPLE_FILE.events, { id: '00000000-0000-4000-8000-0000000009a1', t: SAMPLE_FILE.events.at(-1).t + 1, item: 'psd115/q-def-1', kind: 'answer', ok: 1, ctx: 'quiz' }], state: { ...SAMPLE_FILE.state, 'future-key': 1 } }
+    await page.evaluate(([ev, st]) => {
+      const P = Storage.prototype
+      const { setItem } = P
+      let n = 0
+      P.setItem = function (k, v) {
+        if (this === localStorage && (k === ev || k === st) && ++n >= 2) throw new DOMException('fail', 'UnknownError')
+        return setItem.call(this, k, v)
+      }
+    }, [EV, ST])
+    await page.getByTestId('progress-import-input').setInputFiles({ name: 'more.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(extra)) })
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^Ναι, εισαγωγή$/ }).click()])
+    await page.waitForTimeout(300)
+    const r2Text = (await page.getByTestId('progress-backup-message').textContent().catch(() => '')) ?? ''
+    check(/δεν ολοκληρώθηκε με ασφάλεια/.test(r2Text) && /Επαναφόρτωσε τη σελίδα για να επιχειρηθεί ανάκτηση/.test(r2Text), `R2: λάθος μήνυμα («${r2Text}»)`)
+    check(!/δεν άλλαξε|διατηρήθηκε/.test(r2Text), `R2: το μήνυμα ισχυρίζεται ότι η πρόοδος δεν άλλαξε («${r2Text}»)`)
+    check((await readKeys(page))[TXN] !== undefined, 'R2: δεν έμεινε σημάδι για την ανάκτηση')
+    await page.reload() // νέα σελίδα: χωρίς τα patches του Storage
+    await settle(page)
+    const r2After = await readKeys(page)
+    check(r2After[EV] === r2Before[EV] && r2After[ST] === r2Before[ST], 'R2: η ανάκτηση δεν επανέφερε τις αρχικές τιμές')
+    check(!(TXN in r2After), 'R2: το σημάδι έμεινε μετά την ανάκτηση')
+    await context.close()
+    console.log(
+      `${failures.length > before ? '✗' : '✓'} Degraded: μήνυμα · 0 εγγραφές και μετά από ενέργειες · reset δεν επιτρέπεται · αντικατάσταση χωρίς επαληθευμένο backup → ακύρωση · με backup (raw byte-identical) → resync · legacy/άγνωστα κλειδιά ανέγγιχτα · αρχική μαθημάτων: ίδιες 5 αναγνώσεις με τη /psd115, 0 εγγραφές, πρόοδος ορατή μετά την πλοήγηση · εκκρεμές σημάδι → 0 εγγραφές + μήνυμα, reload → ανάκτηση · αποτυχία εγγραφής → ειδοποίηση (όχι degraded), καμία ψευδής αποθήκευση, κλείσιμο, μένει μετά από άσχετη εγγραφή, ανάκαμψη με επανάληψη · δύο tabs: ενημέρωση χωρίς reload, καμία χαμένη αλλαγή · reset με σημάδι → «Εκκρεμεί ανάκτηση», 0 λήψεις · import με rollback-incomplete → σωστό μήνυμα, reload → ανάκτηση`,
+    )
   }
 
   // ------------------------------------------------------------ G2 (smoke build)
@@ -331,13 +645,12 @@ try {
     const before = failures.length
     const { server, base } = await serve('dist-progress')
     servers.push(server)
-    const { context, page } = await newContext(browser, PROD)
+    const { context, page } = await newContext(browser, SAMPLE)
     const probe = () =>
       page.evaluate(() => {
         const p = window.__progressProbe
         return { installed: p.installed, created: p.created(), reads: p.reads.splice(0), currentId: p.idOf(p.snapshot()), snapshot: JSON.parse(JSON.stringify(p.snapshot())) }
       })
-    /** Μετά από κάθε βήμα: κάθε consumer βλέπει ΤΟ ΙΔΙΟ snapshot (το τρέχον), νέο σε σχέση με το προηγούμενο, μνήμη ≡ storage. */
     let lastId = null
     async function verify(step, { changed = true, consumers = [] } = {}) {
       await page.waitForTimeout(250)
@@ -348,9 +661,8 @@ try {
       for (const [c, id] of lastByConsumer) check(id === p.currentId, `G2 ${step}: ο consumer «${c}» βλέπει άλλο snapshot (${id} ≠ ${p.currentId})`)
       if (changed && lastId !== null) check(p.currentId !== lastId, `G2 ${step}: δεν δημιουργήθηκε νέο snapshot`)
       lastId = p.currentId
-      const keys = Object.fromEntries(Object.entries(await readKeys(page)).filter(([k]) => k.startsWith('psd115-') && !k.startsWith('psd115-backup-')))
-      const fromStorage = legacyToSnapshot(keys, { content, mode: 'runtime' })
-      check(fromStorage.ok && JSON.stringify(fromStorage.snapshot) === JSON.stringify(p.snapshot.courses.psd115), `G2 ${step}: μνήμη ≠ storage`)
+      const fromStorage = fromKeys(await readKeys(page))
+      check(fromStorage.status === 'ready' && JSON.stringify(fromStorage.courses) === JSON.stringify(p.snapshot.courses), `G2 ${step}: μνήμη ≠ storage`)
       return p
     }
 
@@ -359,8 +671,7 @@ try {
     await verify('boot', { changed: false, consumers: ['study-session', 'checklist'] })
     await page.locator('main input[type=checkbox]').first().click()
     await verify('checklist', { consumers: ['study-session', 'checklist'] })
-    const nextCard = page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first()
-    await nextCard.click()
+    await nextCardButton(page).click()
     await verify('κάρτα')
 
     await page.goto(`${base}/study/quiz?scope=unit:psd115/k2`)
@@ -369,9 +680,9 @@ try {
     await verify('quiz boot', { changed: false })
     await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
     for (const correct of [true, false]) {
-      const text = ((await page.locator('main h2').first().textContent()) ?? '').trim()
+      const qText = ((await page.locator('main h2').first().textContent()) ?? '').trim()
       const labels = (await page.locator('main ul li button').allTextContents()).map((t) => t.trim())
-      const q = quizQuestions.find((x) => x.question.trim() === text && [...x.options].sort().join('|') === [...labels].sort().join('|'))
+      const q = quizQuestions.find((x) => x.question.trim() === qText && [...x.options].sort().join('|') === [...labels].sort().join('|'))
       const right = q.options[q.correctIndex]
       await page.locator('main ul li button').nth(correct ? labels.indexOf(right) : labels.findIndex((l) => l !== right)).click()
       const p = await verify(correct ? 'σωστή' : 'λάθος')
@@ -393,99 +704,24 @@ try {
     await settle(page)
     lastId = null
     await verify('reset boot', { changed: false })
-    await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
-    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()])
+    const eventsBefore = (await readKeys(page))[EV]
+    await page.getByRole('button', { name: 'Επαναφορά προόδου του PSD115' }).click()
+    await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, μηδενισμός' }).click()])
     await page.waitForTimeout(500)
     const afterReset = await verify('reset')
     const s = afterReset.snapshot.courses.psd115
     check(s.quizAnswered === 0 && !s.flashcardSeenIds.length && !Object.keys(s.checklists).length && !s.wrongBook.length, 'G2 reset: η μνήμη δεν μηδενίστηκε')
     const keys = await readKeys(page)
-    check(!Object.keys(keys).some((k) => /checklist/.test(k)), `G2 reset: ξαναγράφτηκε checklist (${Object.keys(keys).filter((k) => /checklist/.test(k))})`)
-    check(!keys['psd115-w1-study'], 'G2 reset: ξαναγράφτηκε το psd115-w1-study')
+    check(keys[EV] === eventsBefore, 'G2 reset: άλλαξαν τα events (append-only)')
+    check(!Object.keys(keys).some((k) => k.startsWith('psd115-w')), `G2: γράφτηκε legacy κλειδί (${Object.keys(keys).filter((k) => k.startsWith('psd115-w'))})`)
     check(/Κάρτες 0\/94/.test(await page.locator('#root').innerText()), 'G2 reset: το UI δεν δείχνει 0 μετά το reset')
-    check(!Object.keys(keys).some((k) => k.startsWith('study-progress-') || k === 'progress-txn-v1'), 'G2: γράφτηκε study-progress-* / progress-txn-v1')
+    check(!(TXN in keys), 'G2: έμεινε σημάδι συναλλαγής')
     await context.close()
-    console.log(`${failures.length > before ? '✗' : '✓'} G2 ένα snapshot: 1 service · ίδιο snapshot σε όλους τους consumers · νέο μετά από κάθε ενέργεια · μνήμη ≡ storage · reset → resync`)
-  }
-
-  // ------------------------------------------------------------ differential (προαιρετικό)
-  if (args.differential) {
-    const before = failures.length
-    const runs = {}
-    for (const [label, dir] of [['παλιό', args.differential], ['νέο', 'dist']]) {
-      const { server, base } = await serve(dir)
-      servers.push(server)
-      runs[label] = await scenario(browser, base)
-    }
-    const steps = runs['νέο'].map((r) => r.step)
-    for (let i = 0; i < steps.length; i++) {
-      const a = runs['παλιό'][i]
-      const b = runs['νέο'][i]
-      check(a?.step === b.step, `differential: διαφορετικά βήματα (${a?.step} / ${b.step})`)
-      check(a?.question === b.question, `differential ${b.step}: διαφορετική ερώτηση (${a?.question} / ${b.question}) — το σενάριο δεν είναι συγκρίσιμο`)
-      check(JSON.stringify(a?.semantic) === JSON.stringify(b.semantic), `differential ${b.step}: διαφορά\n    παλιό ${JSON.stringify(a?.semantic)}\n    νέο   ${JSON.stringify(b.semantic)}`)
-    }
-    console.log(`${failures.length > before ? '✗' : '✓'} Differential (${args.differential} ↔ dist): ${steps.join(' → ')} · ίδια σημασιολογικά legacy αποτελέσματα`)
-    for (const r of runs['νέο']) console.log(`    ${r.step}: ${JSON.stringify(r.summary)}`)
+    console.log(`${failures.length > before ? '✗' : '✓'} G2 ένα snapshot: 1 service · ίδιο snapshot σε όλους τους consumers · νέο μετά από κάθε ενέργεια · μνήμη ≡ storage · reset μαθήματος → resync, events ανέγγιχτα`)
   }
 } finally {
   await browser.close()
   stop()
-}
-
-/** Σημασιολογική μορφή: runtime snapshot· uid → θέση· checklists all-false ≡ απόν· ρυθμίσεις/άγνωστα raw. */
-function semantic(keys) {
-  const progress = Object.fromEntries(Object.entries(keys).filter(([k]) => k.startsWith('psd115-') && !k.startsWith('psd115-backup-')))
-  const r = legacyToSnapshot(progress, { content, mode: 'runtime' })
-  if (!r.ok) return { degraded: r.issues }
-  const s = r.snapshot
-  return {
-    quiz: [s.quizAnswered, s.quizCorrect, s.byGroup],
-    seen: s.flashcardSeenIds,
-    wrong: s.wrongBook.map(({ uid, ...w }) => w),
-    checklists: Object.fromEntries(Object.entries(s.checklists).filter(([, c]) => c.items.some(Boolean))),
-    other: Object.fromEntries(Object.entries(keys).filter(([k]) => !k.startsWith('psd115-') || k === 'psd115-w1-theme' || k === 'psd115-disclaimer-v1').filter(([k]) => !k.startsWith('psd115-backup-'))),
-  }
-}
-
-async function scenario(browser, base) {
-  const out = []
-  const { context, page } = await newContext(browser, PROD, { seed: 20261007 })
-  const record = async (step, question = null) => {
-    await page.waitForTimeout(300)
-    const keys = await readKeys(page)
-    const sem = semantic(keys)
-    out.push({ step, question, semantic: sem, summary: sem.quiz ? { quiz: sem.quiz.slice(0, 2), seen: sem.seen.length, wrong: sem.wrong.length, checklists: Object.keys(sem.checklists) } : sem })
-  }
-  await page.goto(`${base}/psd115/topics/pavlov`)
-  await settle(page)
-  await record('open')
-  await page.locator('main input[type=checkbox]').first().click()
-  await record('checklist')
-  await page.getByRole('button', { name: /^(Επόμενη κάρτα|Από την αρχή)$/ }).first().click()
-  await record('κάρτα')
-  await page.goto(`${base}/study/quiz?scope=unit:psd115/k2`)
-  await settle(page)
-  await page.getByRole('button', { name: 'Έναρξη κουίζ' }).click()
-  for (const correct of [true, false]) {
-    const text = ((await page.locator('main h2').first().textContent()) ?? '').trim()
-    const labels = (await page.locator('main ul li button').allTextContents()).map((t) => t.trim())
-    const q = quizQuestions.find((x) => x.question.trim() === text && [...x.options].sort().join('|') === [...labels].sort().join('|'))
-    const right = q.options[q.correctIndex]
-    await page.locator('main ul li button').nth(correct ? labels.indexOf(right) : labels.findIndex((l) => l !== right)).click()
-    await record(correct ? 'σωστή' : 'λάθος', q.id)
-    await page.getByRole('button', { name: /^(Συνέχεια|Τέλος κουίζ)$/ }).click()
-  }
-  await page.goto(`${base}/study/review?scope=unit:psd115/k2`)
-  await settle(page)
-  await page.locator('main ul li button').first().click()
-  await page.getByRole('button', { name: 'Αφαίρεση από τη λίστα' }).click()
-  await record('αφαίρεση λάθους')
-  await page.getByRole('button', { name: 'Επαναφορά προόδου μελέτης' }).click()
-  await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ναι, διαγραφή' }).click()])
-  await record('reset')
-  await context.close()
-  return out
 }
 
 if (failures.length) {

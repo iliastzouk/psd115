@@ -1,6 +1,6 @@
 /**
  * SHA-256 σε pure JS (σύγχρονο, ντετερμινιστικό, ίδιο σε browser και Node).
- * Χρησιμοποιείται μόνο για το source hash του legacy baseline (Phase 1E-2) — όχι για ασφάλεια.
+ * Χρησιμοποιείται για το αποτύπωμα της προεπισκόπησης import (studyProgressBackup) — όχι για ασφάλεια.
  * Ελέγχεται απέναντι στο node:crypto στα tests.
  */
 const K = new Uint32Array([

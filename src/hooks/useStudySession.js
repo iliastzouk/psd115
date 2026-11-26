@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useRouteIdentity } from '../core/routing/hooks.js'
+import { activeCourseId } from '../core/routing/navigation.js'
 import { selectStudyMaterial, studyScope } from '../core/study/scope.js'
-import { recordFlashcardSeen, recordQuizAnswer } from '../utils/progressShadow.js'
-import { flashcards, quizQuestions, getCategoryLabel } from '../../content/courses/psd115/questions.js'
+import { createStudyActions, sessionProgress, studyCourse, studyCourseNotice } from '../core/study/session.js'
+import { newEventId } from '../core/progress/events.js'
 import { shuffle, shuffleQuestionOptions } from '../utils/shuffle.js'
 import { getProgressService, useProgress } from './useProgress.js'
 import { getTheme, setTheme, useTheme } from '../utils/settings.js'
-
-/** Το μάθημα του οποίου την πρόοδο κρατά αυτή η συνεδρία (legacy UI του PSD115). */
-const COURSE_ID = 'psd115'
 
 function filterByCategories(items, selectedIds) {
   if (!selectedIds.length) return items
@@ -17,15 +15,27 @@ function filterByCategories(items, selectedIds) {
 
 export function useStudySession() {
   // Υλικό μελέτης από το canonical scope της διαδρομής (Phase 1D). Χωρίς scope → κενό υλικό.
-  const material = selectStudyMaterial(studyScope(useRouteIdentity()))
+  const routeIdentity = useRouteIdentity()
+  const material = selectStudyMaterial(studyScope(routeIdentity))
   const scopedFlashcards = material.flashcards
   const scopedQuizQuestions = material.quizQuestions
   const scopeCategories = material.categories
 
   // Πρόοδος: ΜΟΝΟ από το ProgressService (ένα snapshot, φορτωμένο πριν από το πρώτο render). Καμία εγγραφή εδώ.
   const progressState = useProgress('study-session')
-  const progress = progressState.courses[COURSE_ID]
+  // Φάση 5 (I1): το μάθημα της διαδρομής (όπως η κεφαλίδα)· περιεχόμενο από το STUDY_CONTENT. Εκτός ready: κενή πρόοδος
+  // μόνο για ανάγνωση και καμία ενέργεια — ποτέ πρόοδος ή περιεχόμενο άλλου μαθήματος.
+  const courseId = activeCourseId(routeIdentity)
+  const course = useMemo(() => studyCourse(courseId, getProgressService().supports), [courseId])
+  const actions = useMemo(() => createStudyActions({ course, service: getProgressService() }), [course])
+  const { flashcards, quizQuestions, getCategoryLabel } = course.content
+  const progress = sessionProgress(progressState, course)
   const progressStatus = progressState.status
+  // Φάση 6a: η αιτία του degraded (corrupt / pending / unrecoverable / no-storage), για μήνυμα και διαθέσιμες ενέργειες.
+  const progressReason = progressState.reason ?? null
+  // Φάση 2: η τελευταία αλλαγή δεν αποθηκεύτηκε (ready· ≠ degraded). Η απόρριψη απλώς κρύβει την ειδοποίηση.
+  const progressWriteFailure = progressState.writeFailure ?? null
+  const dismissWriteFailure = useCallback(() => getProgressService().dismissWriteFailure(), [])
   // Ρυθμίσεις: από το settings module (διαβάστηκαν πριν από το render· εγγραφή μόνο σε αλλαγή του χρήστη).
   const dark = useTheme() === 'dark'
   const setDark = useCallback((next) => {
@@ -60,102 +70,102 @@ export function useStudySession() {
 
   const definitionFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'definition'),
-    [],
+    [flashcards],
   )
 
   const philosopherFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'history'),
-    [],
+    [flashcards],
   )
 
   const wundtFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'structuralism'),
-    [],
+    [flashcards],
   )
 
   const functionalismFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'functionalism'),
-    [],
+    [flashcards],
   )
 
   const clinicalFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'clinical'),
-    [],
+    [flashcards],
   )
 
   const psychoanalysisFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'psychoanalysis'),
-    [],
+    [flashcards],
   )
 
   const humanisticFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'humanistic'),
-    [],
+    [flashcards],
   )
 
   const behaviorismFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'behaviorism'),
-    [],
+    [flashcards],
   )
 
   const pavlovFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'pavlov'),
-    [],
+    [flashcards],
   )
 
   const littleAlbertFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'littleAlbert'),
-    [],
+    [flashcards],
   )
 
   const thorndikeFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'thorndike'),
-    [],
+    [flashcards],
   )
 
   const skinnerFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'skinner'),
-    [],
+    [flashcards],
   )
 
   const cognitiveFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'cognitive'),
-    [],
+    [flashcards],
   )
 
   const chomskyFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'chomsky'),
-    [],
+    [flashcards],
   )
 
   const neuroscienceFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'neuroscience'),
-    [],
+    [flashcards],
   )
 
   const gestaltFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'gestalt'),
-    [],
+    [flashcards],
   )
 
   const evolutionaryFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'evolutionary'),
-    [],
+    [flashcards],
   )
 
   const socialPsychologyFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'socialPsychology'),
-    [],
+    [flashcards],
   )
 
   const educationalPsychologyFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'educationalPsychology'),
-    [],
+    [flashcards],
   )
 
   const otherBranchesFlashcardsOnly = useMemo(
     () => flashcards.filter((c) => c.categoryId === 'otherBranches'),
-    [],
+    [flashcards],
   )
 
   useEffect(() => {
@@ -177,11 +187,11 @@ export function useStudySession() {
     })
   }, [])
 
-  const markFlashSeen = useCallback((id) => {
-    // Shadow (1E-3): στον handler, όχι στον updater (το StrictMode τρέχει τους updaters δύο φορές).
-    recordFlashcardSeen({ cardId: id })
-    getProgressService().markCardSeen(id)
-  }, [])
+  const markFlashSeen = useCallback(
+    // Στον handler, όχι σε updater (το StrictMode τρέχει τους updaters δύο φορές). Το service διαβάζει πρώτα το storage.
+    (id) => void actions.markCardSeen(id),
+    [actions],
+  )
 
   const goNextCard = useCallback(() => {
     setCardIndex((i) => Math.min(i + 1, Math.max(filteredCards.length - 1, 0)))
@@ -233,24 +243,20 @@ export function useStudySession() {
       setQuizRevealed(true)
       const correct = idx === currentQuestion.correctIndex
       setSessionCorrect((s) => (correct ? s + 1 : s))
-      // Shadow (1E-3): ένα event ανά απάντηση, στον handler (όχι στον updater). Δεν επηρεάζει το legacy.
-      recordQuizAnswer({ questionId: currentQuestion.id, ok: correct })
-
-      // Μετά το event (shadow), η πρόοδος: ΜΙΑ σύγχρονη αλλαγή στο ProgressService (όχι σε updater/effect).
-      getProgressService().answerQuestion({
-        questionId: currentQuestion.id,
-        ok: correct,
-        wrong: correct
-          ? undefined
-          : {
-              question: currentQuestion.question,
-              explanation: currentQuestion.explanation,
-              userLabel: currentQuestion.options[idx],
-              correctLabel: currentQuestion.options[currentQuestion.correctIndex],
-            },
-      })
+      // Λάθος: ΕΝΑ uid στον handler (η εγγραφή του wrongBook).
+      const wrong = correct
+        ? undefined
+        : {
+            uid: newEventId(),
+            question: currentQuestion.question,
+            explanation: currentQuestion.explanation,
+            userLabel: currentQuestion.options[idx],
+            correctLabel: currentQuestion.options[currentQuestion.correctIndex],
+          }
+      // ΜΙΑ σύγχρονη αλλαγή στο ProgressService (event + wrongBook σε ένα commit), στον handler (όχι σε updater/effect).
+      actions.answer({ questionId: currentQuestion.id, ok: correct, wrong })
     },
-    [currentQuestion, quizRevealed],
+    [actions, currentQuestion, quizRevealed],
   )
 
   const handleQuizContinue = useCallback(() => {
@@ -271,13 +277,9 @@ export function useStudySession() {
     setLessonResetKey((k) => k + 1)
   }, [])
 
-  const clearWrongBook = useCallback(() => {
-    getProgressService().clearWrongBook()
-  }, [])
+  const clearWrongBook = useCallback(() => void actions.clearWrongBook(), [actions])
 
-  const removeWrongOne = useCallback((uid) => {
-    getProgressService().removeWrong(uid)
-  }, [])
+  const removeWrongOne = useCallback((uid) => void actions.removeWrong(uid), [actions])
 
   const resultPct =
     quizResult && quizResult.total ? Math.round((quizResult.correct / quizResult.total) * 100) : 0
@@ -288,6 +290,11 @@ export function useStudySession() {
     setDark,
     progress,
     progressStatus,
+    // Φάση 5: ready | no-content | no-progress, και μήνυμα όταν η πρόοδος του μαθήματος δεν αποθηκεύεται.
+    studyCourse: course,
+    studyCourseNotice: studyCourseNotice(course, progressState),
+    progressWriteFailure,
+    dismissWriteFailure,
     selectedIds,
     toggleCategory,
     filteredCards,

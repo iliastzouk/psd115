@@ -91,38 +91,47 @@ describe('Δομή μετά το migration', () => {
   })
 })
 
-describe('Συμβατότητα με την υπάρχουσα πρόοδο', () => {
-  test('το storage.js φορτώνει αυτούσια την πρόοδο του δείγματος (κλειδιά psd115-*)', async () => {
-    const sample = JSON.parse(fs.readFileSync(`${root}tests/fixtures/progress-export.sample.json`, 'utf8'))
-    const map = new Map(Object.entries(sample.keys))
-    const prev = globalThis.localStorage
-    globalThis.localStorage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, v), removeItem: (k) => map.delete(k) }
-    try {
-      const storage = await import('../src/utils/storage.js')
-      const loaded = storage.loadProgress()
-      assert.deepEqual(loaded, JSON.parse(sample.keys['psd115-w1-study']))
-      assert.deepEqual(storage.loadPavlovChecklist(3), [true, false, true])
-      assert.deepEqual(storage.loadWeek2TopicChecklist('overview', 3), [true, true, false])
-    } finally {
-      if (prev === undefined) delete globalThis.localStorage
-      else globalThis.localStorage = prev
+describe('Αρχεία προόδου των tests (fixtures)', () => {
+  // Φάση 6b: τα παλιά exports (psd115-progress-export) αφαιρέθηκαν. Ελέγχεται η ακεραιότητα του δείγματος της νέας
+  // μορφής απέναντι στο περιεχόμενο, και ότι το συνθετικό παλιό αρχείο απορρίπτεται με σαφές μήνυμα.
+  const fixture = (name) => JSON.parse(fs.readFileSync(`${root}tests/fixtures/${name}`, 'utf8'))
+  const local = (item) => {
+    assert.ok(item.startsWith('psd115/'), item)
+    return item.slice('psd115/'.length)
+  }
+  test('study-progress.sample.json: κάθε καταγραφή, λάθος και checklist αναφέρει πραγματικό ID περιεχομένου', async () => {
+    const { getContentCourse } = await import('../src/core/routing/catalog.js')
+    const { quizQuestions } = await import('../content/courses/psd115/questions.js')
+    const topicIds = getContentCourse('psd115').topics.map((t) => t.id)
+    const sample = fixture('study-progress.sample.json')
+    assert.equal(sample.format, 'study-progress')
+    for (const ev of sample.events) {
+      const id = local(ev.item)
+      if (ev.kind === 'flip') assert.ok(current.ids.flashcards.includes(id), id)
+      else if (ev.kind === 'answer') assert.ok(current.ids.quizQuestions.includes(id), id)
+      else assert.fail(`απρόβλεπτο kind ${ev.kind}`)
     }
-    assert.deepEqual(Object.fromEntries(map), sample.keys, 'η φόρτωση δεν έγραψε τίποτα')
+    for (const w of sample.state['progress:wrongbook:psd115'].entries) {
+      const id = local(w.item)
+      assert.ok(current.ids.quizQuestions.includes(id), id)
+      assert.equal(w.group, quizQuestions.find((q) => q.id === id).categoryId, `${id}: ομάδα`)
+      assert.ok(current.ids.categories.includes(w.group), w.group)
+    }
+    for (const topicId of Object.keys(sample.state['progress:checklists:psd115'].topics)) assert.ok(topicIds.includes(topicId), topicId)
   })
-  // Η συμβατότητα των IDs της προόδου αποδεικνύεται από τα SET(before) === SET(after) παραπάνω.
-  // Εδώ ελέγχεται η ακεραιότητα του fixture: κάθε ID που αναφέρει πρέπει να υπάρχει στο περιεχόμενο.
-  test('το δείγμα προόδου αναφέρει μόνο πραγματικά IDs περιεχομένου', () => {
-    const sample = JSON.parse(fs.readFileSync(`${root}tests/fixtures/progress-export.sample.json`, 'utf8'))
-    const study = JSON.parse(sample.keys['psd115-w1-study'])
-    for (const c of Object.keys(study.byCategory)) assert.ok(current.ids.categories.includes(c), c)
-    for (const f of study.flashcardSeenIds) assert.ok(current.ids.flashcards.includes(f), f)
-    for (const w of study.wrongBook) {
-      assert.ok(current.ids.quizQuestions.includes(w.id), w.id)
-      assert.ok(current.ids.categories.includes(w.categoryId), w.categoryId)
-    }
-    for (const slug of Object.keys(JSON.parse(sample.keys['psd115-w2-checklists']))) {
-      assert.ok(current.routes.week2TopicSlugs.includes(slug), slug)
-    }
+  test('legacy-export.minimal.json: συνθετικό παλιό αρχείο → απόρριψη με σαφές μήνυμα, χωρίς εγγραφή', async () => {
+    const { planImport } = await import('../src/utils/studyProgressBackup.js')
+    const { studyContentAdapters } = await import('../src/core/progress/adapters/studyContent.js')
+    const data = fixture('legacy-export.minimal.json')
+    assert.deepEqual(Object.keys(data.keys), ['psd115-w1-study'], 'ελάχιστο, χωρίς δεδομένα παραγωγής')
+    const writes = []
+    const storage = { getItem: () => null, setItem: (k) => writes.push(k), removeItem: (k) => writes.push(k), key: () => null, length: 0 }
+    assert.throws(() => planImport(data, { storage, adapters: studyContentAdapters() }), (e) => e.name === 'ImportRejected' && /παλιά μορφή/.test(e.message))
+    assert.deepEqual(writes, [])
+  })
+  test('τα παλιά exports δεν υπάρχουν πια στα fixtures', () => {
+    const names = fs.readdirSync(`${root}tests/fixtures`)
+    assert.deepEqual(names.filter((n) => n.startsWith('progress-export.')), [])
   })
 })
 

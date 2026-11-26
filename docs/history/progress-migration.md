@@ -1,0 +1,580 @@
+# Progress: από το σημερινό model σε append-only events
+
+Κατάσταση (Φάση 6a): η νέα υποδομή (`src/core/progress/`) είναι η **ενεργή** πηγή προόδου της εφαρμογής, για όλα τα μαθήματα, με καθαρή αρχή και χωρίς migration — βλ. **§20**. Οι ενότητες για migration / baseline / shadow (§5–§14) είναι ιστορικές.
+
+## 1. Σημερινό model
+
+Όλα στο `localStorage` (αρχικά μέσω `src/utils/storage.js`, που αφαιρέθηκε στη Φάση 4· σήμερα μέσω του `ProgressService`):
+
+| Κλειδί | Περιεχόμενο | Τύπος δεδομένων |
+|---|---|---|
+| `psd115-w1-study` | `quizAnswered`, `quizCorrect`, `byCategory{correct,wrong}`, `flashcardSeenIds[]`, `wrongBook[]` (έως 60) | **Αθροίσματα** + λίστα λαθών (αντίγραφο κειμένου) |
+| `psd115-w1-*-checklist` (18) | `boolean[]` ανά θέμα της Εβδ. 1 | State |
+| `psd115-w2/w3/w4-checklists` | `{ slug: boolean[] }` | State |
+| `psd115-w1-theme` | `"dark"` / `"light"` | Ρύθμιση |
+| `psd115-disclaimer-v1` | `"1"` | Ρύθμιση |
+| `psd115-backup-*` | αντίγραφα ασφαλείας του Phase 0A | Όχι πρόοδος |
+
+- Session state (τρέχον κουίζ, σειρά καρτών) ζει μόνο στη μνήμη (`useStudySession`).
+- Τα mini κουίζ μέσα στα μαθήματα **δεν** καταγράφονται.
+- Η εξέταση ανάπτυξης δεν καταγράφει τίποτα.
+- Το σημερινό model κρατά μόνο αθροίσματα, όχι ιστορικό: δεν ξέρει πότε ή σε ποια ερώτηση έγινε κάθε απάντηση (εκτός από τα τελευταία 60 λάθη).
+
+## 2. Νέο model
+
+- `study-progress-events-v1`: append-only log. Κάθε event είναι `{ id, t, item, kind, ok?, grade?, conf?, ctx, session? }` (βλ. `src/core/progress/events.js`).
+  - Υποχρεωτικά: `id` (UUID), `t` (Unix ms, από 2020, χωρίς άνω όριο), `item`, `kind`, `ctx`. Προαιρετικά: `ok`, `grade`, `conf`, `session`.
+  - Ο έλεγχος είναι μόνο δομικός: κανένας κανόνας για το ποια προαιρετικά πεδία «πρέπει» να έχει κάθε `kind`.
+  - `item`: σταθερό, μη κενό string. Το ακριβές format του global ID (π.χ. `psd115/q-w2-overview-1`) θα οριστεί στο Phase 1 μαζί με το Course/content model.
+- `study-progress-state-v1`: μικρές μεταβλητές τιμές (checklists, ρυθμίσεις).
+- Κανένα παράγωγο μέγεθος (ακρίβεια, mastery, weak topics, σύνολα, streak) δεν αποθηκεύεται. Όλα υπολογίζονται από τα events.
+- Το API είναι async (`append`, `query`, `getState`, `setState`, `exportAll`, `importAll`). Έτσι μπορεί αργότερα να αλλάξει το backend (IndexedDB / server) χωρίς αλλαγές στους καλούντες.
+
+## 3. Τι μπορεί να γίνει events
+
+| Σημερινό δεδομένο | Γίνεται event; |
+|---|---|
+| Μελλοντικές απαντήσεις κουίζ | Ναι: `kind: 'answer'`, `ok`, `ctx: 'quiz'`, `session` |
+| Μελλοντικές απαντήσεις σε mini κουίζ μαθημάτων | Ναι: `ctx: 'lesson'` (σήμερα χάνονται) |
+| Μελλοντικές κάρτες | Ναι: `kind: 'flip'`, `grade` (σήμερα μόνο «είδα») |
+| Μελλοντική εξέταση ανάπτυξης | Ναι: `kind: 'self'`, `grade`, `ctx: 'exam'` |
+| **Ιστορικά** `quizAnswered` / `quizCorrect` / `byCategory` | **Όχι ακριβώς**: είναι αθροίσματα χωρίς ερώτηση και χωρίς χρόνο. Δεν επινοούμε events. |
+| **Ιστορικό** `wrongBook` (έως 60) | Μερικώς: έχει `id` ερώτησης, αλλά όχι timestamp. |
+| **Ιστορικό** `flashcardSeenIds` | Μερικώς: ποιες κάρτες είδες, χωρίς βαθμό ή χρόνο. |
+
+**Απόφαση σχεδίου:** τα ιστορικά αθροίσματα **δεν** μετατρέπονται σε ψεύτικα events. Διατηρούνται ως **frozen legacy baseline** στο state κλειδί `legacy-baseline:psd115` (§9). Ό,τι βλέπει ο χρήστης = baseline + πραγματικά events μετά το migration + mutable state.
+
+Για `wrongBook` και `flashcardSeenIds`: **μόνο στο legacy baseline** (απόφαση Phase 1E). Η παλιότερη ιδέα για
+events με `t` = χρόνος του migration **απορρίφθηκε**: θα ήταν επινοημένα timestamps, δηλαδή ψεύτικο ιστορικό.
+Το migration δεν δημιουργεί κανένα `answer`, `flip` ή `self` event.
+
+**`wrongBook` = state** (και μετά τη μετάβαση): το event schema δεν κρατά την επιλεγμένη απάντηση (`userLabel`),
+άρα η λίστα λαθών δεν μπορεί να είναι projection των `answer` events. Η επέκταση του schema είναι ξεχωριστή απόφαση.
+Από events: μόνο στατιστικά κουίζ/καρτών. Σε state: `wrongBook`, checklists, reset marker και ό,τι άλλο UI state
+δεν ανακατασκευάζεται αξιόπιστα από events.
+
+## 4. Τι μένει state
+
+- Checklists ανά θέμα, με κλειδί το canonical `topicId` (στο baseline: `progress.checklists[topicId]`).
+- `wrongBook` (το event schema δεν κρατά την επιλεγμένη απάντηση).
+- Reset marker `progress:reset:psd115` (ένα κλειδί για writer και reader από το 1E-4b).
+- Θέμα (theme) και αποδοχή disclaimer μένουν στα legacy κλειδιά (δεν είναι πρόοδος).
+
+## 5. Πώς μεταφέρεται η πρόοδος (Phase 1E-2: υλοποιημένο, ανενεργό)
+
+1. Έλεγχος των τρεχόντων δεδομένων του νέου store· κατεστραμμένα → απόρριψη.
+2. Αυστηρός έλεγχος των `psd115-*` (`buildLegacyBaseline`)· οποιοδήποτε σφάλμα → απόρριψη χωρίς εγγραφή.
+3. Idempotency / conflict με το σημάδι (§6).
+4. Safety backup v2 (legacy + νέο store).
+5. **Μία** εγγραφή του `study-progress-state-v1` μέσω συναλλαγής: `legacy-baseline:psd115` + `migration:psd115-v1`.
+   Το `study-progress-events-v1` **δεν γράφεται** (μηδέν events).
+6. **Τα `psd115-*` κλειδιά ΔΕΝ αλλάζουν και δεν σβήνονται.** Μένουν για rollback.
+
+Το migration (`src/utils/progressMigration.js`) είναι **off by default** (`LEGACY_BASELINE_MIGRATION_ENABLED = false`):
+καμία οθόνη ή εκκίνηση δεν το καλεί, και χωρίς `enabled: true` δεν διαβάζει ούτε γράφει τίποτα.
+
+## 6. Idempotency και conflict
+
+- Ίδιο source hash με το υπάρχον σημάδι (και baseline) → **no-op** (`already-migrated`): κανένα baseline, σημάδι ή event δεν αλλάζει.
+- Υπάρχει σημάδι με **διαφορετικό** source hash (π.χ. η legacy πρόοδος άλλαξε μετά το migration) → **ρητή άρνηση** (`conflict`), καμία εγγραφή.
+- Υπάρχει baseline χωρίς σημάδι → άρνηση.
+- Αρχικό migration (χωρίς σημάδι) με **μη κενό** `study-progress-events-v1` → άρνηση (`conflict`), καμία εγγραφή: το baseline
+  δημιουργείται μόνο με απόν ή άδειο (`[]`) log, ώστε κανένα event να μη μετρηθεί και μέσα στο baseline και στο log.
+  Μετά το migration, νέα events είναι αναμενόμενα και δεν επηρεάζουν το idempotent no-op.
+- Δεν υπάρχουν legacy events, άρα δεν χρειάζονται ντετερμινιστικά event IDs.
+
+## 7. Rollback
+
+- Επειδή τα `psd115-*` μένουν ανέγγιχτα, rollback σημαίνει απλώς: η εφαρμογή ξαναδιαβάζει το παλιό model (αλλαγή κώδικα / feature flag).
+- Το baseline περιέχει και το **αυτούσιο raw snapshot** (`raw`), ως forensic αναφορά.
+- Ό,τι καταγράφηκε ως event μετά το migration δεν χάνεται. Δεν μεταφέρεται όμως πίσω στα παλιά αθροίσματα. Αυτό είναι αποδεκτό, γιατί το rollback είναι μέτρο έκτακτης ανάγκης.
+
+## 8. Πώς αποφεύγουμε την απώλεια προόδου
+
+- Backup (Phase 0A) πριν από το migration, και τα `psd115-*` δεν σβήνονται.
+- Το νέο store:
+  - δεν αντικαθιστά ποτέ κατεστραμμένα δεδομένα σιωπηλά,
+  - απορρίπτει άκυρα events,
+  - δεν αλλάζει ή σβήνει ιστορικά events,
+  - κάνει εισαγωγές «όλα ή τίποτα».
+- Κάθε ανάγνωση γίνεται από το storage (όχι cache). Αυτό περιορίζει τον κίνδυνο δύο tabs να γράψουν το ένα πάνω στο άλλο, που εντοπίστηκε στο Phase 0A.
+- Το export v2 (Phase 1E-1) περιλαμβάνει και τα `study-progress-*` (§8 Backup v2).
+- **Όριο μεγέθους:** κάθε `append` ξαναγράφει όλο το log (O(n)). Με ~80 bytes/event και όριο localStorage ~5MB, το trigger για IndexedDB είναι όταν το log ξεπεράσει ~1MB. Η αλλαγή αφορά μόνο το `progressStore.js`, χάρη στο async API.
+
+## Εκτός scope (σκόπιμα)
+
+- Το migration υπάρχει αλλά είναι ανενεργό (§5)· δεν έχει τρέξει στο production.
+- Δεν υπάρχει σύνδεση με `useStudySession`.
+- Δεν υπάρχει UI.
+- Δεν υπάρχουν IndexedDB, Supabase ή αλγόριθμοι mastery / spaced repetition.
+- Το `requestPersistentStorage()` (`src/core/progress/persist.js`) υπάρχει αλλά δεν καλείται ακόμα.
+
+## 8. Backup v2 και ασφάλεια εγγραφών (Phase 1E-1)
+
+Πριν γραφτεί οποιαδήποτε πραγματική εγγραφή στο `study-progress-*`, το backup καλύπτει και τα δύο μέρη:
+
+```text
+{ format: 'psd115-progress-export', version: 2, exportedAt, reason, source,
+  keys:          { 'psd115-…': '<raw>' },                         // legacy, όπως το v1
+  progressStore: { 'study-progress-events-v1': '<raw>', 'study-progress-state-v1': '<raw>' },  // μόνο όσα υπάρχουν
+  migration:     { markerKey: 'migration:psd115-v1', marker: <από το state ή null> } }      // πληροφοριακό
+```
+
+- Το v1 (μόνο `keys`) γίνεται πάντα import.
+- Import: έλεγχος όλων (legacy + νέο store, και των τρεχόντων δεδομένων του store) → υπολογισμός εγγραφών →
+  safety backup v2 → συναλλαγή. Legacy: γράφονται τα κλειδιά του αρχείου, κανένα άλλο δεν σβήνεται. Νέο store:
+  ίδιοι κανόνες με το `progressStore.importAll` (ένωση events, σύγκρουση id → απόρριψη όλων, state ανά κλειδί).
+- Reset: safety backup v2 → διαγραφή των legacy κλειδιών προόδου μέσω συναλλαγής. Το νέο store δεν αγγίζεται ακόμα.
+- **Συναλλαγή** (`src/utils/progressTransaction.js`): το localStorage **δεν** είναι transactional ανάμεσα σε
+  διαφορετικά κλειδιά. Γίνεται application-level: snapshot → σημάδι `progress-txn-v1` (before/after) → εγγραφές →
+  επαλήθευση → rollback όλων σε σφάλμα. Αν η σελίδα κλείσει στη μέση, το σημάδι μένει και στην επόμενη εκκίνηση
+  (`main.jsx`) η αλλαγή ολοκληρώνεται (αν όλα είναι ήδη «after») ή αναιρείται. Χωρίς σημάδι: μία ανάγνωση, καμία εγγραφή.
+
+## 9. Frozen legacy baseline (Phase 1E-2)
+
+**Σημασία:** «αυτή ήταν η γνωστή κατάσταση του legacy συστήματος τη στιγμή του migration». Όχι «ο χρήστης έκανε
+αυτά τα events τότε». Κανένα `answer` / `flip` / `self` δεν δημιουργείται για το παρελθόν· το μόνο timestamp που
+προέρχεται από το migration είναι το `capturedAt` / `marker.at`.
+
+```text
+state['legacy-baseline:psd115'] = {
+  format: 'legacy-baseline', version: 1, courseId: 'psd115',
+  sourceHash: 'sha256:<hex>', capturedAt: '<ISO>',
+  raw: { 'psd115-…': '<raw string>' },          // αυτούσιο snapshot όλων των psd115-* (εκτός backups)
+  progress: {
+    quizAnswered, quizCorrect, byCategory: { [categoryId]: { correct, wrong } },
+    flashcardSeenIds: [cardId],                 // ίδιο σύνολο και σειρά
+    wrongBook: [{ uid, id, categoryId, question, explanation, userLabel, correctLabel }],   // αυτούσιες εγγραφές
+    checklists: { [topicId]: { items: boolean[], legacyKey } }   // legacy slug → topics.js → canonical topicId
+  } }
+state['migration:psd115-v1'] = { version: 1, at: '<ISO>', sourceHash, baselineKey: 'legacy-baseline:psd115', baselineVersion: 1 }
+```
+
+**Source hash:** `sha256:` + SHA-256 (pure JS, ίδιο σε browser/Node) του
+`JSON.stringify([[key, raw], …])` με ταξινομημένα κλειδιά. Ανεξάρτητο από σειρά κλειδιών, `exportedAt` και runtime.
+
+**Αυστηρός έλεγχος (χωρίς σιωπηλή επισκευή):** άκυρο JSON, άγνωστο κλειδί `psd115-*` ή άγνωστο πεδίο, άκυρη δομή
+`byCategory` / `wrongBook` / checklist, ερωτήσεις / κάρτες / κατηγορίες που δεν υπάρχουν στο περιεχόμενο,
+checklist slug που δεν αντιστοιχεί σε θέμα → απόρριψη με συγκεκριμένο σφάλμα, χωρίς εγγραφή. Ασυνέπεια αθροισμάτων
+`byCategory` ↔ `quizAnswered` είναι προειδοποίηση: διατηρούνται και τα δύο όπως είναι.
+
+**Ορατή πρόοδος** (`visibleProgress`):
+- κουίζ = baseline + `answer` events με `ctx: 'quiz'` (ίδιο εύρος με το legacy κουίζ)·
+- κάρτες = baseline ∪ `flip` events·
+- `wrongBook`, checklists = mutable state (αρχικά του baseline), **όχι** projection των events·
+- reset marker: αγνοεί το baseline και τα events πριν από αυτό.
+
+Κάθε event μετριέται μία φορά και το baseline δεν περιέχει events, οπότε δεν υπάρχει διπλομέτρηση.
+
+**Fixtures:**
+- `progress-export.production-2026-10-05.json`: **authoritative** (πραγματικό production export v2), για την ορθότητα του
+  migration, το αναμενόμενο baseline και το source hash. Αμετάβλητο: τα tests ελέγχουν το SHA-256 των bytes και το source hash.
+- `progress-export.production-2026-09-28.json`: **ιστορικό** (v1), για συμβατότητα. Δεν αντικαθίσταται.
+- `progress-export.sample.json`: συνθετικό (v1).
+
+**Conservation (tests):** για κάθε fixture, ό,τι δείχνει το legacy = ό,τι δείχνει το baseline: `quizAnswered`,
+`quizCorrect`, όλο το `byCategory`, `flashcardSeenIds`, όλες οι εγγραφές `wrongBook`, κάθε checklist.
+
+## 10. Shadow mode (Phase 1E-3)
+
+Το legacy (`psd115-*`) είναι η **μόνη** πηγή του UI. Οι πραγματικές ενέργειες γράφονται ΚΑΙ ως events στο νέο store.
+
+**Ενέργειες → events** (μόνο οι δύο persisted ενέργειες· mini κουίζ και εξέταση δεν αποθηκεύονται, άρα ούτε events):
+
+| Ενέργεια (κώδικας) | Event |
+|---|---|
+| απάντηση στο κεντρικό κουίζ (`useStudySession.handleSelectOption`) | `{ kind:'answer', ok: 0|1, ctx:'quiz', item:'psd115/<questionId>' }` |
+| «Επόμενη κάρτα» / «Από την αρχή» (`Flashcard.handleNext` → `markFlashSeen`), από τη σελίδα καρτών ή μάθημα | `{ kind:'flip', ctx:'flash', item:'psd115/<cardId>' }` |
+
+`flip` σημαίνει εδώ την υπάρχουσα persisted ενέργεια «είδα την κάρτα και πήγα στην επόμενη»· το απλό γύρισμα της κάρτας
+δεν αποθηκεύεται ούτε στο legacy. Γράφεται σε κάθε πάτημα (και για ήδη μελετημένη κάρτα)· το legacy κρατά σύνολο.
+
+**Πύλες** (χωρίς οποιαδήποτε: καμία ανάγνωση/εγγραφή στο νέο store):
+1. build flag `LEGACY_PROGRESS_SHADOW_ENABLED` (false· μόνο το smoke build με `VITE_PROGRESS_SHADOW_SMOKE=1` το ανοίγει)·
+2. σημάδι `migration:psd115-v1` (το stream ξεκινά μόνο μετά το baseline)·
+3. runtime `shadow:psd115.enabled === true` (ενεργοποίηση `activateShadow`, kill switch `deactivateShadow`).
+
+**Σειρά εγγραφών:** το event γράφεται **συγχρονικά μέσα στον handler** του κλικ (`append` εκτελείται αμέσως), πριν το React
+γράψει το legacy αντικείμενο (`useEffect` → `saveProgress`). Δεν υπάρχει συναλλαγή ανάμεσα στα δύο κλειδιά:
+- αποτυχία του event → η ενέργεια του χρήστη συνεχίζει κανονικά· καταγραφή (best effort) στο `shadow:psd115`
+  (`failures`, `recentFailures` ≤ 20)· το reconciliation δείχνει το χαμένο event·
+- αποτυχία του legacy (το `saveProgress` την αγνοεί σιωπηλά, όπως πάντα) ή κλείσιμο του tab ανάμεσα στα δύο → event χωρίς
+  αντίστοιχο legacy· το reconciliation το δείχνει.
+Ο recorder καλείται από τον handler, όχι από setState updater/effect (το StrictMode τα τρέχει δύο φορές).
+
+**Εγγυήσεις:** at-most-once ανά ενέργεια (καμία αυτόματη επανάληψη), duplicate-resistant με το `id` (ίδιο id → απόρριψη).
+**Όχι** exactly-once ανάμεσα σε legacy και νέο store: οι αποκλίσεις εντοπίζονται, δεν αποκλείονται.
+
+**Όριο migration** (`src/core/progress/boundary.js`): μετά το σημάδι, event με `t < marker.at` απορρίπτεται (`t === at` δεκτό)
+σε `progressStore.append`, `progressStore.importAll`, import αρχείου v2 και έλεγχο αρχείου v2. Διαφορετικό σημάδι στο αρχείο
+από το τρέχον → απόρριψη. Χωρίς σημάδι δεν υπάρχει όριο, αλλά το αρχικό migration απαιτεί άδειο log.
+
+**Reconciliation** (`src/core/progress/reconcile.js`): κουίζ legacy − baseline == answer events (answered, correct, ανά κατηγορία)·
+κάρτες: νέες legacy κάρτες == νέα flip items. Το `wrongBook` δεν συγκρίνεται. Με reset marker: από το μηδέν, events από το reset.
+
+**Reset σε shadow mode:** όπως στο 1E-1 (backup v2, legacy διαγραφή) και επιπλέον, αν υπάρχει σημάδι migration, γράφεται
+`progress:reset:psd115 = { at, reason }` (1E-4b· αρχικά `progress-reset:psd115`, δεν γράφτηκε ποτέ στο production) στην ίδια συναλλαγή. Events και baseline δεν σβήνονται.
+
+**Πολλά tabs:** το legacy μένει last-write-wins — γνωστός περιορισμός, δεν λύνεται εδώ. Για το νέο store, το test δείχνει μόνο ότι
+**διαδοχικά** appends από ανεξάρτητους recorders διατηρούνται (κάθε `append` ξαναδιαβάζει το log από το storage). Δεν αποδεικνύει
+ασφάλεια σε πραγματικά ταυτόχρονο read-modify-write δύο tabs: το localStorage δεν έχει locking, και ένα τέτοιο race μπορεί θεωρητικά
+να χάσει ένα event (θα φανεί στο reconciliation).
+
+**Κύκλος ζωής `activateShadow` (idempotent):**
+- **Αρχική** (χωρίς σημάδι/baseline): legacy → αυστηρός έλεγχος → frozen baseline + σημάδι (backup v2 πριν) → enable.
+- **Επανενεργοποίηση** (υπάρχει σημάδι/baseline, π.χ. σε κάθε εκκίνηση): **δεν** ξαναϋπολογίζεται hash από το τρέχον legacy
+  (αλλάζει νόμιμα μαζί με τα events). Ελέγχονται: ακεραιότητα (μορφή/έκδοση baseline, ίδιο `sourceHash` και χρόνος σημαδιού/baseline,
+  το frozen `raw` δίνει ακόμα το `sourceHash` του) και reconciliation `in-sync`. Αλλιώς άρνηση (`integrity` / `diverged`) χωρίς εγγραφή —
+  π.χ. αλλαγές στο legacy όσο ο shadow ήταν απενεργοποιημένος.
+- Κατεστραμμένο νέο store → άρνηση (`corrupt-store`).
+
+**Ενεργοποίηση στο production (μελλοντικά, μετά από review):** backup v2 → `LEGACY_PROGRESS_SHADOW_ENABLED = true` και κλήση του
+`activateShadow()` στην εκκίνηση, σε δικό του PR → έλεγχος reconciliation. Kill switch: `deactivateShadow`.
+
+## 11. Progress snapshot — pure read model (Phase 1E-4a)
+
+Pure layer χωρίς storage, React ή URLs (`src/core/progress/snapshot.js`). Δεν χρησιμοποιείται ακόμα από την εφαρμογή.
+
+```text
+legacy entries            → legacyToSnapshot()      → Snapshot
+baseline + events + state → buildProgressSnapshot() → Snapshot
+Snapshot                  → snapshotToLegacy()      → legacy entries (projection)
+Snapshot                  → stateFromSnapshot()     → state namespaces (υλοποίηση στο cutover)
+```
+
+**Snapshot v1** (ένα ανά μάθημα): `{ format: 'progress-snapshot', version: 1, courseId, quizAnswered, quizCorrect,
+byGroup, flashcardSeenIds (global IDs), wrongBook, checklists ({ [topicId]: { items } }) }`. Theme/disclaimer = ρυθμίσεις,
+εκτός snapshot.
+
+| Πεδίο | Προέλευση |
+|---|---|
+| quizAnswered / quizCorrect | baseline + `answer` events με ctx `quiz` (wrong = answered − correct) |
+| byGroup | baseline.byCategory + events, ομάδα μέσω `content.groupOf()` · άγνωστη ερώτηση → μόνο στα σύνολα |
+| flashcardSeenIds | baseline ∪ items των `flip` events με ctx `flash` (σειρά πρώτης εμφάνισης) |
+| wrongBook | state `progress:wrongbook:<courseId>` αν υπάρχει το κλειδί (ακόμα κι αν είναι κενό), αλλιώς baseline · ποτέ από events |
+| checklists | state `progress:checklists:<courseId>` αν υπάρχει το κλειδί, αλλιώς baseline |
+| reset | state `progress:reset:<courseId>` → αγνοούνται baseline και events με `t < at` |
+
+Εγγραφή wrongBook: `{ uid, item, group, question, explanation, userLabel, correctLabel, t }` — `t: null` για τις παλιές
+εγγραφές (άγνωστος χρόνος, δεν επινοείται).
+
+**Namespaces (απόφαση C):** τα `progress:<kind>:<courseId>` είναι **λογικά κλειδιά μέσα στο ένα αντικείμενο state**
+(`study-progress-state-v1`), όχι ξεχωριστά κλειδιά localStorage. Τα ιστορικά artifacts (`legacy-baseline:psd115`,
+`migration:psd115-v1`, `shadow:psd115`) μένουν αμετάβλητα. Το reset γράφεται και διαβάζεται πλέον από ΕΝΑ κλειδί,
+`progress:reset:psd115` (1E-4b, βλ. §12).
+
+**Content adapter** (`contentAdapter.js`): η μόνη εξάρτηση από περιεχόμενο — `hasGroup`, `groupOf`, `isQuestion`,
+`isCard`, `hasTopic` (τοπικά IDs) και προαιρετικό `legacy` codec (`decode` / `encode` των παλιών κλειδιών). Το PSD115
+adapter (`adapters/psd115.js`) είναι το μόνο σημείο που ξέρει categories, topics.js και τα κλειδιά `psd115-w*`· το
+`unknownCourseAdapter(courseId)` δεν επινοεί ομάδες/θέματα. Ο engine δεν ξέρει κανένα μάθημα (έλεγχος στα tests).
+
+## 12. ProgressService — ένα snapshot στη μνήμη (Phase 1E-4b, legacy mode)
+
+```text
+main.jsx: recoverInterrupted → initSettings (theme πριν από το paint) → createProgressService → installProgressService → render
+UI → useProgress / useCourseProgress / useTopicChecklist (useSyncExternalStore) → ΕΝΑ ProgressState
+ProgressService → legacyToSnapshot(runtime) → Snapshot → snapshotToLegacy → legacy backend → ίδια κλειδιά psd115-*
+```
+
+- **Ένα instance**, δημιουργείται μόνο στο `main.jsx` πριν από το render (εκτός React → το StrictMode δεν φτιάχνει δεύτερο).
+  `ProgressState = { version, status: 'ready' | 'degraded', issues, courses: { psd115: Snapshot } }`, immutable· ίδιο
+  αντικείμενο για όλους μέχρι την επόμενη πραγματική αλλαγή.
+- **Boot χωρίς εγγραφές:** η πρόοδος υπάρχει ήδη στο πρώτο render (τέλος στο «0 και μετά hydration» και στο παλιό
+  `saveProgress(default)` που έγραφε μηδενικά πάνω στην πρόοδο). Τα checklists γράφονται μόνο σε αλλαγή του χρήστη
+  (απόν κλειδί ≡ όλα false). Theme/disclaimer: `utils/settings.js`, εκτός progress snapshot, εγγραφή μόνο σε αλλαγή.
+- **Εγγραφές:** μόνο από το service (ανά ενέργεια, μόνο τα κλειδιά που άλλαξαν· >1 κλειδί → `runTransaction`) και από
+  τις ρητές ενέργειες υποδομής (export/import/reset, `progressBackup`). Μετά το reset: `resync()`.
+- **Degraded:** δομικά κατεστραμμένα legacy δεδομένα ή αμφίβολη ανάκτηση συναλλαγής → μήνυμα, **καμία εγγραφή**, η μελέτη
+  συνεχίζει χωρίς αποθήκευση. Άγνωστα `psd115-*` κλειδιά και IDs που δεν υπάρχουν πια στο περιεχόμενο κρατιούνται ανέγγιχτα.
+- **Shadow:** ο recorder μένει στους handlers του `useStudySession`, ΠΡΙΝ από την αλλαγή στο service· το service δεν
+  ξέρει τίποτα για events/baseline. Το νέο store παραμένει shadow infrastructure (off).
+- **Gates:** `tests/progressService.test.mjs` (ταυτότητα, immutability, ισοδυναμία με τον παλιό reducer, degraded,
+  reset key, guards) και `npm run smoke:progress` (0 εγγραφές στο boot, πρώτο DOM με τις τιμές του fixture,
+  mutation builds M1/M2 που πρέπει να αποτύχουν, ένα snapshot σε όλους τους consumers, μνήμη ≡ storage,
+  `--differential=<παλιό dist>` για σύγκριση με το παλιό build).
+- **Εκτός 1E-4b:** συγχρονισμός πολλών tabs, εμφάνιση αποτυχίας εγγραφής, new reader / `commit({events,state})`,
+  αποσύνδεση `legacyBaseline`/`reconcile`/`progressShadow` από το PSD115, cleanup των load/save του `storage.js`, F2/F3.
+
+### Ανάκαμψη από degraded mode (PR #9)
+
+- **Επαληθευμένο safety backup:** πριν από reset ή import, το backup (raw, byte-identical ακόμα και όταν τα δεδομένα είναι
+  αλλοιωμένα) κατεβαίνει ως αρχείο ΚΑΙ γράφεται τοπικά· θεωρείται επιτυχές μόνο αν το τοπικό αντίγραφο ξαναδιαβαστεί
+  ίδιο. Αποτυχία λήψης, εγγραφής ή επαλήθευσης → `BackupError`, το reset/import ακυρώνεται χωρίς καμία αλλαγή στην πρόοδο.
+- **Import:** `importWithBackup` = πλήρης επικύρωση → επαληθευμένο backup → συναλλαγή. Η επικύρωση (`validateExport`)
+  περιλαμβάνει τον ΙΔΙΟ reader με την εφαρμογή (`legacyToSnapshot(..., { mode: 'runtime' })`)· ό,τι δεν μπορεί να διαβαστεί
+  με ασφάλεια απορρίπτεται ήδη στην επιλογή αρχείου. Ένα αλλοιωμένο backup από degraded mode κρατιέται για χειροκίνητη
+  ανάκτηση, δεν γίνεται δεκτό ως import.
+- **Συναλλαγή:** αποτυχία στη μέση → rollback στα αρχικά raw (και αλλοιωμένα)· αποτυχία και του rollback → το σημάδι
+  μένει και το boot επαναφέρει (το service ξεκινά σε degraded).
+- Tests: `tests/progressRecovery.test.mjs` (T1–T5) και `smoke:progress` (degraded → reset με/χωρίς επαληθευμένο backup).
+
+## 13. Αποσύνδεση από το PSD115 και πλήρες reconciliation (Phase 1E-4c-1)
+
+Καθαρό refactor, χωρίς αλλαγή στη συμπεριφορά της εφαρμογής. Ο **content adapter** είναι το μόνο σημείο σύνδεσης με
+μάθημα/περιεχόμενο/παλιά κλειδιά· η σύνδεση γίνεται στο `main.jsx` (service + shadow recorder).
+
+- `buildLegacyBaseline(entries, { now, content })`: επικύρωση και αποκωδικοποίηση μόνο μέσω `legacyToSnapshot` (strict) και
+  του adapter (+ `checkSettings` για τις τιμές theme/disclaimer). Το baseline (v1) είναι **byte-identical** με το 1E-2
+  (golden SHA-256 στα 3 fixtures, `tests/progressDecoupling.test.mjs`). Το `visibleProgress` αντικαταστάθηκε από το
+  `buildProgressSnapshot`.
+- `reconcileShadow({ content, baseline, legacyEntries, events, state })`: **πλήρης** σύγκριση
+  `legacyToSnapshot(legacy)` ≡ `buildProgressSnapshot(baseline, events, state)` σε κουίζ, ομάδες, κάρτες, wrongBook,
+  checklists. Κανονικοποιήσεις (οι μόνες): wrongBook χωρίς `t`· κάρτες ως σύνολο· αντικείμενα χωρίς σημασία στη σειρά
+  των κλειδιών. Το report δίνει διαφορά ανά πεδίο (`diff`).
+- `createShadowRecorder({ courseId, content, … })` / `installShadowRecorder` (main.jsx)·
+  `migrateLegacyBaseline` / `activateShadow` / `shadowReconciliation` παίρνουν `content`.
+
+**Συνέπεια (σκόπιμη, έως το 1E-4c-2 — βλ. §14):** μέχρι το 1E-4c-2 (mirror του wrongBook/checklists στο state), κάθε αλλαγή στο legacy wrongBook ή
+στα checklists εμφανίζεται ως `diverged` — το παλιό reconciliation τις αγνοούσε και έλεγε λανθασμένα `in-sync`.
+
+## 14. Mirror wrongBook / checklists στο shadow store (Phase 1E-4c-2)
+
+Το shadow store αναπαριστά πλέον **ολόκληρη** την πρόοδο: μετά από κάθε ενέργεια του χρήστη το πλήρες reconciliation είναι
+`in-sync`. Καμία ενεργοποίηση στο production: το build flag μένει κλειστό, το κανονικό build δεν γράφει κανένα
+`study-progress-*` (smoke B, G9).
+
+- **Atomic commit** — `progressStore.commit({ events, state })`: events + patch του state σε μία επαληθευμένη εγγραφή
+  (rollback σε αποτυχία), με τους ίδιους ελέγχους με το `append` (σχήμα, διπλά ids, όριο migration) και το νέο **όριο reset
+  ανά μάθημα** (`resetViolations`: event του μαθήματος με `t` πριν από το `progress:reset:<c>.at` → απόρριψη). Το `append`
+  είναι commit ενός event και γράφει ακόμα σύγχρονα.
+- **Αποτυχία ΚΑΙ του rollback** (review PR #11) — οι εγγραφές δύο κλειδιών (events + state) περνούν από το
+  `runTransaction` (μεταφέρθηκε στο `src/core/progress/transaction.js`· το `utils/progressTransaction.js` το
+  επανεξάγει): σημάδι `progress-txn-v1` → εγγραφή → επαλήθευση → επαληθευμένο rollback. Αν αποτύχει και το rollback,
+  το σφάλμα έχει `outcome: 'rollback-incomplete'` (όχι «δεν άλλαξε τίποτα»), το σημάδι μένει και το `recoverInterrupted`
+  της εκκίνησης ολοκληρώνει ή επαναφέρει. Όσο εκκρεμεί σημάδι, το store αρνείται κάθε εγγραφή (`not-started`). Ένα
+  κλειδί = ένα `setItem` (είτε γράφεται είτε όχι) → `not-started`. Η ατομικότητα είναι εγγύηση της εφαρμογής πάνω σε
+  χωριστά `setItem`, όχι συναλλαγή του browser.
+  *Trade-offs:* (α) το σημάδι κρατά before/after και των δύο κλειδιών, άρα σε κάθε εγγραφή δύο κλειδιών το log των
+  events γράφεται προσωρινά τρεις φορές· με γεμάτο storage η εγγραφή αποτυγχάνει ως `not-started` (τίποτα δεν αλλάζει).
+  (β) αν μείνει σημάδι, ΚΑΜΙΑ εγγραφή προόδου μέχρι την επόμενη εκκίνηση: store, legacy πολλών κλειδιών ΚΑΙ legacy ενός
+  κλειδιού (review PR #11 — αλλιώς η ανάκτηση θα έσβηνε την εγγραφή). Το ProgressService περνά σε degraded με το
+  υπάρχον μήνυμα, δεν εφαρμόζει την απορριφθείσα αλλαγή στη μνήμη (μένει το snapshot πριν από την ενέργεια) και ο
+  recorder γίνεται αδρανής· με reload, το recoverInterrupted επαναφέρει τις αρχικές τιμές. Το σημάδι το καθαρίζει μόνο
+  η ανάκτηση.
+- **Recorder** — κάθε ενέργεια = ΕΝΑ commit:
+  - σωστή απάντηση → event· λάθος → event + εγγραφή στο `progress:wrongbook:<c>` (όριο 60, FIFO)·
+  - `recordWrongBookRemove` / `recordWrongBookClear` / `recordChecklist` → μόνο state (`unchanged` όταν δεν αλλάζει τίποτα)·
+  - αν το namespace λείπει → αποτυχία (καταγραφή στο `shadow:<c>`)· **ποτέ** δεν δημιουργείται από το μηδέν (F4)·
+  - `isActive` (F5): στο `main.jsx` = `ProgressService.status === 'ready'`· σε degraded καμία ανάγνωση/εγγραφή (smoke A3).
+- **Ένα uid** — το `handleSelectOption` φτιάχνει το uid του λάθους μία φορά και δίνει το ίδιο αντικείμενο `wrong` στον
+  recorder και στο `ProgressService.answerQuestion` (που σέβεται το `wrong.uid`). Σειρά: recorder ΠΡΙΝ από το service σε
+  όλους τους handlers (απάντηση, κάρτα, αφαίρεση, άδειασμα, checklist· guard G11).
+- **Υλοποίηση στο migration** — το `migrateLegacyBaseline` γράφει baseline + σημάδι + `stateFromSnapshot(legacy)` στην ίδια
+  συναλλαγή (golden baseline hashes αμετάβλητα). Επανενεργοποίηση χωρίς τα namespaces → `not-materialized`.
+- **Reset** — μετά το migration, το `resetProgressSafely` γράφει στην ίδια συναλλαγή reset marker + κενά namespaces.
+- **Μη αναπαριστώμενα legacy δεδομένα** (F3) — άγνωστα κλειδιά και checklists χωρίς θέμα → `unrepresented` στο report·
+  όσο υπάρχουν, το reconciliation δεν βγάζει ποτέ `in-sync`.
+
+Tests: `tests/progressCommit.test.mjs` (G1, και rollback-incomplete / ανάκτηση), `tests/progressMirror.test.mjs` (G2–G9, G11), G10 στο
+`tests/progressDecoupling.test.mjs`· smoke: `scripts/smoke-shadow.mjs` (A, A2, A3, B).
+
+**Εκκρεμότητες (follow-ups, όχι σε αυτό το phase):** test για το όριο των 3 τοπικών backups· αποδεκτό trade-off:
+reset/import αποτυγχάνει όταν το storage είναι πολύ γεμάτο για επαληθευμένο backup· συγχρονισμός πολλών tabs· UI για
+αποτυχίες εγγραφής· καθαρισμός του `storage.js`· σημασιολογία εμφάνισης F2/F3.
+
+## 15. Ασφάλεια backup και αποθήκευσης (Φάση 1, μετά το 1E-4c-2)
+
+- **Όριο 3 τοπικών backups** (D4, αμετάβλητο): πρώτα γράφεται και επαληθεύεται το νέο backup, μετά κλαδεύονται τα
+  παλαιότερα. Με γεμάτο storage το reset/import ακυρώνεται (`BackupError`)· κανένα backup δεν σβήνεται εκ των προτέρων.
+- **Μοναδικό κλειδί** (D3): `psd115-backup-<ISO>`· σε σύγκρουση (ίδιο ms) `-001`, `-002`, … πάντα μεγαλύτερο από κάθε
+  υπάρχον της ίδιας βάσης. Κανένα backup δεν αντικαθίσταται και το νεότερο δεν κλαδεύεται πρώτο.
+- **Εκκρεμές σημάδι** (D1): `resetProgressSafely` / `importWithBackup` ελέγχουν το `progress-txn-v1` ΠΡΙΝ από λήψη,
+  τοπικό backup και κλάδεμα → `PendingTransactionError('pending')`· αν ο έλεγχος πετάξει → `('unverifiable')`
+  (fail-closed). Τίποτα δεν αλλάζει.
+- **Μηνύματα** (D2, `describeProgressFailure`): «η πρόοδος δεν άλλαξε» ΜΟΝΟ όταν είναι επιβεβαιωμένο (`BackupError`,
+  `not-started`, `rolled-back`, άρνηση D1). `rollback-incomplete` → «Η αλλαγή δεν ολοκληρώθηκε με ασφάλεια. Επαναφόρτωσε τη
+  σελίδα για να επιχειρηθεί ανάκτηση.» — χωρίς υπόσχεση επιτυχίας. Άγνωστο σφάλμα → χωρίς ισχυρισμό διατήρησης.
+- **Ακεραιότητα προόδου ≠ κατάσταση backups**: σε αποτυχία πριν από τη συναλλαγή (π.χ. το σημάδι δεν χωρά) η πρόοδος μένει
+  ανέπαφη, ενώ το νέο backup και το κλάδεμα ενός παλιού μπορεί να έχουν γίνει (αποδεκτό, D4).
+
+Tests: `tests/progressBackupSafety.test.mjs` (T1–T5)· smoke: `scripts/smoke-progress.mjs` (R1, R2).
+
+## 16. Αποτυχίες αποθήκευσης χωρίς εκκρεμές σημάδι (Φάση 2)
+
+- **E1(α)**: αν το `backend.write` αποτύχει και ΔΕΝ εκκρεμεί σημάδι συναλλαγής (π.χ. γεμάτο storage), η αλλαγή ΔΕΝ
+  εφαρμόζεται στη μνήμη (μνήμη ≡ storage), η ενέργεια επιστρέφει `false` και το `status` μένει `ready`.
+  Η επόμενη ενέργεια αποθηκεύει μόνο τη δική της αλλαγή — η αποτυχημένη δεν επαναλαμβάνεται αυτόματα· ο χρήστης πρέπει να
+  την επαναλάβει.
+- **E2**: `ProgressState.writeFailure = { at, kind: 'quota' | 'other' } | null`, ξεχωριστό από το `status`. `quota` μόνο από
+  `name` (`QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`) ή `code` (22, 1014) — ποτέ από το κείμενο· τυλιγμένα σφάλματα
+  συναλλαγής → `other`. Ειδοποίηση `role="status"` (όχι modal), χωριστή από το banner του degraded.
+- **Πότε καθαρίζει** (διορθωμένο στο review του #13): το service κρατά εσωτερικά τις τιμές (κλειδί → raw) όλων των
+  αποτυχιών. Η ειδοποίηση φεύγει ΜΟΝΟ όταν ΟΛΕΣ έχουν πλέον αποθηκευτεί με ακριβώς αυτή την τιμή (ο χρήστης επανέλαβε
+  την ίδια αλλαγή), ή με `dismissWriteFailure()` (που απλώς κρύβει την ειδοποίηση — δεν σημαίνει ότι η αλλαγή σώθηκε).
+  Μια άσχετη επιτυχημένη εγγραφή, ή άλλη τιμή στο ίδιο κλειδί, ΔΕΝ την καθαρίζει. Κάθε εκκρεμότητα κρατά το `{ at, kind }`
+  της αποτυχίας της· όσο μένουν εκκρεμότητες, το `writeFailure` δείχνει την πιο πρόσφατη ΜΗ ανακτημένη (σωστό μήνυμα).
+  Το `resync` (μετά από reset) ξεκινά από καθαρή κατάσταση.
+- **E3**: ο shadow recorder μένει πριν από το service· ένα event χωρίς legacy εγγραφή φαίνεται στο reconciliation (`diverged`).
+- **E4**: μόνο οι εγγραφές προόδου μέσω του service· εκτός: ρυθμίσεις, reset/import, πολλά tabs, `storage.js`.
+- Προγραμματιστικά σφάλματα (άκυρο θέμα, άκυρο snapshot) εξακολουθούν να πετούν.
+
+Tests: `tests/progressWriteFailure.test.mjs`· smoke: `scripts/smoke-progress.mjs` (W).
+
+## 17. Πολλά tabs (Φάση 3)
+
+Δύο ή περισσότερα tabs της εφαρμογής μοιράζονται το ίδιο localStorage. Πριν από τη Φάση 3 κάθε tab φόρτωνε την πρόοδο
+μία φορά και υπολογίζε κάθε αλλαγή πάνω στη μνήμη του, άρα ένα «παλιό» tab έσβηνε σιωπηλά τις αλλαγές του άλλου (κοινό
+κλειδί `psd115-w1-study` για μετρητές, κάρτες και wrongBook).
+
+- **G1 — φρέσκια ανάγνωση πριν από κάθε ενέργεια.** Το `ProgressService` ξαναδιαβάζει τα κλειδιά προόδου με την ίδια
+  επικύρωση με την αρχική φόρτωση και εφαρμόζει την ενέργεια (απάντηση, κάρτα, αφαίρεση/άδειασμα λάθους, checklist) πάνω
+  στην τρέχουσα αποθηκευμένη κατάσταση. Αποτυχία ανάγνωσης/επικύρωσης ή εκκρεμές σημάδι → `degraded`, καμία εγγραφή.
+  Η εγγύηση της Φάσης 2 ισχύει: αποτυχημένη εγγραφή δεν εφαρμόζεται στη μνήμη.
+- **G2 — checklist.** Ο setter του `useChecklist` (`applyChecklistUpdate`): `refresh()` → φρέσκα items από το service →
+  toggle → shadow recorder με τα τελικά items → `setChecklist`. Το API του service δεν άλλαξε.
+- **G3 — `storage` listener.** Ο browser ειδοποιεί τα ΑΛΛΑ tabs (όχι αυτό που έγραψε). Σε αλλαγή κλειδιού προόδου, του
+  σημαδιού συναλλαγής ή σε `clear()`: `service.refresh()` — μόνο ανάγνωση, notify μόνο όταν αλλάζει πραγματικά το snapshot.
+  Το εκκρεμές σημάδι κρίνεται από το τρέχον storage, όχι από το event. Σε `degraded` το refresh δεν κάνει τίποτα (μέχρι το
+  reload).
+- **G4** — το refresh δεν καθαρίζει την ειδοποίηση αποτυχίας της Φάσης 2.
+- **Shadow recorder (review #15) — ακριβής εγγύηση.** Ο setter του checklist σταματά αν το `refresh()` οδηγήσει σε
+  `degraded` (ούτε recorder ούτε εγγραφή), και οι handlers κουίζ/κάρτας/λαθών κάνουν `refresh()` ΠΡΙΝ από τον recorder,
+  ώστε το `isActive` να βλέπει την τρέχουσα κατάσταση. Εγγυάται ΜΟΝΟ ότι ο recorder δεν καλείται όταν το `refresh()` έχει
+  ήδη εντοπίσει μη ασφαλή κατάσταση (κατεστραμμένη πρόοδος, εκκρεμές σημάδι). ΔΕΝ εγγυάται ότι η επόμενη legacy εγγραφή
+  του service θα πετύχει: αποτυχία της (π.χ. quota) ή ανταγωνιστική αλλαγή άλλου tab ανάμεσα στον recorder και στο service
+  (G5) μπορεί ακόμα να αφήσει shadow event χωρίς αντίστοιχη legacy αλλαγή — όπως και πριν, η απόκλιση εντοπίζεται από το
+  reconciliation (`diverged`). Το shadow μένει κλειστό στο production.
+- **G5 — υπολειπόμενος κίνδυνος (χωρίς cross-tab lock).** Η φρέσκια ανάγνωση και η εγγραφή δεν είναι ατομικές μεταξύ
+  tabs: το localStorage δεν παρέχει κλείδωμα, και το Web Locks API είναι ασύγχρονο ενώ οι εγγραφές μας γίνονται σύγχρονα
+  στον handler. Όταν δύο tabs εκτελούν πραγματικά ανταγωνιστικές εγγραφές — και τα δύο διαβάζουν την ίδια κατάσταση πριν
+  γράψει κάποιο από τα δύο — η εγγραφή του ενός μπορεί να αντικαταστήσει την αλλαγή του άλλου, και η αλλαγή αυτή χάνεται
+  χωρίς ειδοποίηση. Η Φάση 3 διορθώνει τη συνηθισμένη απώλεια (διαδοχικές ενέργειες από διαφορετικά tabs) και βελτιώνει
+  τη συνέπεια· ΔΕΝ εγγυάται μηδενική απώλεια.
+- Εκτός: ρυθμίσεις (theme) μεταξύ tabs· ανάκτηση στην εκκίνηση ενώ άλλο tab βρίσκεται μέσα σε συναλλαγή.
+
+Tests: `tests/progressMultiTab.test.mjs`· smoke: `scripts/smoke-progress.mjs` (T, δύο σελίδες στο ίδιο context).
+
+## 18. Εμφάνιση προόδου ανά scope και αφαίρεση του `storage.js` (Φάση 4)
+
+Η μπάρα «Πρόοδος» μετρούσε όλες τις κάρτες που είχε δει ο χρήστης σε όλο το μάθημα απέναντι στο σύνολο καρτών της
+ενότητας (production fixture, ενότητα k2: «21/56» χωρίς καμία κάρτα της k2· με αρκετές κάρτες αλλού, πάνω από 100%), και
+έδειχνε την ακρίβεια κουίζ όλου του μαθήματος σε κάθε σελίδα ενότητας. Οι τιμές υπολογίζονται πλέον από το
+`scopedProgress` (`src/components/progressDisplay.js`) — καθαρός υπολογισμός εμφάνισης, το storage δεν αλλάζει:
+
+- **H2 — κάρτες:** αριθμητής ΚΑΙ παρονομαστής από την πραγματική λίστα καρτών του scope (τομή με ό,τι έχει δει)· orphan
+  κάρτες δεν μετρούν, X ≤ Y πάντα.
+- **H3 — κουίζ σε ενότητα:** άθροισμα `correct`/`wrong` των ομάδων της ενότητας (`byGroup`)· χωρίς απαντήσεις → «—».
+- **H4 — κουίζ σε ολόκληρο το μάθημα:** οι υπάρχοντες `quizCorrect`/`quizAnswered` (όχι το άθροισμα του `byGroup`, που σε
+  ιστορικά δεδομένα μπορεί να διαφέρει).
+- **H1:** το αχρησιμοποίητο `src/utils/storage.js` αφαιρέθηκε· τα tests που το χρησιμοποιούσαν ως oracle αντικαταστάθηκαν
+  από ανεξάρτητες αναμενόμενες τιμές.
+
+Τα H1–H5 είναι το ρητό scope της Φάσης 4· δεν αποτελούν ανακατασκευή των παλαιότερων ετικετών «F2/F3», που δεν
+ορίστηκαν αναλυτικά.
+
+Tests: `tests/progressDisplay.test.mjs`· smoke: `scripts/smoke-progress.mjs` (boot cases k1, k2, course).
+
+## 19. Μελέτη και εμφάνιση προόδου ανά μάθημα (Φάση 5, επίπεδο Α)
+
+Η συνεδρία μελέτης (`useStudySession`) δεν είναι πια δεμένη στο PSD115: παίρνει το μάθημα από τη διαδρομή
+(`activeCourseId`, όπως η κεφαλίδα) και το περιεχόμενο από το `STUDY_CONTENT`. Το storage, τα κλειδιά `psd115-*`, το
+ProgressService ενός μαθήματος, backup/export, migration και shadow ΔΕΝ αλλάζουν (επίπεδο Β: Φάση 6, `docs/roadmap.md`).
+
+- **Συμβόλαιο ανά μάθημα (`STUDY_CONTENT`):** `flashcards`, `quizQuestions`, `categories`, `getCategoryLabel`, `units`.
+- **I1 — καταστάσεις** (`studyCourse`, `src/core/study/session.js`):
+  - `ready`: περιεχόμενο + πρόοδος από το service· οι ενέργειες όπως πριν (refresh → recorder → service).
+  - `no-content`: χωρίς περιεχόμενο μελέτης (π.χ. psd200)· κενό περιεχόμενο.
+  - `no-progress`: με περιεχόμενο, αλλά το service δεν κρατά πρόοδο για αυτό το μάθημα· ρητό μήνυμα «Η πρόοδος για αυτό
+    το μάθημα δεν αποθηκεύεται ακόμα.» (σήμερα δεν συμβαίνει στο production: μόνο το PSD115 έχει περιεχόμενο).
+  - Εκτός `ready`: κενή, παγωμένη πρόοδος του ΙΔΙΟΥ μαθήματος, και καμία ενέργεια (`createStudyActions`: ούτε refresh,
+    ούτε recorder, ούτε εγγραφή). Το ίδιο για checklist μαθήματος που δεν εξυπηρετεί το service (`applyChecklistUpdate`).
+- **I2 — περιεχόμενο από το μάθημα:** η σελίδα `/progress` (`progressPageView`), το `Progress` (fallback κατηγοριών του
+  μαθήματος του scope) και το `WrongAnswersReview` (`getCategoryLabel` ως prop). Κανένα κρυφό fallback στο PSD115· η σελίδα
+  προόδου μαθήματος χωρίς `ready` → «δεν υποστηρίζεται», όχι μηδενικά.
+- **I4 — guard:** απευθείας import από `content/courses/psd115/` μόνο στους adapters (`study/content.js`,
+  `routing/catalog.js`, `progress/adapters/psd115.js`) και στις σελίδες του PSD115 (Week*, Lessons, PptSlideDeck,
+  coursePresentation).
+- **I5 — ισοδυναμία PSD115:** ίδιες τιμές στα k1/k2/όλο το μάθημα (Φάση 4), ίδιες ετικέτες στο wrongBook.
+
+Παρατήρηση: η διαδρομή `/study/review?scope=psd200` ήδη έδειχνε «Δεν υπάρχει ακόμα περιεχόμενο μελέτης», άρα τα λάθη του
+PSD115 δεν εμφανίζονταν εκεί· ο κίνδυνος ήταν μόνο εσωτερικός στο hook (πρόοδος PSD115 για κάθε μάθημα).
+
+Tests: `tests/studyCourse.test.mjs`· smoke: `scripts/smoke-progress.mjs` (ετικέτα λάθους στην k2, review του psd200).
+
+## 20. Νέα υποδομή ως ενεργή πηγή προόδου, πολλά μαθήματα (Φάση 6a)
+
+Η εφαρμογή διαβάζει και γράφει την πρόοδο **μόνο** στο νέο store (`study-progress-events-v1`, `study-progress-state-v1`),
+για όλα τα μαθήματα με περιεχόμενο μελέτης. Καθαρή αρχή: κανένα migration από τα `psd115-*`, κανένα legacy baseline,
+κανένα τεχνητό event από παλιούς μετρητές, καμία συμβατότητα με παλιά exports. Τα `psd115-*` (πρόοδος) δεν διαβάζονται,
+δεν γράφονται και δεν σβήνονται (J7)· theme / disclaimer μένουν ως είχαν. Οι §5–§14 περιγράφουν πλέον ιστορικό σχέδιο
+migration που δεν θα ενεργοποιηθεί· ο κώδικάς τους αφαιρείται στο 6b, όταν δεν έχει καμία runtime εξάρτηση.
+
+**Αρχιτεκτονική.** `main.jsx` → `createStoreProgressService({ adapters: studyContentAdapters(), storage, recovery })`:
+- **J1** ένας service για όλα τα μαθήματα· `supports(c)`, `forCourse(c)` → `{ answerQuestion, markCardSeen, removeWrong,
+  clearWrongBook, setChecklist }` δεμένα στο μάθημα (καμία ενέργεια δεν δέχεται courseId)· `getSnapshot`, `subscribe`,
+  `refresh` (μόνο ανάγνωση), `resync`, `dismissWriteFailure`.
+- **J2** κοινός σύγχρονος πυρήνας `createStoreCore` (`readSync` / `commitSync`)· οι async μέθοδοι του store είναι
+  περιτυλίγματα. *Trade-off:* εξάρτηση από σύγχρονο storage· μετάβαση σε IndexedDB θα χρειαστεί async εκκίνηση με
+  κατάσταση «φόρτωση».
+- **J3** απάντηση = event `answer`/`quiz`· λάθος = και εγγραφή wrongBook στο ΙΔΙΟ commit (συναλλαγή) με το ΙΔΙΟ `t`·
+  κάρτα = `flip`/`flash` μόνο την πρώτη φορά· checklist / αφαίρεση λάθους = μόνο state. Ένα `t` ανά λογική ενέργεια.
+- Adapters από το κοινό συμβόλαιο (`adapters/studyContent.js`): κάρτες, ερωτήσεις → ομάδα (`categoryId`), θέματα.
+
+**J4 — ταξινόμηση (ίδια σε ανάγνωση, εγγραφή, import).**
+
+| Περίπτωση | Ανάγνωση | Εγγραφή | Import |
+|---|---|---|---|
+| άκυρο JSON / schema · διπλό id με άλλο περιεχόμενο · μη global `item` · σημάδι συναλλαγής · μη ασφαλής ανάκτηση | global degraded | — | απόρριψη |
+| μάθημα χωρίς adapter ή εκτός registry | opaque (κρατιέται, δεν μετρά) | αδύνατη | αποδοχή ως opaque |
+| id που δεν υπάρχει πια | orphan (κρατιέται, δεν μετρά, προειδοποίηση) | απόρριψη | αποδοχή ως orphan |
+| `answer`+`quiz` σε κάρτα · `flip`+`flash` σε ερώτηση, με t ≥ R | unavailable μόνο το μάθημα | απόρριψη | απόρριψη (αν από ready γινόταν unavailable) |
+| `self` ή άλλος συνδυασμός kind/ctx σε υπαρκτό id | κρατιέται, δεν μετρά (χωρίς έλεγχο τύπου) | — | αποδοχή |
+| άκυρο namespace ενός μαθήματος (παρόν αλλά άκυρο) | unavailable μόνο το μάθημα | — | αρχείο: απόρριψη · τοπικό: αντικατάσταση |
+
+Μετρούν μόνο `answer`+`quiz` (ερώτηση) και `flip`+`flash` (κάρτα). Απόν namespace = έγκυρη κενή κατάσταση· κανένα
+namespace δεν δημιουργείται στην εκκίνηση. Unavailable: το μάθημα δεν δείχνει πρόοδο (ούτε μηδενικά) και δεν δέχεται
+ενέργειες· οι εγγραφές άλλων μαθημάτων αλλάζουν μόνο τα δικά τους κλειδιά, τα δεδομένα του μένουν ίδια σε τιμή.
+**Μητρώο IDs** (`content/courses/<c>/ids.ledger.json`, `validate:content`): νέο id ρητά, αφαίρεση μόνο ως `retired`,
+retired δεν επιστρέφει, ένα id δεν αλλάζει τύπο και είναι μοναδικό σε όλους τους τύπους — ώστε τα orphans να μη
+μετρήσουν ποτέ σε νέο περιεχόμενο. Το ιστορικό του μητρώου ελέγχεται έναντι του `origin/main` όταν είναι διαθέσιμο.
+
+**J5 — χρόνοι.** H_c = μέγιστο `t` όλων των events του μαθήματος (και κρυμμένων, orphan, self) και των έγκυρων wrongBook /
+checklists (όχι του reset). Reset: `at = max(now, H_c + 1, previousReset + 1)`· νέα εγγραφή: `t = max(now, reset, H_c + 1)`.
+Άρα το `t` είναι αυστηρά αυξανόμενος **χρόνος καταγραφής** ανά μάθημα, όχι πάντα το ρολόι της συσκευής (π.χ. μετά από
+import δεδομένων από συσκευή με ρολόι μπροστά). Μία κανονικοποίηση του wrongBook (`canonicalWrongBook`: φίλτρο t ≥ R,
+σειρά `(t, uid)`, όριο 60) σε κάθε διαδρομή. Checklists v2: `{ items, t }` ανά θέμα.
+
+**Reset** (`resetCourseSafely`): ΜΟΝΟ το τρέχον μάθημα· επαληθευμένο raw safety backup → `{ reset: { at }, wrongBook κενό,
+checklists κενά }`· τα events δεν σβήνονται (append-only, κρυμμένα με t < R). Επιτρέπεται και σε μάθημα unavailable (το
+κατεστραμμένο namespace εξαιρείται από το H_c και αντικαθίσταται)· ΟΧΙ σε global degraded ή με σημάδι συναλλαγής.
+
+**J6 — import** (`planImport` → προεπισκόπηση → επιβεβαίωση → `applyImport`):
+- **Καθολικός κανόνας:** R = max(Rl, Rf)· τίποτα με t < R δεν εμφανίζεται (events, wrongBook, checklists), ακόμα κι αν
+  τα resets είναι ίδια και το backup εσωτερικά ασυνεπές.
+- events: ένωση με βάση το id· wrongBook: ένωση με βάση το uid → `canonicalWrongBook(R)`· checklists: ίδιες τιμές → καμία
+  αλλαγή, διαφορετικές → του αρχείου· opaque κλειδιά: διαφορετικά → του αρχείου. Σύγκρουση id / uid → απόρριψη όλου.
+- **Προεπισκόπηση ανά στοιχείο** (ids, uids, κάρτες, θέματα, reset, status), όχι πλήθη· ρητή επιβεβαίωση όταν κάτι τοπικό
+  αφαιρείται, κρύβεται ή αλλάζει τιμή, όταν αντικαθίσταται μάθημα unavailable, ή στην αντικατάσταση.
+- **Αποκατάσταση unavailable:** έγκυρο namespace του αρχείου (ή απόν = κενό) αντικαθιστά το κατεστραμμένο· νεότερο reset
+  του αρχείου μπορεί να κρύψει event λάθους τύπου (`unavailable → ready`)· μάθημα που παραμένει unavailable δεν μπλοκάρει.
+- **Αποτύπωμα:** SHA-256 των raw τιμών των δύο κλειδιών και του αρχείου· στο ίδιο σύγχρονο βήμα πριν από κάθε εγγραφή,
+  έλεγχος σημαδιού και αποτυπωμάτων → αλλαγή = `StaleImportError`, καμία εγγραφή, νέα προεπισκόπηση.
+- **Αντικατάσταση** (μόνο όταν το store δεν διαβάζεται: άκυρο JSON / schema): raw safety backup → πλήρης αντικατάσταση από
+  αρχείο που δίνει έγκυρη πρόοδο. **Κατεστραμμένο / μη ανακτήσιμο σημάδι:** κανένα import, αντικατάσταση ή reset· το
+  σημάδι δεν σβήνεται ποτέ σιωπηλά· μόνο raw export (και του σημαδιού). Η χειροκίνητη αποκατάσταση είναι εκτός scope.
+
+**Περιορισμοί (συνειδητοί, όχι εγγυήσεις).**
+- **Πολλά tabs:** κάθε ενέργεια ξαναδιαβάζει το storage, αλλά χωρίς cross-tab lock δύο πραγματικά ταυτόχρονες εγγραφές
+  (π.χ. append στο ίδιο log από δύο tabs στο ίδιο διάστημα ανάγνωσης–εγγραφής) μπορούν ακόμα να χάσουν μία αλλαγή.
+- **Ρολόγια διαφορετικών συσκευών:** το R = max(Rl, Rf) ευνοεί το reset· ένα reset από συσκευή με ρολόι μπροστά μπορεί να
+  κρύψει πραγματικά νεότερες ενέργειες άλλης συσκευής. Η προεπισκόπηση τις δείχνει ως «δεν θα υπολογίζονται»· ο χρήστης
+  αποφασίζει. Δεν υπάρχουν causal IDs / reset generations.
+- **Μέγεθος:** το log μεγαλώνει με κάθε ενέργεια και το reset δεν το μικραίνει· κάθε ενέργεια διαβάζει όλο το log
+  (όριο για IndexedDB: §8).
+
+**Review #18 (διορθώσεις πριν από το merge).**
+- Η προεπισκόπηση δείχνει, ανά μάθημα και κατηγορία (σε ανάπτυξη), τα ίδια τα στοιχεία: καταγραφές με id / ερώτηση ή κάρτα /
+  τύπο, κάρτες, λάθη (ερώτηση, uid), checklists πριν → μετά· και τις προειδοποιήσεις (orphan, μαθήματα χωρίς υποστήριξη).
+- wrongBook στο import: ΠΡΩΤΑ το φίλτρο t ≥ R και στις δύο πλευρές, ΜΕΤΑ ο έλεγχος uid και η ένωση — εγγραφές που κρύβει
+  το τελικό reset δεν απορρίπτουν το import.
+- Ο πυρήνας του store δεν εξαρτάται πια από τον μηχανισμό migration: μόνο το όριο reset (`resetBoundary.js`). Τα όρια
+  migration και το async API του store είναι στο `legacyProgressStore.js`, που το χρησιμοποιεί μόνο ο legacy κώδικας μέχρι
+  το 6b. Το σχήμα του Snapshot είναι στο `snapshotShape.js`· η εφαρμογή δεν φορτώνει πια ούτε `boundary.js` / `keys.js` ούτε
+  τις legacy μετατροπές του `snapshot.js` (guard: `progressRuntime`).
+- Μητρώο IDs: το GitHub CI κάνει checkout με `fetch-depth: 0` και ο `validate:content` αποτυγχάνει στο GitHub Actions αν
+  λείπει το `origin/main`· η πρώτη εισαγωγή ενός μητρώου (δεν υπάρχει ακόμα στη βάση) αναφέρεται ρητά. Στο build του Vercel
+  (CI=1, χωρίς origin/main) ο έλεγχος ιστορικού παραλείπεται με μήνυμα, ώστε να μη σταματά το deploy.
+
+Tests: `courseProgress`, `storeProgressService`, `progressResetImport`, `progressMultiTab`, `progressRuntime`, `idLedger`,
+`studyCourse`· smoke: `smoke-progress` (ξαναγράφτηκε για το νέο store), `smoke-routes` (export / import / reset).
+Το `smoke:shadow` αποσύρθηκε (το shadow δεν βρίσκεται πια στη ροή της εφαρμογής).
