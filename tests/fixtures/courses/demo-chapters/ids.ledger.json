@@ -1,0 +1,42 @@
+{
+  "courseId": "demo-chapters",
+  "version": 1,
+  "ids": {
+    "fc-def-1": {
+      "type": "card",
+      "status": "active"
+    },
+    "fc-demo-2": {
+      "type": "card",
+      "status": "active"
+    },
+    "fc-demo-3": {
+      "type": "card",
+      "status": "active"
+    },
+    "fc-demo-4": {
+      "type": "card",
+      "status": "active"
+    },
+    "fc-demo-5": {
+      "type": "card",
+      "status": "active"
+    },
+    "q-demo-1": {
+      "type": "question",
+      "status": "active"
+    },
+    "q-demo-2": {
+      "type": "question",
+      "status": "active"
+    },
+    "q-demo-3": {
+      "type": "question",
+      "status": "active"
+    },
+    "q-demo-4": {
+      "type": "question",
+      "status": "active"
+    }
+  }
+}

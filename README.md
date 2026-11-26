@@ -2,7 +2,8 @@
 
 React εφαρμογή μελέτης για τα μαθήματα του προγράμματος, με **React Router**. Η αρχική (`/`) δείχνει τα μαθήματα ανά
 εξάμηνο (από το academic registry, `src/core/academic/data/`)· κάθε μάθημα έχει τη δική του διαδρομή `/:courseId`
-(π.χ. `/psd115`). Περιεχόμενο μελέτης: `content/courses/<courseId>/` (σήμερα μόνο το PSD115, δομημένο ανά εβδομάδα)·
+(π.χ. `/psd115`). Περιεχόμενο μελέτης: `content/courses/<courseId>/` (σήμερα μόνο το PSD115, δομημένο ανά εβδομάδα),
+ένα manifest ανά μάθημα καταχωρισμένο στο `content/courses/index.js` (`docs/content.md`)·
 μάθημα χωρίς περιεχόμενο εμφανίζεται ως «Υλικό σε προετοιμασία». Οι παλιές διαδρομές `/week/...` ανακατευθύνονται στις
 αντίστοιχες του PSD115.
 
@@ -18,9 +19,9 @@ npm.cmd run dev
 
 ### Δομή (κύρια)
 
-- `src/data/week1/` — θέματα Εβδ. 1 (π.χ. ορισμός, ιστορία, σχολές)
-- `src/data/week2/` — ερευνητικές μέθοδοι (K2 · διαφάνειες / κάρτες / κουίζ)
-- `src/data/quizzes/week1Quiz.js` — συγκεντρωτικό κουίζ Εβδ. 1
+- `content/courses/index.js` — τα μαθήματα με περιεχόμενο (ένα manifest το καθένα· συμβόλαιο: `src/core/content/courseContract.js`)
+- `content/courses/psd115/` — PSD115: `index.js` (manifest), `units/k1–k4/` (θέματα, κάρτες, κουίζ, διαφάνειες ανά εβδομάδα)
+- `src/core/content/` — συμβόλαιο, registry (κατάλογος routing και `STUDY_CONTENT` από τα manifests)
 - `src/pages/` — Home, hub ανά εβδομάδα, μαθήματα, κάρτες, κουίζ, exam mode, λάθη
 - `src/layouts/AppShell.jsx` — κελύφος, πρόοδος, θέμα
 - `src/hooks/useStudySession.js` — κατάσταση μελέτης / localStorage
@@ -34,9 +35,10 @@ npm.cmd run dev
 | `npm run validate:content` | Ελέγχει το περιεχόμενο (διπλά IDs, άκυρα `correctIndex`/τύποι, αναφορές σε ανύπαρκτες ερωτήσεις/κατηγορίες/διαφάνειες). Τρέχει αυτόματα πριν από κάθε `npm run build` — αν αποτύχει, αποτυγχάνει και το build (και στο Vercel). |
 | `npm run validate:progress -- <αρχείο.json>` | Ελέγχει ένα αρχείο «Εξαγωγή προόδου» χωρίς να γράψει τίποτα. |
 | `npm run smoke` | Μετά από `npm run build`: ανοίγει όλες τις διαδρομές σε headless Chromium και ελέγχει τον κύκλο εξαγωγή → εισαγωγή → επαναφορά, και ότι με τις ανακατεμένες επιλογές η σωστή απάντηση μετράει σωστά (κύριο κουίζ και mini κουίζ μαθημάτων). Χρειάζεται Chromium του Playwright (`npx playwright install chromium`) ή `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. |
+| `npm run snapshot:pages` | Μετά από `npm run build`: ντετερμινιστικό snapshot 81 σελίδων του PSD115 (τίτλοι, links, checkboxes, κείμενα) έναντι του `tests/fixtures/psd115-pages.snapshot.json`· `--write` γράφει baseline μόνο αν δύο εκτελέσεις είναι ίδιες. |
 | `npm test` | Unit tests (ενσωματωμένο `node --test`): περιεχόμενο, routing, μελέτη και η υποδομή προόδου (`src/core/progress/`, ενεργή πηγή της εφαρμογής)· αρχιτεκτονική στο `docs/progress.md`. |
 
-Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα), `npm test` και `build` σε κάθε push/PR.
+Το CI (`.github/workflows/ci.yml`) τρέχει `validate:content`, `validate:progress` (δείγμα), `npm test`, `build`, `smoke`, `smoke:progress` και `snapshot:pages` σε κάθε push/PR.
 
 **Πρόοδος:** αποθηκεύεται στο `study-progress-events-v1` / `study-progress-state-v1` του localStorage, ανά μάθημα (`docs/progress.md`). Στο footer υπάρχουν «Εξαγωγή προόδου (JSON)» (μορφή `study-progress`) και «Εισαγωγή προόδου…». Η εισαγωγή ελέγχει το αρχείο, δείχνει προεπισκόπηση ανά στοιχείο, ζητά επιβεβαίωση όταν κάτι τοπικό χάνεται ή αλλάζει, και πριν από την εφαρμογή κρατά επαληθευμένο αντίγραφο ασφαλείας (λήψη αρχείου και τα 3 τελευταία στο localStorage ως `study-progress-backup-*`). Η «Επαναφορά προόδου» μηδενίζει μόνο το τρέχον μάθημα, πάλι μετά από αντίγραφο ασφαλείας. Αρχεία της παλιάς μορφής (`psd115-progress-export`) απορρίπτονται.
 

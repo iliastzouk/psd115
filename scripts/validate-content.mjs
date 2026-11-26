@@ -269,6 +269,13 @@ for (const [courseId, c] of Object.entries(STUDY_CONTENT)) {
   if (prev) for (const e of checkLedgerHistory(prev, ledger)) err(`Μητρώο IDs (${courseId}): ${e}`)
   ledgerHistory.push(`${courseId}: ${prev ? `έναντι του ${baseRef}` : `πρώτη εισαγωγή (δεν υπάρχει στο ${baseRef})`}`)
 }
+// Συμβόλαιο περιεχομένου (Φάση 6d-α): κάθε manifest του content/courses/index.js περνά το checkCourseContent.
+const { COURSES } = await imp('content/courses/index.js')
+const { checkCourseContent, checkCoursesTogether } = await imp('src/core/content/courseContract.js')
+for (const m of COURSES) for (const e of checkCourseContent(m)) err(`Manifest (${m?.id}): ${e}`)
+// Όλα μαζί: το routing χτίζει έναν πίνακα legacy διαδρομών για όλα τα μαθήματα.
+for (const e of checkCoursesTogether(COURSES)) err(`Manifests (μαζί): ${e}`)
+
 let legacyRoutes = new Map()
 try {
   const legacy = await imp('src/core/routing/legacy.js')
@@ -310,4 +317,5 @@ console.log(
     `${registry.enrollments.length} εγγραφές · ${contentIds.length} IDs περιεχομένου συμβατά ως ${CONTENT_COURSE}/<id>`,
 )
 console.log(`✓ Routing έγκυρο: ${topicMap.length} topics · ${legacyRoutes.size} legacy διαδρομές → canonical`)
+console.log(`✓ Manifests έγκυρα: ${COURSES.map((m) => m.id).join(', ')} (συμβόλαιο περιεχομένου)`)
 console.log(`✓ Μητρώο IDs έγκυρο: ${ledgerIds} ids · ιστορικό: ${ledgerHistory.join(' · ')}`)

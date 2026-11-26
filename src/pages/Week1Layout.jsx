@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Outlet, useOutletContext } from 'react-router-dom'
-import { useLegacyRouteKey, useRouteIdentity } from '../core/routing/hooks.js'
+import { useRouteIdentity } from '../core/routing/hooks.js'
+import { getTopicSlides } from '../core/routing/catalog.js'
 import UnitSubNav from '../components/UnitSubNav.jsx'
 import Progress from '../components/Progress.jsx'
 import { progressScopeFor } from '../components/progressDisplay.js'
@@ -8,7 +9,6 @@ import PptSlideDeck from '../components/PptSlideDeck.jsx'
 import LessonPrevNextNav from '../components/LessonPrevNextNav.jsx'
 import WeekNextPrevNav from '../components/WeekNextPrevNav.jsx'
 import { WEEK1_CATEGORIES, quizQuestions } from '../../content/courses/psd115/questions.js'
-import { K1_PPT_SLIDES_BY_ROUTE } from '../../content/courses/psd115/units/k1/k1PptRefsByRoute.js'
 
 /** Σε Εξέταση / Λάθη το μπλοκ «Πρόοδος» αποσπά· η ροή είναι μόνο το εργαλείο. */
 const HIDE_PROGRESS_TOOLS = new Set(['exam', 'review'])
@@ -18,12 +18,11 @@ const week1CategoryIds = new Set(WEEK1_CATEGORIES.map((c) => c.id))
 export default function Week1Layout() {
   const ctx = useOutletContext()
   const id = useRouteIdentity()
-  // Legacy κλειδί μόνο για τις διαφάνειες ανά θέμα (κλειδιά του περιεχομένου, adapter 1C-B).
-  const p = useLegacyRouteKey() || '/week/1'
   const onUnitHome = id.kind === 'unit'
   const onToolPage = id.kind === 'study'
   const progressExpandedByDefault = onUnitHome || onToolPage
-  const k1Slides = onUnitHome || onToolPage ? null : K1_PPT_SLIDES_BY_ROUTE[p] ?? null
+  // Διαφάνειες ανά θέμα (Φάση 6d-α: με το topicId, από το manifest του μαθήματος).
+  const k1Slides = id.kind === 'topic' ? getTopicSlides('psd115', id.topicId) : null
   const showProgress = !(onToolPage && HIDE_PROGRESS_TOOLS.has(id.tool))
 
   // Φάση 4: η μπάρα «Πρόοδος» αφορά ΜΟΝΟ αυτή την ενότητα — το scope το ορίζει το περιεχόμενο (progressScopeFor).
@@ -45,7 +44,7 @@ export default function Week1Layout() {
           categories={WEEK1_CATEGORIES}
         />
       )}
-      {k1Slides && <PptSlideDeck slideNumbers={k1Slides} routeKey={p} deckId="week1" />}
+      {k1Slides && <PptSlideDeck slideNumbers={k1Slides} routeKey={id.topicId} deckId="week1" />}
       <Outlet context={ctx} />
       <LessonPrevNextNav />
       <WeekNextPrevNav courseId="psd115" unitId="k1" />
