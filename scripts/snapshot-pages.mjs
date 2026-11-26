@@ -101,7 +101,9 @@ function captureInPage() {
 }
 
 // --- Server / browser ---
-const server = spawn(path.join(root, 'node_modules/.bin/vite'), ['preview', '--port', String(PORT), '--strictPort'], { cwd: root, stdio: 'ignore' })
+// Το vite ξεκινά μέσω node, όχι με το shell script του node_modules/.bin (δεν τρέχει στα Windows).
+const VITE_BIN = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')
+const server = spawn(process.execPath, [VITE_BIN, 'preview', '--port', String(PORT), '--strictPort'], { cwd: root, stdio: 'ignore' })
 const stopServer = () => {
   try {
     server.kill()

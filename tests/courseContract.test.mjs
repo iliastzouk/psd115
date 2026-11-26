@@ -9,14 +9,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { checkCourseContent, courseTerms, DEFAULT_TERMS, manifestIds, MANIFEST_KEYS } from '../src/core/content/courseContract.js'
+import { checkCourseContent, checkCoursesTogether, courseTerms, DEFAULT_TERMS, manifestIds, MANIFEST_KEYS, RESERVED_LEGACY_SLUGS } from '../src/core/content/courseContract.js'
+import { buildLegacyRoutes, LEGACY_TOOLS } from '../src/core/routing/legacy.js'
+import { deriveCatalog } from '../src/core/content/registry.js'
 import { demoChapters } from './fixtures/courses/demo-chapters/index.js'
 import { checkLedger } from '../scripts/id-ledger.mjs'
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 import { getContentCourse } from '../src/core/routing/catalog.js'
+import { readText, relPosix } from './helpers/portable.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
+const read = (f) => readText(path.join(root, f))
 
 /** Βαθύ αντίγραφο που κρατά τις συναρτήσεις (structuredClone δεν τις αντιγράφει). */
 const clone = (v) =>
@@ -78,9 +81,9 @@ describe('demo-chapters: έγκυρο, πλούσιο, συνθετικό', () =
     assert.equal(STUDY_CONTENT['demo-chapters'], undefined)
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
     for (const f of walk(path.join(root, 'src')).filter((x) => /\.(m?js|jsx)$/.test(x))) {
-      const code = fs.readFileSync(f, 'utf8')
-      assert.doesNotMatch(code, /(from|import\()\s*['"][^'"]*\/tests\//, path.relative(root, f))
-      assert.doesNotMatch(code, /demo-chapters/, path.relative(root, f))
+      const code = readText(f)
+      assert.doesNotMatch(code, /(from|import\()\s*['"][^'"]*\/tests\//, relPosix(root, f))
+      assert.doesNotMatch(code, /demo-chapters/, relPosix(root, f))
     }
   })
 })
@@ -111,7 +114,7 @@ describe('checkCourseContent · αρνητικές παραλλαγές του d
     ['unit χωρίς title', (m) => delete m.units[0].title, /unit «ch1»: λείπει ή είναι κενό το «title»/],
     ['unit με άγνωστο πεδίο', (m) => (m.units[0].route = '/x'), /unit «ch1»: άγνωστο πεδίο «route»/],
     ['άκυρο legacy', (m) => (m.units[0].legacy = { route: 'week/1' }), /legacy\.route/],
-    ['ίδιο legacy route σε δύο units', (m) => ((m.units[0].legacy = { route: '/old/1' }), (m.units[1].legacy = { route: '/old/1' })), /διπλό legacy\.route/],
+    ['ίδιο legacy route σε δύο units', (m) => ((m.units[0].legacy = { route: '/old/1' }), (m.units[1].legacy = { route: '/old/1' })), /σύγκρουση legacy διαδρομής «\/old\/1»: unit «ch1» και unit «ch2»/],
     ['θέμα σε ανύπαρκτη unit', (m) => (m.topics[0].unit = 'ch9'), /topic «overview»: άγνωστη unit «ch9»/],
     ['διπλό topic id', (m) => (m.topics[1].id = 'overview'), /διπλό topic id «overview»/],
     ['άκυρο topic id', (m) => (m.topics[0].id = 'Over view'), /topic «Over view»: άκυρο id/],
@@ -119,7 +122,7 @@ describe('checkCourseContent · αρνητικές παραλλαγές του d
     ['ίδιο legacySlug δύο φορές στην ίδια unit', (m) => {
       m.units[1].legacy = { route: '/old/2' }
       for (const t of m.topics.filter((x) => x.unit === 'ch2')) t.legacySlug = 'same'
-    }, /legacySlug «same» δύο φορές/],
+    }, /σύγκρουση legacy διαδρομής «\/old\/2\/same»: topic «kinds» και topic «examples»/],
     ['unit χωρίς θέματα', (m) => (m.topics = m.topics.filter((t) => t.unit !== 'ch1')), /unit «ch1»: κανένα θέμα/],
     ['διπλή κατηγορία', (m) => m.study.categories.push({ ...m.study.categories[0] }), /διπλή κατηγορία/],
     ['κατηγορία χωρίς label', (m) => (m.study.categories[0].label = ''), /κατηγορία .*label/],
@@ -189,6 +192,187 @@ describe('checkCourseContent · αρνητικές παραλλαγές του d
   })
 })
 
+describe('F1 · legacy διαδρομές χωρίς συγκρούσεις (δεσμευμένα slugs, φωλιασμένα routes)', () => {
+  /** demo με legacy στο ch1 (/old/1) και στο ch2 (/old/2)· slugs ανά θέμα. */
+  const withLegacy = (slugs = {}, routes = { ch1: '/old/1', ch2: '/old/2' }) =>
+    variant((m) => {
+      for (const u of m.units) if (routes[u.id]) u.legacy = { route: routes[u.id] }
+      for (const t of m.topics) if (routes[t.unit]) t.legacySlug = slugs[t.id] ?? `s-${t.id}`
+    })
+  test('τα δεσμευμένα slugs είναι ακριβώς τα παλιά εργαλεία του routing', () => {
+    assert.deepEqual([...RESERVED_LEGACY_SLUGS], [...LEGACY_TOOLS])
+    assert.ok(Object.isFrozen(RESERVED_LEGACY_SLUGS))
+  })
+  for (const tool of LEGACY_TOOLS) {
+    test(`legacySlug «${tool}» (όνομα εργαλείου) → σφάλμα συμβολαίου, όχι crash του routing`, () => {
+      const m = withLegacy({ kinds: tool })
+      assert.match(checkCourseContent(m).join('\n'), new RegExp(`topic «kinds»: το legacySlug «${tool}» είναι δεσμευμένο`))
+      assert.throws(() => buildLegacyRoutes(deriveCatalog([m])), /Διπλή legacy διαδρομή/, 'χωρίς τον έλεγχο, το routing θα αποτύγχανε στη φόρτωση')
+    })
+  }
+  test('legacySlug με άκυρη μορφή («/», κενά, κεφαλαία) → σφάλμα', () => {
+    for (const bad of ['a/b', 'a b', 'Kinds', '../x']) assert.match(checkCourseContent(withLegacy({ kinds: bad })).join('\n'), /topic «kinds»: άκυρο legacySlug/, bad)
+  })
+  test('route μιας unit μέσα στις διαδρομές άλλης (εργαλείο ή θέμα) → σφάλμα σύγκρουσης', () => {
+    const tool = withLegacy({}, { ch1: '/old/1', ch2: '/old/1/quiz' })
+    assert.match(checkCourseContent(tool).join('\n'), /σύγκρουση legacy διαδρομής «\/old\/1\/quiz»/)
+    const topic = withLegacy({ overview: 'x' }, { ch1: '/old/1', ch2: '/old/1/x' })
+    assert.match(checkCourseContent(topic).join('\n'), /σύγκρουση legacy διαδρομής «\/old\/1\/x»/)
+    for (const m of [tool, topic]) assert.throws(() => buildLegacyRoutes(deriveCatalog([m])), /Διπλή legacy διαδρομή/)
+  })
+  test('έγκυρο manifest ⇒ το routing χτίζεται χωρίς σφάλμα (ίδιο σύνολο κλειδιών με τον έλεγχο)', () => {
+    const ok = [withLegacy(), withLegacy({}, { ch2: '/old/2' }), withLegacy({}, { ch1: '/a', ch2: '/a-b', ch3: '/a/b/c' })]
+    for (const m of ok) {
+      assert.deepEqual(checkCourseContent(m), [])
+      assert.doesNotThrow(() => buildLegacyRoutes(deriveCatalog([m])))
+    }
+  })
+})
+
+describe('F3 · paths σε στιλ Windows απορρίπτονται (το public/ και τα URLs θέλουν «/»)', () => {
+  test('έγγραφο με «\\» στο path → σφάλμα· και το «..» με «\\» δεν περνά', () => {
+    for (const bad of ['demo\\ch1.pdf', 'demo\\..\\..\\secret.pdf', 'C:\\x.pdf']) {
+      assert.match(errorsOf((m) => (m.docs = [{ id: 'd1', unit: 'ch1', kind: 'notes', path: bad }])), /έγγραφο «d1»: άκυρο path/, bad)
+    }
+    assert.deepEqual(checkCourseContent(variant((m) => (m.docs = [{ id: 'd1', unit: 'ch1', kind: 'notes', path: 'demo/ch1.pdf' }]))), [])
+  })
+  test('legacy.route με «\\» → σφάλμα', () => {
+    for (const bad of ['/old\\1', '\\old\\1']) assert.match(errorsOf((m) => (m.units[0].legacy = { route: bad })), /unit «ch1»: άκυρο legacy\.route/, bad)
+  })
+})
+
+describe('code-review #2–#5 · legacy διαδρομές και paths', () => {
+  const legacyErrors = (m) => checkCourseContent(m).filter((e) => /legacy/.test(e))
+  test('#4 legacy.route με κενά ή «.» / «..» τμήματα → σφάλμα (ο browser κανονικοποιεί τέτοια URLs)', () => {
+    for (const bad of ['/old//1', '/old/../1', '/old/./1', '/.', '/old/1/..', '//old']) {
+      assert.match(errorsOf((m) => (m.units[0].legacy = { route: bad })), /unit «ch1»: άκυρο legacy\.route/, bad)
+    }
+    for (const ok of ['/week/1', '/a', '/a-b/c.d']) assert.deepEqual(errorsOf((m) => (m.units[0].legacy = { route: ok })), '', ok)
+  })
+  test('#3 path εγγράφου: όχι γράμμα δίσκου, scheme, κενά ή «.» / «..» τμήματα, query ή hash', () => {
+    for (const bad of ['C:/x.pdf', 'd:/x.pdf', 'http://x/y.pdf', 'file:x.pdf', 'a//b.pdf', './a.pdf', 'a/./b.pdf', 'a/b.pdf?x=1', 'a/b.pdf#p', 'a/']) {
+      assert.match(errorsOf((m) => (m.docs = [{ id: 'd1', unit: 'ch1', kind: 'notes', path: bad }])), /έγγραφο «d1»: άκυρο path/, bad)
+    }
+    for (const ok of ['week1/k1-psd115.pdf', 'demo/Σημειώσεις_1.pdf', 'x.pdf']) {
+      assert.deepEqual(checkCourseContent(variant((m) => (m.docs = [{ id: 'd1', unit: 'ch1', kind: 'notes', path: ok }]))), [], ok)
+    }
+  })
+  test('#5 μία σύγκρουση = ένα μήνυμα (ίδιο route σε δύο units, ίδιο slug δύο φορές)', () => {
+    const route = variant((m) => ((m.units[0].legacy = { route: '/old/1' }), (m.units[1].legacy = { route: '/old/1' })))
+    assert.equal(legacyErrors(route).length, 1, legacyErrors(route).join('\n'))
+    const slug = variant((m) => {
+      m.units[1].legacy = { route: '/old/2' }
+      for (const t of m.topics.filter((x) => x.unit === 'ch2')) t.legacySlug = 'same'
+    })
+    assert.deepEqual(legacyErrors(slug), [
+      'σύγκρουση legacy διαδρομής «/old/2/same»: topic «kinds» και topic «examples»',
+      'σύγκρουση legacy διαδρομής «/old/2/same»: topic «kinds» και topic «comparison»',
+    ])
+  })
+  describe('#2 checkCoursesTogether: συγκρούσεις ανάμεσα σε μαθήματα', () => {
+    const withRoute = (id, route) => ({ ...variant((m) => (m.units[0].legacy = { route })), id })
+    const withTopic = (id, route, slug) => ({ ...variant((m) => ((m.units[0].legacy = { route }), (m.topics[0].legacySlug = slug))), id })
+    test('ίδιο legacy route σε δύο μαθήματα → σφάλμα με τα δύο μαθήματα (το καθένα μόνο του είναι έγκυρο)', () => {
+      const a = withRoute('demo-chapters', '/week/1')
+      const b = withRoute('demo-two', '/week/1')
+      assert.deepEqual([checkCourseContent(a), checkCourseContent(b)], [[], []])
+      assert.deepEqual(checkCoursesTogether([a, b]), [
+        'σύγκρουση legacy διαδρομής «/week/1»: μάθημα «demo-chapters» (unit «ch1») και μάθημα «demo-two» (unit «ch1»)',
+      ])
+      assert.throws(() => buildLegacyRoutes(deriveCatalog([a, b])), /Διπλή legacy διαδρομή/)
+    })
+    test('route ενός μαθήματος μέσα στις διαδρομές εργαλείων άλλου → σφάλμα', () => {
+      const a = withRoute('demo-chapters', '/week/1')
+      const b = withRoute('demo-two', '/week/1/quiz')
+      assert.match(checkCoursesTogether([a, b]).join('\n'), /σύγκρουση legacy διαδρομής «\/week\/1\/quiz»: μάθημα «demo-chapters»/)
+    })
+    test('topic → topic ανάμεσα σε μαθήματα: αναφέρεται το ζεύγος των θεμάτων', () => {
+      const a = withTopic('demo-chapters', '/p', 'q')
+      const b = withTopic('demo-two', '/p', 'q')
+      assert.deepEqual([checkCourseContent(a), checkCourseContent(b)], [[], []])
+      assert.match(checkCoursesTogether([a, b]).join('\n'), /σύγκρουση legacy διαδρομής «\/p\/q»: μάθημα «demo-chapters» \(topic «overview»\) και μάθημα «demo-two» \(topic «overview»\)/)
+      assert.throws(() => buildLegacyRoutes(deriveCatalog([a, b])), /Διπλή legacy διαδρομή/)
+    })
+    test('topic → unit ανάμεσα σε μαθήματα', () => {
+      const a = withTopic('demo-chapters', '/p', 'q')
+      const b = withRoute('demo-two', '/p/q')
+      assert.deepEqual([checkCourseContent(a), checkCourseContent(b)], [[], []])
+      assert.deepEqual(checkCoursesTogether([a, b]), ['σύγκρουση legacy διαδρομής «/p/q»: μάθημα «demo-chapters» (topic «overview») και μάθημα «demo-two» (unit «ch1»)'])
+      assert.throws(() => buildLegacyRoutes(deriveCatalog([a, b])), /Διπλή legacy διαδρομή/)
+    })
+    test('topic → εργαλείο ανάμεσα σε μαθήματα: γίνεται μόνο με δεσμευμένο slug, που απορρίπτεται ήδη στο ίδιο το μάθημα', () => {
+      // «/p/<slug>» = «/p/<tool>» ⇔ ίδιο route και slug = εργαλείο (τα slugs δεν έχουν «/»).
+      const a = withTopic('demo-chapters', '/p', 'quiz')
+      assert.deepEqual(checkCourseContent(a).filter((e) => /legacy/.test(e)), [
+        'topic «overview»: το legacySlug «quiz» είναι δεσμευμένο (εργαλείο της unit: flashcards, quiz, exam, review)',
+      ], 'ένα μήνυμα: όχι και «σύγκρουση» με το εργαλείο')
+      const b = withRoute('demo-two', '/p')
+      assert.deepEqual(checkCoursesTogether([a, b]), ['σύγκρουση legacy διαδρομής «/p»: μάθημα «demo-chapters» (unit «ch1») και μάθημα «demo-two» (unit «ch1»)'])
+    })
+    test('εσωτερική σύγκρουση ενός μαθήματος: μόνο από το checkCourseContent, όχι ξανά από το checkCoursesTogether', () => {
+      const inner = variant((m) => ((m.units[0].legacy = { route: '/old/1' }), (m.units[1].legacy = { route: '/old/1' })))
+      assert.equal(checkCourseContent(inner).filter((e) => /σύγκρουση/.test(e)).length, 1)
+      assert.deepEqual(checkCoursesTogether([inner, withRoute('demo-two', '/other')]), [])
+    })
+    test('διπλό courseId → σφάλμα', () => {
+      assert.match(checkCoursesTogether([demoChapters, demoChapters]).join('\n'), /διπλό μάθημα «demo-chapters»/)
+    })
+    test('έγκυρα μαζί ⇒ το routing όλων χτίζεται· τα πραγματικά μαθήματα και PSD115 + demo είναι έγκυρα μαζί', async () => {
+      const { COURSES } = await import('../content/courses/index.js')
+      const { psd115 } = await import('../content/courses/psd115/index.js')
+      for (const set of [COURSES, [psd115, demoChapters], [withRoute('demo-chapters', '/a'), withRoute('demo-two', '/b')]]) {
+        assert.deepEqual(checkCoursesTogether(set), [])
+        assert.doesNotThrow(() => buildLegacyRoutes(deriveCatalog(set)))
+      }
+    })
+    test('το validate:content ελέγχει όλα τα manifests μαζί', () => {
+      assert.match(read('scripts/validate-content.mjs'), /checkCoursesTogether\(COURSES\)/)
+    })
+  })
+})
+
+describe('legacy routes: μόνο στην κανονική μορφή του browser (encoded «.» / «..»)', () => {
+  const encoded = ['/a/%2e/b', '/a/%2E/b', '/a/%2e%2e/b', '/a/%2E%2E/b', '/a/.%2e/b', '/a/%2e./b', '/a/.%2E/b', '/a/%2E./b', '/old/1/%2e%2e', '/%2e%2e/old']
+  test('encoded dot segments → σφάλμα (κάθε γραφή, πεζά / κεφαλαία)', () => {
+    for (const bad of encoded) assert.match(errorsOf((m) => (m.units[0].legacy = { route: bad })), /unit «ch1»: άκυρο legacy\.route/, bad)
+  })
+  test('ο κανόνας ταυτίζεται με την κανονικοποίηση του browser (WHATWG URL): κάθε δεκτό route είναι ήδη κανονικό', () => {
+    for (const r of [...encoded, '/a/%41', '/εβδ', '/week/1', '/a-b/c.d', '/old/1/x']) {
+      const accepted = errorsOf((m) => (m.units[0].legacy = { route: r })) === ''
+      if (accepted) assert.equal(new URL(r, 'http://h').pathname, r, `${r}: δεκτό αλλά ο browser το παραδίδει αλλιώς`)
+    }
+    for (const ok of ['/week/1', '/a-b/c.d']) assert.equal(errorsOf((m) => (m.units[0].legacy = { route: ok })), '', ok)
+  })
+  test('ισοδύναμα aliases ανάμεσα σε μαθήματα: το encoded απορρίπτεται στο ίδιο το μάθημα', () => {
+    const a = { ...variant((m) => (m.units[0].legacy = { route: '/old/1' })), id: 'demo-chapters' }
+    assert.deepEqual(checkCourseContent(a), [])
+    for (const alias of ['/old/x/%2e%2e/1', '/old/x/%2E%2E/1', '/old/x/.%2e/1', '/old/%2e/1']) {
+      assert.equal(new URL(alias, 'http://h').pathname, '/old/1', alias)
+      const b = { ...variant((m) => (m.units[0].legacy = { route: alias })), id: 'demo-two' }
+      assert.match(checkCourseContent(b).join('\n'), /άκυρο legacy\.route/, alias)
+    }
+  })
+})
+
+describe('paths εγγράφων: encoded «.» / «..» (Copilot review)', () => {
+  const docPath = (path) => checkCourseContent(variant((m) => (m.docs = [{ id: 'd1', unit: 'ch1', kind: 'notes', path }])))
+  const encodedDots = ['a/%2e%2e/b.pdf', 'a/%2E%2E/b.pdf', 'a/%2e/b.pdf', 'a/%2E/b.pdf', 'a/.%2e/b.pdf', 'a/%2e./b.pdf', 'a/.%2E/b.pdf', '%2e%2e/x.pdf', 'a/%2e']
+  test('encoded dot segments → σφάλμα (κάθε γραφή, πεζά / κεφαλαία)', () => {
+    for (const bad of encodedDots) assert.match(docPath(bad).join('\n'), /έγγραφο «d1»: άκυρο path/, bad)
+  })
+  test('ελληνικά ονόματα και κανονικά paths μένουν έγκυρα', () => {
+    for (const ok of ['week1/k1-psd115.pdf', 'demo/Σημειώσεις_1.pdf', 'a/%20b.pdf', 'a/b.c.pdf', 'a/..b.pdf', 'a/%2e%2ex.pdf']) assert.deepEqual(docPath(ok), [], ok)
+  })
+  test('κάθε δεκτό path το ζητά ο browser στην ίδια διαδρομή (κανένα τμήμα δεν αφαιρείται ή προστίθεται)', () => {
+    for (const p of [...encodedDots, 'week1/k1-psd115.pdf', 'demo/Σημειώσεις_1.pdf', 'a/%20b.pdf', 'a/..b.pdf']) {
+      if (docPath(p).length) continue
+      const href = new URL(`/${p}`, 'http://h').pathname
+      assert.equal(href.split('/').length, p.split('/').length + 1, `${p} → ${href}`)
+      assert.equal(decodeURIComponent(href), `/${decodeURIComponent(p)}`, `${p} → ${href}`)
+    }
+  })
+})
+
 describe('το συμβόλαιο είναι γενικό', () => {
   test('πεδία manifest (6d-α)', () => {
     assert.deepEqual(MANIFEST_KEYS, ['id', 'terms', 'units', 'topics', 'study', 'docs', 'slides', 'provenance'])
@@ -205,7 +389,7 @@ describe('το συμβόλαιο είναι γενικό', () => {
   })
   test('η εφαρμογή δεν εισάγει το συμβόλαιο: ο έλεγχος γίνεται μόνο στο validate:content και στα tests', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
-    const users = walk(path.join(root, 'src')).filter((f) => /(from|import\()\s*['"][^'"]*courseContract(\.js)?['"]/.test(fs.readFileSync(f, 'utf8')))
+    const users = walk(path.join(root, 'src')).filter((f) => /(from|import\()\s*['"][^'"]*courseContract(\.js)?['"]/.test(readText(f)))
     assert.deepEqual(users, [])
   })
 })

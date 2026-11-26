@@ -28,6 +28,12 @@ const DOC_KEYS = ['id', 'unit', 'kind', 'path']
 const TERM_KEYS = ['unit', 'units', 'unitShort']
 const QUESTION_TYPES = new Set(['mcq', 'tf'])
 
+/**
+ * Slugs που δεν μπορεί να πάρει ένα θέμα με legacy διαδρομή: είναι τα παλιά εργαλεία της unit (/<route>/<tool>) και θα
+ * συγκρούονταν με αυτά. Ίδια με το LEGACY_TOOLS του routing (ένα test ελέγχει ότι ταυτίζονται).
+ */
+export const RESERVED_LEGACY_SLUGS = Object.freeze(['flashcards', 'quiz', 'exam', 'review'])
+
 export const DEFAULT_TERMS = Object.freeze({ unit: 'Ενότητα', units: 'Ενότητες', unitShort: 'Ενότ.' })
 
 /** Ορολογία του μαθήματος, με τα κενά από την προεπιλογή. */
@@ -41,6 +47,28 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const isText = (v) => typeof v === 'string' && v.trim().length > 0
 const list = (v) => (Array.isArray(v) ? v : [])
+
+// Τμήματα paths/routes: μη κενά, όχι «.» / «..», χωρίς κενά, «\», «:», «?», «#» (ο browser κανονικοποιεί ή ερμηνεύει
+// αλλιώς τέτοια τμήματα· «:» = γράμμα δίσκου ή scheme).
+const SEGMENT_RE = /^[^\s\\:?#/]+$/
+// «.» / «..» και σε encoded γραφή (%2e, %2E, .%2e, %2e%2e …): ο browser τα κανονικοποιεί σαν «.» / «..».
+const DOT_SEGMENT_RE = /^(?:\.|%2e){1,2}$/i
+const validSegments = (segments) => segments.length > 0 && segments.every((x) => SEGMENT_RE.test(x) && !DOT_SEGMENT_RE.test(x))
+/**
+ * legacy route: «/τμήμα/τμήμα…», και ήδη στην κανονική μορφή του browser (WHATWG URL): ό,τι θα ξανάγραφε ο browser —
+ * encoded «.» / «..» (%2e, .%2e, %2E%2E …), μη ASCII χαρακτήρες — δεν θα ταίριαζε ποτέ με τη διαδρομή που φτάνει στο
+ * routing ή θα γινόταν alias άλλης διαδρομής.
+ */
+const isCanonicalPath = (r) => {
+  try {
+    return new URL(r, 'http://legacy.invalid').pathname === r
+  } catch {
+    return false
+  }
+}
+const isLegacyRoute = (r) => typeof r === 'string' && r.startsWith('/') && validSegments(r.slice(1).split('/')) && isCanonicalPath(r)
+/** path σχετικό με το public/: «τμήμα/τμήμα…». */
+const isPublicPath = (p) => typeof p === 'string' && validSegments(p.split('/'))
 
 /** Ids καρτών και ερωτήσεων κουίζ (για το μητρώο IDs). */
 export const manifestIds = (manifest) => ({
@@ -81,7 +109,6 @@ export function checkCourseContent(m) {
   if (!units.length) err('units: χρειάζεται τουλάχιστον μία unit')
   const unitIds = new Set()
   const orders = new Set()
-  const legacyRoutes = new Set()
   const legacyUnits = new Set()
   for (const u of units) {
     const w = `unit «${u?.id}»`
@@ -99,13 +126,9 @@ export function checkCourseContent(m) {
     texts(u, ['label', 'title', 'kind'], w)
     if ('legacy' in u) {
       const r = u.legacy?.route
-      if (!isObj(u.legacy) || Object.keys(u.legacy).join() !== 'route' || typeof r !== 'string' || !/^\/[^\s?#]*[^/\s?#]$/.test(r)) {
-        err(`${w}: άκυρο legacy.route (αναμενόταν { route: '/…' } χωρίς τελικό '/')`)
-      } else {
-        if (legacyRoutes.has(r)) err(`units: διπλό legacy.route «${r}»`)
-        legacyRoutes.add(r)
-        legacyUnits.add(u.id)
-      }
+      if (!isObj(u.legacy) || Object.keys(u.legacy).join() !== 'route' || !isLegacyRoute(r)) {
+        err(`${w}: άκυρο legacy.route (αναμενόταν { route: '/τμήμα/…' } στην κανονική μορφή του browser: τμήματα μη κενά, όχι «.» / «..» ούτε encoded (%2e), χωρίς «\\», «:», «?», «#» και τελικό «/»)`)
+      } else legacyUnits.add(u.id)
     }
   }
 
@@ -114,7 +137,6 @@ export function checkCourseContent(m) {
   if (!Array.isArray(m.topics)) err('topics: αναμενόταν πίνακας')
   const topicIds = new Set()
   const topicUnit = new Map()
-  const slugs = new Set()
   for (const t of topics) {
     const w = `topic «${t?.id}»`
     if (!isObj(t)) {
@@ -128,14 +150,17 @@ export function checkCourseContent(m) {
     if (!unitIds.has(t.unit)) err(`${w}: άγνωστη unit «${t.unit}»`)
     else topicUnit.set(t.id, t.unit)
     if ('legacySlug' in t) {
-      if (!isText(t.legacySlug)) err(`${w}: κενό legacySlug`)
+      if (typeof t.legacySlug !== 'string' || !SLUG_RE.test(t.legacySlug)) err(`${w}: άκυρο legacySlug ${JSON.stringify(t.legacySlug)} (πεζά, ψηφία, «-»)`)
+      else if (RESERVED_LEGACY_SLUGS.includes(t.legacySlug)) err(`${w}: το legacySlug «${t.legacySlug}» είναι δεσμευμένο (εργαλείο της unit: ${RESERVED_LEGACY_SLUGS.join(', ')})`)
       else if (unitIds.has(t.unit) && !legacyUnits.has(t.unit)) err(`${w}: legacySlug χωρίς legacy.route στην unit «${t.unit}»`)
-      const key = `${t.unit}/${t.legacySlug}`
-      if (slugs.has(key)) err(`${w}: το legacySlug «${t.legacySlug}» δύο φορές στην unit «${t.unit}»`)
-      slugs.add(key)
     }
   }
   for (const id of unitIds) if (![...topicUnit.values()].includes(id)) err(`unit «${id}»: κανένα θέμα`)
+
+  // Όλες οι legacy διαδρομές του μαθήματος (unit, εργαλεία, θέματα), όπως θα τις χτίσει το routing: καμία δύο φορές —
+  // αλλιώς το routing αποτυγχάνει στη φόρτωση. Ο ΜΟΝΑΔΙΚΟΣ έλεγχος διπλών legacy διαδρομών (ίδιο route, ίδιο slug, route
+  // μέσα στις διαδρομές άλλης unit)· ένα μήνυμα ανά ζεύγος.
+  for (const e of legacyCollisions(legacyRouteEntries(m).map((x) => ({ ...x, label: x.owner })))) err(e)
 
   // --- Μελέτη ---
   const s = m.study
@@ -157,7 +182,7 @@ export function checkCourseContent(m) {
     docIds.add(d.id)
     if (!unitIds.has(d.unit)) err(`${w}: άγνωστη unit «${d.unit}»`)
     texts(d, ['kind'], w)
-    if (typeof d.path !== 'string' || !/^[^/\s][^\s]*$/.test(d.path) || d.path.split('/').includes('..')) err(`${w}: άκυρο path (σχετικό με το public/, χωρίς «..»)`)
+    if (!isPublicPath(d.path)) err(`${w}: άκυρο path (σχετικό με το public/ με «/»: τμήματα μη κενά, όχι «.» / «..» ούτε encoded (%2e), χωρίς «\\», «:», «?», «#»)`)
   }
 
   // --- Διαφάνειες (προαιρετικά) ---
@@ -294,4 +319,65 @@ function checkStudy(s, unitIds, err, unknownKeys, texts) {
       texts(q, ['question', 'idealAnswer'], w)
     }
   }
+}
+
+/**
+ * Οι legacy διαδρομές ενός manifest όπως θα τις χτίσει το routing (buildLegacyRoutes): για κάθε unit με έγκυρο route το
+ * ίδιο το route και τα εργαλεία της, για κάθε θέμα με έγκυρο, μη δεσμευμένο slug το route του. Άκυρα μέρη παραλείπονται
+ * (αναφέρονται ήδη από τον έλεγχο του manifest).
+ * @returns {{ key: string, owner: string }[]}
+ */
+function legacyRouteEntries(m) {
+  const out = []
+  const routeOf = new Map()
+  for (const u of list(m?.units)) {
+    if (!isObj(u) || typeof u.id !== 'string' || !isObj(u.legacy) || !isLegacyRoute(u.legacy.route)) continue
+    routeOf.set(u.id, u.legacy.route)
+    out.push({ key: u.legacy.route, owner: `unit «${u.id}»` })
+    for (const tool of RESERVED_LEGACY_SLUGS) out.push({ key: `${u.legacy.route}/${tool}`, owner: `unit «${u.id}»` })
+  }
+  for (const t of list(m?.topics)) {
+    const slug = t?.legacySlug
+    if (!isObj(t) || !routeOf.has(t.unit) || typeof slug !== 'string' || !SLUG_RE.test(slug) || RESERVED_LEGACY_SLUGS.includes(slug)) continue
+    out.push({ key: `${routeOf.get(t.unit)}/${slug}`, owner: `topic «${t.id}»` })
+  }
+  return out
+}
+
+/** Μηνύματα για κλειδιά που εμφανίζονται δύο φορές· ένα ανά ζεύγος ιδιοκτητών (με `course`: μόνο ανάμεσα σε μαθήματα). */
+function legacyCollisions(entries) {
+  const first = new Map()
+  const reported = new Set()
+  const errors = []
+  for (const e of entries) {
+    const prev = first.get(e.key)
+    if (!prev) {
+      first.set(e.key, e)
+      continue
+    }
+    const pair = `${prev.label}\u0000${e.label}`
+    if (prev.label === e.label || (e.course !== undefined && prev.course === e.course) || reported.has(pair)) continue
+    reported.add(pair)
+    errors.push(`σύγκρουση legacy διαδρομής «${e.key}»: ${prev.label} και ${e.label}`)
+  }
+  return errors
+}
+
+/**
+ * Έλεγχος ΟΛΩΝ των manifests μαζί (το routing χτίζει έναν πίνακα για όλα τα μαθήματα): διπλό courseId, legacy διαδρομή
+ * που συγκρούεται ανάμεσα σε μαθήματα. Δεν επαναλαμβάνει τον έλεγχο κάθε manifest (checkCourseContent).
+ * @param {readonly unknown[]} manifests
+ * @returns {string[]} σφάλματα (κενό = έγκυρα μαζί)
+ */
+export function checkCoursesTogether(manifests) {
+  const errors = []
+  const ids = new Set()
+  for (const m of list(manifests)) {
+    if (ids.has(m?.id)) errors.push(`διπλό μάθημα «${m?.id}»`)
+    ids.add(m?.id)
+  }
+  // Μόνο συγκρούσεις ανάμεσα σε ΔΙΑΦΟΡΕΤΙΚΑ μαθήματα· οι εσωτερικές αναφέρονται από το checkCourseContent.
+  const entries = list(manifests).flatMap((m) => legacyRouteEntries(m).map((x) => ({ ...x, course: m?.id, label: `μάθημα «${m?.id}» (${x.owner})` })))
+  errors.push(...legacyCollisions(entries))
+  return errors
 }

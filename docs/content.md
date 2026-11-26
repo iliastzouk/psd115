@@ -40,12 +40,19 @@ src/core/content/index.js               το ΕΝΑ σημείο καταχώρ�
 - διπλά ή άκυρα ids, `order` και legacy routes·
 - κάθε αναφορά (topic → unit, κατηγορίες ανά unit, κάρτα / ερώτηση → κατηγορία, ερωτήσεις ανάπτυξης ανά unit,
   έγγραφο → unit, slides → unit / θέμα / deck)·
-- `legacySlug` χωρίς legacy route·
+- `legacySlug` χωρίς legacy route, με άκυρη μορφή ή δεσμευμένο (τα παλιά εργαλεία `flashcards`, `quiz`, `exam`,
+  `review`)·
+- σύγκρουση legacy διαδρομών μέσα στο μάθημα (ίδιο route, ίδιο slug, route μιας unit μέσα στις διαδρομές άλλης)· ένα
+  μήνυμα ανά ζεύγος·
+- paths εγγράφων και legacy routes: τμήματα με «/», μη κενά, όχι «.» / «..», χωρίς «\», «:» (γράμμα δίσκου, scheme),
+  «?», «#», ούτε encoded «.» / «..» (`%2e`, `.%2e` …)· τα legacy routes επιπλέον ήδη στην κανονική μορφή του browser (όχι encoded «.» / «..» όπως `%2e`)·
 - id που είναι και κάρτα και ερώτηση·
 - κανόνες επιλογών κουίζ·
 - provenance.
 
-Τρέχει στο `npm run validate:content` για κάθε μάθημα του `COURSES` και στα tests. Η εφαρμογή δεν εισάγει το συμβόλαιο:
+Τρέχει στο `npm run validate:content` για κάθε μάθημα του `COURSES` και στα tests. Το `checkCoursesTogether(COURSES)`
+ελέγχει όλα τα μαθήματα μαζί, γιατί το routing χτίζει έναν πίνακα για όλα: διπλό courseId και legacy διαδρομές που
+συγκρούονται ανάμεσα σε μαθήματα. Η εφαρμογή δεν εισάγει το συμβόλαιο:
 κανένας έλεγχος στο runtime.
 
 ## Παλιές διαδρομές (προαιρετικές)

@@ -28,9 +28,10 @@ import { contentCourseIds, getContentCourse } from '../src/core/routing/catalog.
 import { STUDY_CONTENT } from '../src/core/study/content.js'
 import { registry } from '../src/core/academic/data/index.js'
 import { demoChapters } from './fixtures/courses/demo-chapters/index.js'
+import { readText, relPosix } from './helpers/portable.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
+const read = (f) => readText(path.join(root, f))
 
 /** Οι καταχωρίσεις πριν από τη Φάση 6d, αυτούσιες. */
 const EXPECTED_CATALOG = { psd115: { course: psd115Course, topics: psd115Topics, docs: psd115Sources } }
@@ -156,8 +157,8 @@ describe('α3: ένα σημείο καταχώρισης (κανένα ρητό
   const importsOf = (code) => [...code.matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
   test('μόνο το src/core/content/index.js εισάγει το content/courses/index.js', () => {
     const users = walk(path.join(root, 'src'))
-      .filter((f) => importsOf(fs.readFileSync(f, 'utf8')).some((i) => /content\/courses\/index\.js$/.test(i)))
-      .map((f) => path.relative(root, f))
+      .filter((f) => importsOf(readText(f)).some((i) => /content\/courses\/index\.js$/.test(i)))
+      .map((f) => relPosix(root, f))
     assert.deepEqual(users, ['src/core/content/index.js'])
   })
   test('catalog.js και study/content.js: από το registry, χωρίς import του content/ ή μαθήματος', () => {

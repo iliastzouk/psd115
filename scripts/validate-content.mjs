@@ -271,8 +271,10 @@ for (const [courseId, c] of Object.entries(STUDY_CONTENT)) {
 }
 // Συμβόλαιο περιεχομένου (Φάση 6d-α): κάθε manifest του content/courses/index.js περνά το checkCourseContent.
 const { COURSES } = await imp('content/courses/index.js')
-const { checkCourseContent } = await imp('src/core/content/courseContract.js')
+const { checkCourseContent, checkCoursesTogether } = await imp('src/core/content/courseContract.js')
 for (const m of COURSES) for (const e of checkCourseContent(m)) err(`Manifest (${m?.id}): ${e}`)
+// Όλα μαζί: το routing χτίζει έναν πίνακα legacy διαδρομών για όλα τα μαθήματα.
+for (const e of checkCoursesTogether(COURSES)) err(`Manifests (μαζί): ${e}`)
 
 let legacyRoutes = new Map()
 try {

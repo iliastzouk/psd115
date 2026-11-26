@@ -5,14 +5,14 @@
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { snapshotRoutes } from '../scripts/snapshot-routes.mjs'
 import { getContentCourse } from '../src/core/routing/catalog.js'
+import { readText } from './helpers/portable.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
+const read = (f) => readText(path.join(root, f))
 const baseline = JSON.parse(read('tests/fixtures/psd115-pages.snapshot.json'))
 const harness = read('scripts/snapshot-pages.mjs')
 

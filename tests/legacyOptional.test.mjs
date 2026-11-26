@@ -33,9 +33,10 @@ import {
   unitLegacyKey,
 } from '../src/core/routing/legacy.js'
 import { demoChapters } from './fixtures/courses/demo-chapters/index.js'
+import { readText, relPosix } from './helpers/portable.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
+const read = (f) => readText(path.join(root, f))
 const clone = (v) =>
   typeof v === 'function' ? v : Array.isArray(v) ? v.map(clone) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)])) : v
 
@@ -161,6 +162,6 @@ describe('διαφάνειες ανά topicId', () => {
   })
   test('κανείς στο src/ δεν διαβάζει πια διαφάνειες με legacy κλειδί· το useLegacyRouteKey αφαιρέθηκε', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
-    for (const f of walk(path.join(root, 'src'))) assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /PPT_SLIDES_BY_ROUTE|useLegacyRouteKey/, path.relative(root, f))
+    for (const f of walk(path.join(root, 'src'))) assert.doesNotMatch(readText(f), /PPT_SLIDES_BY_ROUTE|useLegacyRouteKey/, relPosix(root, f))
   })
 })
